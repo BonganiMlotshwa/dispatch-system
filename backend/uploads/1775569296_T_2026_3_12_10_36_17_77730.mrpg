@@ -1,0 +1,26 @@
+<SupplerITPrintTags>
+  <Panda>
+    <Heading>Conveyable</Heading>
+    <Division>Mr Price Sport</Division>
+    <PoNumber>1203189</PoNumber>
+    <PrePackId>1-11</PrePackId>
+    <BarCode2D>7-799-7121050-58</BarCode2D>
+    <ReserveOrXdock>Reserve</ReserveOrXdock>
+    <Size>M</Size>
+    <Units>9</Units>
+    <Item>106958234</Item>
+    <TransferNumber>7-799-7121050-58</TransferNumber>
+    <TransferNumberEndFour>50-58</TransferNumberEndFour>
+    <SequenceNumber>172</SequenceNumber>
+    <TextOnLabel></TextOnLabel>
+    <IsOnline>False</IsOnline>
+    <LabelText></LabelText>
+    <ToatlSequenceNumber>1</ToatlSequenceNumber>
+    <PrintCount>1</PrintCount>
+    <WaveCategory></WaveCategory>
+    <PrintDate>12/03/2026</PrintDate>
+    <PrintPandaLabel>True</PrintPandaLabel>
+    <DepotStoreCode>799</DepotStoreCode>
+    <LpnPrintR></LpnPrintR>
+  </Panda>
+</SupplerITPrintTags>

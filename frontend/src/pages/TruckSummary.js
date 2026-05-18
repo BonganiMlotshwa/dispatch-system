@@ -1,0 +1,315 @@
+import React, { useState, useEffect } from 'react';
+import { Alert, Form, Table, Badge, Button } from 'react-bootstrap';
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+
+const TruckSummary = () => {
+  const [trucks, setTrucks] = useState([]);
+  const [summary, setSummary] = useState({ total_trucks: 0, total_cartons: 0, total_units: 0 });
+  const [availableWeeks, setAvailableWeeks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  // Filters
+  const [filters, setFilters] = useState({
+    start_date: '',
+    end_date: '',
+    week: '',
+    truck_reg: ''
+  });
+
+  useEffect(() => {
+    fetchTruckSummary();
+  }, []);
+
+  const fetchTruckSummary = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const params = new URLSearchParams();
+      if (filters.start_date) params.append('start_date', filters.start_date);
+      if (filters.end_date) params.append('end_date', filters.end_date);
+      if (filters.week) params.append('week', filters.week);
+      if (filters.truck_reg) params.append('truck_reg', filters.truck_reg);
+      
+      const response = await axios.get(`${API_BASE_URL}/truck_summary.php?${params.toString()}`);
+      
+      if (response.data.success) {
+        setTrucks(response.data.trucks);
+        setSummary(response.data.summary);
+        setAvailableWeeks(response.data.available_weeks);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load truck summary');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    fetchTruckSummary();
+  };
+
+  const handleReset = () => {
+    setFilters({
+      start_date: '',
+      end_date: '',
+      week: '',
+      truck_reg: ''
+    });
+    setTimeout(() => fetchTruckSummary(), 100);
+  };
+
+  const handleExport = (truckId, format) => {
+    window.open(`${API_BASE_URL}/truck_shipment_export.php?id=${truckId}&format=${format}`, '_blank');
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <div className="py-2">
+      <div className="mb-4">
+        <h1 className="text-gradient mb-0">Truck Summary</h1>
+        <p className="text-muted">View and filter truck shipments with carton and unit counts</p>
+      </div>
+
+      {/* Filters */}
+      <div className="modern-card mb-4">
+        <div className="modern-card-header">
+          <h5 className="mb-0"><i className="bi bi-funnel me-2"></i>Filters</h5>
+        </div>
+        <div className="modern-card-body">
+          <Form onSubmit={handleSearch}>
+            <div className="row g-3">
+              <div className="col-md-3">
+                <Form.Group>
+                  <Form.Label>Start Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="start_date"
+                    value={filters.start_date}
+                    onChange={handleFilterChange}
+                  />
+                </Form.Group>
+              </div>
+              <div className="col-md-3">
+                <Form.Group>
+                  <Form.Label>End Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="end_date"
+                    value={filters.end_date}
+                    onChange={handleFilterChange}
+                  />
+                </Form.Group>
+              </div>
+              <div className="col-md-3">
+                <Form.Group>
+                  <Form.Label>Week</Form.Label>
+                  <Form.Select
+                    name="week"
+                    value={filters.week}
+                    onChange={handleFilterChange}
+                  >
+                    <option value="">All Weeks</option>
+                    {availableWeeks.map(week => (
+                      <option key={week} value={week}>{week}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </div>
+              <div className="col-md-3">
+                <Form.Group>
+                  <Form.Label>Truck Registration</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="truck_reg"
+                    value={filters.truck_reg}
+                    onChange={handleFilterChange}
+                    placeholder="Search truck..."
+                  />
+                </Form.Group>
+              </div>
+            </div>
+            <div className="d-flex gap-2 mt-3">
+              <Button variant="primary" type="submit" disabled={loading}>
+                <i className="bi bi-search me-1"></i>
+                {loading ? 'Searching...' : 'Search'}
+              </Button>
+              <Button variant="secondary" onClick={handleReset} disabled={loading}>
+                <i className="bi bi-arrow-clockwise me-1"></i>
+                Reset
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="row g-3 mb-4">
+        <div className="col-md-4">
+          <div className="modern-card bg-primary text-white">
+            <div className="modern-card-body">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="text-white-50 mb-1">Total Trucks</h6>
+                  <h2 className="mb-0">{summary.total_trucks}</h2>
+                </div>
+                <div className="fs-1 opacity-50">
+                  <i className="bi bi-truck"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-4">
+          <div className="modern-card bg-success text-white">
+            <div className="modern-card-body">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="text-white-50 mb-1">Total Cartons</h6>
+                  <h2 className="mb-0">{summary.total_cartons.toLocaleString()}</h2>
+                </div>
+                <div className="fs-1 opacity-50">
+                  <i className="bi bi-box-seam"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-4">
+          <div className="modern-card bg-info text-white">
+            <div className="modern-card-body">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="text-white-50 mb-1">Total Units</h6>
+                  <h2 className="mb-0">{summary.total_units.toLocaleString()}</h2>
+                </div>
+                <div className="fs-1 opacity-50">
+                  <i className="bi bi-stack"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="danger" dismissible onClose={() => setError('')}>
+          <i className="bi bi-exclamation-triangle me-2"></i>
+          {error}
+        </Alert>
+      )}
+
+      {/* Trucks Table */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <h5 className="mb-0">
+            <i className="bi bi-list-ul me-2"></i>
+            Truck Shipments ({trucks.length})
+          </h5>
+        </div>
+        <div className="modern-card-body p-0">
+          {loading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="mt-2 text-muted">Loading trucks...</p>
+            </div>
+          ) : trucks.length === 0 ? (
+            <div className="text-center py-5">
+              <i className="bi bi-inbox fs-1 text-muted"></i>
+              <p className="mt-2 text-muted">No trucks found for the selected filters</p>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <Table hover className="mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>Date</th>
+                    <th>Week</th>
+                    <th>Truck Reg</th>
+                    <th>Driver</th>
+                    <th>Customers</th>
+                    <th className="text-end">POs</th>
+                    <th className="text-end">Cartons</th>
+                    <th className="text-end">Units</th>
+                    <th className="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trucks.map((truck) => (
+                    <tr key={truck.id}>
+                      <td>
+                        <strong>{formatDate(truck.shipment_date)}</strong>
+                      </td>
+                      <td>
+                        {truck.shipment_week ? (
+                          <Badge bg="secondary">{truck.shipment_week}</Badge>
+                        ) : (
+                          <span className="text-muted">-</span>
+                        )}
+                      </td>
+                      <td>
+                        <strong className="text-primary">{truck.truck_reg}</strong>
+                      </td>
+                      <td>{truck.driver_name || '-'}</td>
+                      <td>
+                        <small className="text-muted">{truck.customers || '-'}</small>
+                      </td>
+                      <td className="text-end">
+                        <Badge bg="info">{truck.total_pos}</Badge>
+                      </td>
+                      <td className="text-end">
+                        <strong>{truck.total_cartons.toLocaleString()}</strong>
+                      </td>
+                      <td className="text-end">
+                        <strong>{truck.total_units.toLocaleString()}</strong>
+                      </td>
+                      <td className="text-center">
+                        <div className="btn-group btn-group-sm">
+                          <button
+                            className="btn btn-outline-primary"
+                            onClick={() => handleExport(truck.id, 'csv')}
+                            title="Export to CSV"
+                          >
+                            <i className="bi bi-file-earmark-spreadsheet"></i>
+                          </button>
+                          <button
+                            className="btn btn-outline-secondary"
+                            onClick={() => handleExport(truck.id, 'pdf')}
+                            title="Export to PDF"
+                          >
+                            <i className="bi bi-file-earmark-pdf"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TruckSummary;

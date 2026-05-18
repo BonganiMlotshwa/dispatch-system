@@ -1,0 +1,125 @@
+/* App.css - Main application styles */
+
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Custom styles */
+
+/* Dashboard styles */
+.dashboard-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card .card-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #6c757d;
+}
+
+.dashboard-card h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  color: #343a40;
+}
+
+/* Table styles */
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Status badges */
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529;
+}
+
+.badge.bg-success {
+  background-color: #28a745 !important;
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.badge.bg-info {
+  background-color: #17a2b8 !important;
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.btn-outline-primary:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.btn-outline-success:hover {
+  background-color: #28a745;
+  color: white;
+}
+
+.scanner-container {
+  min-height: 300px;
+}
+
+.recent-scan-item {
+  transition: background-color 0.3s;
+}
+
+.recent-scan-item:hover {
+  background-color: rgba(0,123,255,0.05);
+}

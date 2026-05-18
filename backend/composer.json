@@ -1,0 +1,8 @@
+{
+    "name": "warehouse/tracking",
+    "description": "Warehouse Carton Tracking System",
+    "type": "project",
+    "require": {
+        "mpdf/mpdf": "8.0"
+    }
+}
