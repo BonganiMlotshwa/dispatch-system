@@ -1,12 +1,28 @@
-Gitignore
-
+# Dependencies
 node_modules/
-.env
-dist/
-build/
 
+# Environment files
+.env
+.env.local
+
+# React/Vite builds
+build/
+dist/
+frontend/build/
+
+# Uploaded files
+backend/uploads/
+
+# Cache files
+backend/cache/
+
+# IDEs
 .vscode/
 .idea/
 
+# Logs
+*.log
+
+# OS files
 Thumbs.db
-.DS_store
+.DS_Store
