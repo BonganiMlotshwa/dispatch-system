@@ -1,0 +1,167 @@
+<?php
+// CORS headers - must be first
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, Cache-Control, X-Requested-With');
+header('Content-Type: application/json');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+/**
+ * Dashboard Statistics API Endpoint
+ * 
+ * This endpoint provides detailed statistics for the dashboard.
+ */
+
+// Only allow GET requests
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['success' => false, 'message' => 'Only GET method is allowed']);
+    exit;
+}
+
+// Include required files
+require_once '../config/database.php';
+
+// Short cache time for dashboard stats
+$cacheFile = '../cache/dashboard_stats.json';
+$cacheTime = 5; // Very short cache time - 5 seconds for real-time feel
+$cachingEnabled = true; // Re-enabled with very short cache
+
+// Check if cache directory exists, create if not
+if (!is_dir('../cache')) {
+    mkdir('../cache', 0755, true);
+}
+
+// Allow cache bypass with refresh parameter
+$forceRefresh = isset($_GET['refresh']) && $_GET['refresh'] === 'true';
+
+// Check if cached data exists and is still valid (unless force refresh or caching disabled)
+if ($cachingEnabled && !$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
+    $cachedData = file_get_contents($cacheFile);
+    if ($cachedData) {
+        header('X-Cache: HIT');
+        echo $cachedData;
+        exit;
+    }
+}
+
+try {
+    // Get database connection
+    $pdo = getDbConnection();
+    
+    // Initialize statistics array
+    $stats = [];
+    
+    // Single optimized query for all counts and statistics including units
+    $stmt = $pdo->query("SELECT 
+        (SELECT COUNT(*) FROM shipments) as total_shipments,
+        (SELECT COUNT(*) FROM cartons) as total_cartons,
+        (SELECT COALESCE(SUM(CAST(units AS UNSIGNED)), 0) FROM cartons) as total_units,
+        SUM(CASE WHEN c.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+        SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END) as entered_count,
+        SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END) as exited_count,
+        SUM(CASE WHEN c.status = 'pending' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END) as pending_units,
+        SUM(CASE WHEN c.status = 'entered' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END) as factory_units,
+        SUM(CASE WHEN c.status = 'exited' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END) as shipped_units,
+        SUM(CASE WHEN c.qc_number IS NULL THEN 1 ELSE 0 END) as missing_qc,
+        SUM(CASE WHEN c.finishing_number IS NULL THEN 1 ELSE 0 END) as missing_finishing
+        FROM cartons c");
+    $combined = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $stats['totals'] = [
+        'total_shipments' => (int)$combined['total_shipments'],
+        'total_cartons' => (int)$combined['total_cartons'],
+        'total_units' => (int)$combined['total_units']
+    ];
+    
+    $stats['status_counts'] = [
+        'pending' => (int)$combined['pending_count'],
+        'entered' => (int)$combined['entered_count'],
+        'exited' => (int)$combined['exited_count']
+    ];
+    
+    $stats['unit_counts'] = [
+        'pending_units' => (int)$combined['pending_units'],
+        'factory_units' => (int)$combined['factory_units'],
+        'shipped_units' => (int)$combined['shipped_units'],
+        'total_units' => (int)$combined['total_units']
+    ];
+    
+    $stats['missing_data'] = [
+        'missing_qc' => (int)$combined['missing_qc'],
+        'missing_finishing' => (int)$combined['missing_finishing']
+    ];
+    
+    // Get recent shipments
+    $stmt = $pdo->query("SELECT 
+        s.id, 
+        s.internal_po_number, 
+        s.file_name, 
+        s.import_date,
+        COUNT(c.id) as carton_count,
+        SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END) as entered_count,
+        SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END) as exited_count
+        FROM shipments s
+        LEFT JOIN cartons c ON s.id = c.shipment_id
+        GROUP BY s.id
+        ORDER BY s.import_date DESC
+        LIMIT 5");
+    $recentShipments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stats['recent_shipments'] = $recentShipments;
+    
+    // Get size distribution
+    $stmt = $pdo->query("SELECT 
+        size, 
+        COUNT(*) as count 
+        FROM cartons 
+        GROUP BY size 
+        ORDER BY count DESC
+        LIMIT 10");
+    $sizeDistribution = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stats['size_distribution'] = $sizeDistribution;
+    
+    // Get daily activity (last 7 days)
+    $stmt = $pdo->query("SELECT 
+        DATE(scan_timestamp) as date,
+        COUNT(CASE WHEN status = 'entered' THEN 1 END) as entered,
+        COUNT(CASE WHEN status = 'exited' THEN 1 END) as exited
+        FROM cartons 
+        WHERE scan_timestamp IS NOT NULL
+        AND scan_timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        GROUP BY DATE(scan_timestamp)
+        ORDER BY date ASC");
+    $dailyActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $stats['daily_activity'] = $dailyActivity;
+    
+    // Prepare response
+    $response = json_encode([
+        'success' => true,
+        'stats' => $stats
+    ]);
+    
+    // Cache the response only if caching is enabled
+    if ($cachingEnabled) {
+        file_put_contents($cacheFile, $response);
+        header('X-Cache: MISS');
+    } else {
+        header('X-Cache: DISABLED');
+    }
+    
+    // Return success response
+    echo $response;
+    
+} catch (Exception $e) {
+    http_response_code(400); // Bad Request
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
+}

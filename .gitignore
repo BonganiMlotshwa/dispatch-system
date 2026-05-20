@@ -1,0 +1,12 @@
+Gitignore
+
+node_modules/
+.env
+dist/
+build/
+
+.vscode/
+.idea/
+
+Thumbs.db
+.DS_store

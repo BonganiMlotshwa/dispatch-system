@@ -1,0 +1,26 @@
+<SupplerITPrintTags>
+  <Panda>
+    <Heading>Conveyable</Heading>
+    <Division>Mr Price</Division>
+    <PoNumber>1066117</PoNumber>
+    <PrePackId>1-1</PrePackId>
+    <BarCode2D>1-799-59441019-51</BarCode2D>
+    <ReserveOrXdock>Reserve</ReserveOrXdock>
+    <Size>10-11</Size>
+    <Units>19</Units>
+    <Item>106085910</Item>
+    <TransferNumber>1-799-59441019-51</TransferNumber>
+    <TransferNumberEndFour>19-51</TransferNumberEndFour>
+    <SequenceNumber>46</SequenceNumber>
+    <TextOnLabel></TextOnLabel>
+    <IsOnline>False</IsOnline>
+    <LabelText></LabelText>
+    <ToatlSequenceNumber>1</ToatlSequenceNumber>
+    <PrintCount>1</PrintCount>
+    <WaveCategory>Kids</WaveCategory>
+    <PrintDate>28/08/2025</PrintDate>
+    <PrintPandaLabel>True</PrintPandaLabel>
+    <DepotStoreCode>799</DepotStoreCode>
+    <LpnPrintR></LpnPrintR>
+  </Panda>
+</SupplerITPrintTags>
