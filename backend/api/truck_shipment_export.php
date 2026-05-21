@@ -1,5 +1,7 @@
 <?php
 require_once '../config/database.php';
+require_once '../includes/po_helpers.php';
+require_once '../includes/csv_export.php';
 
 try {
     $pdo = getDbConnection();
@@ -58,50 +60,34 @@ try {
     }
     
     if ($format === 'csv') {
-        // CSV Export - Match exact format from image
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="truck_shipment_' . $shipment['truck_reg'] . '_' . $shipment['shipment_date'] . '.csv"');
+        $filename = 'truck_shipment_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $shipment['truck_reg']) . '_' . $shipment['shipment_date'] . '.csv';
+        $rows = [
+            ['Truck Shipment Summary'],
+            ['Date', $shipment['shipment_date'], 'Shipment Week', $shipment['shipment_week'] ?? '', 'Truck Registration', $shipment['truck_reg'], 'Driver', $shipment['driver_name'] ?? '', 'Remarks', $shipment['remarks'] ?? ''],
+            [],
+            ['Customer', 'FTM PO', 'Style', 'Color', 'Order Qty', 'Units Shipped', 'Cartons Shipped']
+        ];
         
-        $output = fopen('php://output', 'w');
-        
-        // Title
-        fputcsv($output, ['Truck Shipment Summary']);
-        
-        // Truck info - each field on its own row
-        fputcsv($output, ['Date', $shipment['shipment_date']]);
-        fputcsv($output, ['Shipment Week', $shipment['shipment_week'] ?? '']);
-        fputcsv($output, ['Truck Registration', $shipment['truck_reg']]);
-        fputcsv($output, ['Driver', $shipment['driver_name'] ?? '']);
-        fputcsv($output, ['Remarks', $shipment['remarks'] ?? '']);
-        fputcsv($output, []); // Empty row
-        
-        // Data table column headers
-        fputcsv($output, ['Customer', 'PO Number', 'Style', 'Color', 'Order Qty', 'Units Shipped', 'Total Cartons', 'Cartons Shipped']);
-        
-        // Data rows
         $totalCartons = 0;
         $totalUnits = 0;
         foreach ($items as $item) {
-            fputcsv($output, [
+            $rows[] = [
                 $item['customer'],
-                $item['internal_po_number'],
+                formatFtmInternalPo($item['internal_po_number']),
                 $item['style'] ?? '',
                 $item['color'] ?? '',
                 $item['order_qty'] ?? 0,
                 $item['units_shipped'],
-                '', // Total Cartons column (empty)
                 $item['cartons_shipped']
-            ]);
-            $totalCartons += $item['cartons_shipped'];
-            $totalUnits += $item['units_shipped'];
+            ];
+            $totalCartons += (int)$item['cartons_shipped'];
+            $totalUnits += (int)$item['units_shipped'];
         }
         
-        // Totals row
-        fputcsv($output, []);
-        fputcsv($output, ['Total', '', '', '', '', $totalUnits, '', $totalCartons]);
+        $rows[] = [];
+        $rows[] = ['Total', '', '', '', '', $totalUnits, $totalCartons];
         
-        fclose($output);
-        exit;
+        csvOutputRows($filename, $rows);
     }
     elseif ($format === 'pdf') {
         // PDF Export (HTML for printing)

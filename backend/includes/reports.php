@@ -5,6 +5,9 @@
  * This file contains functions for generating reports and dashboard data.
  */
 
+require_once __DIR__ . '/po_helpers.php';
+// po_helpers: formatFtmInternalPo, formatCustomerPoDisplay, isOtbCustomer
+
 // Define constants for PDF generation
 define('PDF_MARGIN', 10);
 define('PDF_LINE_HEIGHT', 6);
@@ -195,28 +198,39 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
         // Generate CSV content
         $csvData = [];
         
+        $hideSize = isOtbCustomer($shipment['customer'] ?? '');
+
         // Add header row
-        $csvData[] = [
-            'Customer', 'FTM PO', 'Style', 'Color', 'Barcode', 'PO Number', 'Size', 'Units', 'Item',
-            'Status', 'Scan Timestamp', 'Notes'
+        $header = [
+            'Customer', 'FTM PO', 'Style', 'Color', 'Barcode', 'PO Number'
         ];
+        if (!$hideSize) {
+            $header[] = 'Size';
+        }
+        $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan Timestamp', 'Notes']);
+        $csvData[] = $header;
         
         // Add data rows
         foreach ($cartons as $carton) {
-            $csvData[] = [
+            $row = [
                 $shipment['customer'] ?? 'MRP',
-                $shipment['internal_po_number'],
+                formatFtmInternalPo($shipment['internal_po_number']),
                 $shipment['style'] ?? '',
                 $shipment['color'] ?? '',
                 $carton['barcode_2d'],
-                $carton['po_number'],
-                $carton['size'],
+                formatCustomerPoDisplay($shipment['customer'] ?? '', $carton['po_number']),
+            ];
+            if (!$hideSize) {
+                $row[] = $carton['size'];
+            }
+            $row = array_merge($row, [
                 $carton['units'],
                 $carton['item'],
                 $carton['status'],
                 $carton['scan_timestamp'] ?? '',
                 $carton['notes'] ?? ''
-            ];
+            ]);
+            $csvData[] = $row;
         }
         
         return [
@@ -310,7 +324,8 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         // Shipment Information
         echo "<h2>Shipment Information</h2>";
         echo "<table class='info-table'>";
-        echo "<tr><th>FTM PO</th><td>{$shipment['internal_po_number']}</td></tr>";
+        $ftmPoDisplay = htmlspecialchars(formatFtmInternalPo($shipment['internal_po_number']));
+        echo "<tr><th>FTM PO</th><td>{$ftmPoDisplay}</td></tr>";
         echo "<tr><th>File Name</th><td>{$shipment['file_name']}</td></tr>";
         echo "<tr><th>Import Date</th><td>{$shipment['import_date']}</td></tr>";
         echo "</table>";
@@ -324,23 +339,30 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         echo "<tr><th>Shipped</th><td>{$summary['exited']}</td></tr>";
         echo "</table>";
 
+        $hideSize = isOtbCustomer($shipment['customer'] ?? '');
+
         // Carton Details
         echo "<h2>Carton Details</h2>";
         echo "<table class='details-table'>";
         echo "<tr>";
         echo "<th>Barcode</th>";
         echo "<th>PO Number</th>";
-        echo "<th>Size</th>";
+        if (!$hideSize) {
+            echo "<th>Size</th>";
+        }
         echo "<th>Units</th>";
         echo "<th>Status</th>";
         echo "<th>Scan Timestamp</th>";
         echo "</tr>";
 
         foreach ($cartons as $carton) {
+            $poDisplay = htmlspecialchars(formatCustomerPoDisplay($shipment['customer'] ?? '', $carton['po_number']));
             echo "<tr>";
             echo "<td>{$carton['barcode_2d']}</td>";
-            echo "<td>{$carton['po_number']}</td>";
-            echo "<td>{$carton['size']}</td>";
+            echo "<td>{$poDisplay}</td>";
+            if (!$hideSize) {
+                echo "<td>{$carton['size']}</td>";
+            }
             echo "<td>{$carton['units']}</td>";
             echo "<td>{$carton['status']}</td>";
             echo "<td>" . ($carton['scan_timestamp'] ?? '—') . "</td>";
@@ -815,7 +837,7 @@ function generateComprehensiveCsvReport($pdo, $period = 'all', $startDate = null
         foreach ($reportData['top_orders'] as $order) {
             $csvData[] = [
                 $order['customer'] ?? 'MRP',
-                $order['ftm_po'],
+                formatFtmInternalPo($order['ftm_po']),
                 $order['carton_count'],
                 $order['total_units'],
                 $order['cartons_pending'],
@@ -969,7 +991,7 @@ function generateComprehensivePdfReport($pdo, $period = 'all', $startDate = null
 
         foreach ($reportData['top_orders'] as $order) {
             echo "<tr>";
-            echo "<td>{$order['ftm_po']}</td>";
+            echo "<td>" . htmlspecialchars(formatFtmInternalPo($order['ftm_po'])) . "</td>";
             echo "<td>{$order['carton_count']}</td>";
             echo "<td>{$order['total_units']}</td>";
             echo "<td>{$order['cartons_pending']}</td>";
@@ -1028,7 +1050,7 @@ function generateTimeBasedCsvReport($pdo, $period = 'daily', $startDate = null, 
             default   => 'Date',
         };
 
-        $headers = [$periodLabel, 'Customer', 'PO Number', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Cartons Entered', 'Cartons Shipped'];
+        $headers = [$periodLabel, 'Customer', 'FTM PO', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Cartons Entered', 'Cartons Shipped'];
         $colCount = count($headers);
         $csvData = [$headers];
 
@@ -1043,7 +1065,7 @@ function generateTimeBasedCsvReport($pdo, $period = 'daily', $startDate = null, 
             $csvData[] = [
                 $periodValue,
                 $report['customer'] ?? 'MRP',
-                $report['po_number'],
+                formatFtmInternalPo($report['po_number']),
                 $report['cartons_received'],
                 $report['units_received'],
                 $report['cartons_pending'] ?? 0,
@@ -1256,7 +1278,7 @@ function generateInventoryCsvReport($pdo) {
         foreach ($inventoryData['inventory'] as $item) {
             $csvData[] = [
                 $item['customer'] ?? 'MRP',
-                $item['ftm_po'],
+                formatFtmInternalPo($item['ftm_po']),
                 $item['file_name'],
                 date('Y-m-d', strtotime($item['import_date'])),
                 $item['total_cartons'],
@@ -1356,7 +1378,7 @@ function generateInventoryPdfReport($pdo) {
 
         foreach ($inventoryData['inventory'] as $item) {
             echo "<tr>";
-            echo "<td><strong>{$item['ftm_po']}</strong></td>";
+            echo "<td><strong>" . htmlspecialchars(formatFtmInternalPo($item['ftm_po'])) . "</strong></td>";
             echo "<td>{$item['file_name']}</td>";
             echo "<td>" . date('M d, Y', strtotime($item['import_date'])) . "</td>";
             echo "<td class='text-right'>" . number_format($item['total_cartons']) . "</td>";

@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/po_helpers.php';
 
 // Get database connection
 $pdo = getDbConnection();
@@ -42,7 +43,7 @@ try {
     }
     
     $id = intval($input['id']);
-    $newPONumber = trim($input['internal_po_number']);
+    $newPONumber = normalizeOrderNumber(trim($input['internal_po_number']));
     
     error_log("Updating PO ID: " . $id . " to: " . $newPONumber);
     

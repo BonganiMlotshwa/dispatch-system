@@ -1,21 +1,16 @@
 <?php
 /**
  * Goods Received Today Export
- * Export all cartons received (entered) today in one column format
  */
 
-header('Content-Type: text/csv');
-header('Content-Disposition: attachment; filename="goods_received_' . date('Y-m-d') . '.csv"');
-
 require_once '../config/database.php';
+require_once '../includes/po_helpers.php';
+require_once '../includes/csv_export.php';
 
 try {
     $pdo = getDbConnection();
-    
-    // Get date parameter or use today
     $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
     
-    // Get all cartons entered on the specified date
     $stmt = $pdo->prepare("
         SELECT 
             c.barcode_2d,
@@ -35,34 +30,27 @@ try {
     $stmt->execute([$date]);
     $cartons = $stmt->fetchAll();
     
-    $output = fopen('php://output', 'w');
+    $rows = [
+        ['Goods Received — ' . $date],
+        ['Date', $date, 'Total Cartons', count($cartons), 'Total Units', array_sum(array_column($cartons, 'units'))],
+        [],
+        ['Barcode', 'FTM PO', 'Customer PO', 'Customer', 'Size', 'Units', 'Time Received', 'Scanned By']
+    ];
     
-    // Summary info as column headers and values
-    fputcsv($output, ['Date', 'Total Cartons', 'Total Units']);
-    fputcsv($output, [
-        $date,
-        count($cartons),
-        array_sum(array_column($cartons, 'units'))
-    ]);
-    fputcsv($output, []); // Empty row
-    
-    // Data table column headers
-    fputcsv($output, ['Barcode', 'PO Number', 'Customer', 'Size', 'Units', 'Time Received', 'Scanned By']);
-    
-    // Data rows
     foreach ($cartons as $carton) {
-        fputcsv($output, [
+        $rows[] = [
             $carton['barcode_2d'],
-            $carton['internal_po_number'],
+            formatFtmInternalPo($carton['internal_po_number']),
+            formatCustomerPoDisplay($carton['customer'] ?? '', $carton['po_number']),
             $carton['customer'],
             $carton['size'],
             $carton['units'],
             date('H:i:s', strtotime($carton['scan_timestamp'])),
-            $carton['scanned_by']
-        ]);
+            $carton['scanned_by'] ?? ''
+        ];
     }
     
-    fclose($output);
+    csvOutputRows('goods_received_' . $date . '.csv', $rows);
     
 } catch (Exception $e) {
     http_response_code(400);

@@ -42,10 +42,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { path: '/pos', icon: 'bi-kanban', label: 'Purchase Orders', badge: null },
     { path: '/upload', icon: 'bi-cloud-upload', label: 'Import Data', badge: null },
     { path: '/manual-entry', icon: 'bi-pencil-square', label: 'Manual Entry', badge: null },
-    { path: '/xml-generator', icon: 'bi-file-earmark-code', label: 'XML Generator', badge: null },
+    { path: '/xml-generator', icon: 'bi-file-earmark-code', label: 'XML Generator', badge: null, hidden: true },
     { path: '/scanner', icon: 'bi-upc-scan', label: 'Barcode Scanner', badge: null },
     { path: '/truck-summary', icon: 'bi-truck', label: 'Truck Summary', badge: null },
-    { path: '/stickers', icon: 'bi-tags', label: 'Label Generator', badge: null },
+    { path: '/stickers', icon: 'bi-tags', label: 'Label Generator', badge: null, hidden: true },
     { path: '/daily-summary', icon: 'bi-calendar-check', label: 'Daily Summary', badge: null },
     { path: '/reports', icon: 'bi-file-earmark-text', label: 'Reports', badge: null },
   ];
@@ -79,7 +79,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         <nav className="sidebar-nav">
           <div className="nav-section">
             <div className="nav-section-title">Main Menu</div>
-            {menuItems.map((item) => (
+            {menuItems.filter((item) => !item.hidden).map((item) => (
               <Link
                 key={item.path}
                 to={item.path}

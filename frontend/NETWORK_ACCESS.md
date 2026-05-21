@@ -71,15 +71,6 @@ If other devices cannot access the application, check the following:
 
 5. **Port Availability**: Make sure no other services are using the same ports.
 
-## Network Test Tool
+## Connectivity check
 
-A network test tool is available to help diagnose connectivity issues:
-
-1. Open the `network_test.html` file in your browser on the server machine:
-   ```
-   file:///C:/xampp/htdocs/dispatch/frontend/network_test.html
-   ```
-
-2. Use the test buttons to check connectivity to each server.
-
-3. If you need to test from another device, copy the `network_test.html` file to that device and open it locally, or serve it from a different web server.
+From another device on the network, open the React app (e.g. `http://<server-ip>:3000`) and confirm the dashboard loads. If it does not, verify firewall rules (see `setup_network_access.bat`) and that the backend API is reachable on port 8001.

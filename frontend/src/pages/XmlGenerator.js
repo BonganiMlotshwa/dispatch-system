@@ -150,6 +150,10 @@ const XmlGenerator = () => {
       <div className="mb-4">
         <h1 className="text-gradient mb-0">XML File Generator</h1>
         <p className="text-muted mt-2">Create XML files for label printing</p>
+        <p className="text-muted small mb-0">
+          <i className="bi bi-info-circle me-1"></i>
+          Only applicable to other customers e.g. OTB, OBSW — not MRP.
+        </p>
       </div>
 
       {error && (

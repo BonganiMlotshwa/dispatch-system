@@ -151,12 +151,11 @@ try {
             $input['id']
         ]);
         
-        // Delete existing items
-        $stmt = $pdo->prepare("DELETE FROM truck_shipment_items WHERE truck_shipment_id = ?");
-        $stmt->execute([$input['id']]);
-        
-        // Add new items
-        if (isset($input['items'])) {
+        // Replace items only when explicitly provided
+        if (isset($input['items']) && is_array($input['items'])) {
+            $stmt = $pdo->prepare("DELETE FROM truck_shipment_items WHERE truck_shipment_id = ?");
+            $stmt->execute([$input['id']]);
+
             $stmt = $pdo->prepare("
                 INSERT INTO truck_shipment_items 
                 (truck_shipment_id, shipment_id, cartons_shipped, units_shipped) 

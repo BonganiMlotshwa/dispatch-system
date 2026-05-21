@@ -14,9 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/database.php';
-
-// Special admin delete code (change this to your preferred code)
-define('ADMIN_DELETE_CODE', 'FTM2026DELETE');
+require_once '../includes/admin_auth.php';
 
 try {
     $pdo = getDbConnection();
@@ -28,7 +26,7 @@ try {
     }
     
     // Verify admin code
-    if ($input['admin_code'] !== ADMIN_DELETE_CODE) {
+    if (!verifyAdminCode($input['admin_code'] ?? '')) {
         throw new Exception('Invalid admin code. Access denied.');
     }
     

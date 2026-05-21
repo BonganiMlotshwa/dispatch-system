@@ -5,6 +5,12 @@ import axios from 'axios';
 import Quagga from 'quagga';
 import { API_BASE_URL } from '../config';
 import ExitScanModal from '../components/ExitScanModal';
+import TruckLoadChoiceModal from '../components/TruckLoadChoiceModal';
+import {
+  getActiveTrucks,
+  addActiveTruck,
+  removeActiveTruck
+} from '../utils/truckStorage';
 
 // Simple audio cues using Web Audio API for distinct feedback tones
 const createAudioContext = () => {
@@ -376,11 +382,21 @@ const CartonScanner = () => {
   const [showCodeSelection, setShowCodeSelection] = useState(false); // Show code selection modal
   const [scanTimeoutId, setScanTimeoutId] = useState(null); // Store timeout ID for cleanup
   const [isSecureContext, setIsSecureContext] = useState(false); // Check if running over HTTPS
-  const [poValidation, setPoValidation] = useState({ checked: false, exists: false, allowed: false, summary: '' });
+  const [poValidation, setPoValidation] = useState({
+    checked: false,
+    exists: false,
+    allowed: false,
+    status: '',
+    summary: '',
+    counts: null
+  });
   const [searchTerm, setSearchTerm] = useState(''); // For filtering recent scans
-  const [showExitModal, setShowExitModal] = useState(false); // Exit scan modal
-  const [showAllHistory, setShowAllHistory] = useState(false); // Toggle to show all history from localStorage
-  const [activeTruck, setActiveTruck] = useState(null); // Active truck for exit scanning
+  const [showExitModal, setShowExitModal] = useState(false);
+  const [showTruckChoiceModal, setShowTruckChoiceModal] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [activeTrucks, setActiveTrucks] = useState([]);
+  const [activeTruck, setActiveTruck] = useState(null);
+  const [exitWithoutTruck, setExitWithoutTruck] = useState(false);
   const [sessionScanCount, setSessionScanCount] = useState(0); // Count scans in current session
   const [sessionUnitCount, setSessionUnitCount] = useState(0); // Count units in current session
   const [counterPulse, setCounterPulse] = useState(false); // Trigger pulse animation
@@ -413,26 +429,18 @@ const CartonScanner = () => {
       console.log('Camera support detected:', result.supported, 'Reason:', result.reason, 'HTTPS Required:', result.isHttpsRequired);
     };
 
-    // Check for active truck from localStorage
-    const checkActiveTruck = () => {
-      const storedTruck = localStorage.getItem('active_truck');
-      if (storedTruck) {
-        try {
-          const truck = JSON.parse(storedTruck);
-          setActiveTruck(truck);
-          setAction('exit'); // Automatically set to exit mode
-          console.log('Active truck loaded:', truck);
-        } catch (e) {
-          console.error('Failed to parse active truck:', e);
-          localStorage.removeItem('active_truck');
-        }
+    const loadActiveTrucks = () => {
+      const trucks = getActiveTrucks();
+      setActiveTrucks(trucks);
+      if (trucks.length > 0) {
+        setActiveTruck(trucks[trucks.length - 1]);
       }
     };
 
     // Check both camera and mobile device
     checkCameraSupport();
     checkMobileDevice();
-    checkActiveTruck();
+    loadActiveTrucks();
 
     // Log access method
     console.log('Page accessed via:', window.location.hostname);
@@ -469,18 +477,67 @@ const CartonScanner = () => {
       }
     }
   }, [scanResult, showScanner, loading, poValidation]);
-  // Validate PO on change with debounce
+  const getPoInputClass = () => {
+    if (!poValidation.checked) return '';
+    if (!poValidation.exists || poValidation.status === 'fully_shipped') return 'is-invalid';
+    if (poValidation.allowed) return 'is-valid';
+    return '';
+  };
+
+  const getPoFeedbackTone = () => {
+    if (!poValidation.checked) return 'muted';
+    if (!poValidation.exists || poValidation.status === 'fully_shipped') return 'danger';
+    if (poValidation.allowed) return 'success';
+    if (poValidation.status === 'found') return 'info';
+    return 'warning';
+  };
+
+  const renderPoFeedbackIcon = () => {
+    const tone = getPoFeedbackTone();
+    if (tone === 'success') return 'bi-check-circle-fill';
+    if (tone === 'danger') return 'bi-x-circle-fill';
+    if (tone === 'info') return 'bi-info-circle-fill';
+    return 'bi-exclamation-circle-fill';
+  };
+
+  // Validate PO on change with debounce (uses action-specific or general check)
   const validatePoDebounced = useRef(debounce(async (po, currentAction) => {
     if (!po || !po.trim()) {
-      setPoValidation({ checked: false, exists: false, allowed: false, summary: '' });
+      setPoValidation({
+        checked: false,
+        exists: false,
+        allowed: false,
+        status: '',
+        summary: '',
+        counts: null
+      });
       return;
     }
+    const apiAction = currentAction && ['enter', 'exit'].includes(currentAction) ? currentAction : 'check';
     try {
-      const res = await axios.post(`${API_BASE_URL}/validate_po.php`, { po: po.trim(), action: currentAction });
+      const res = await axios.post(`${API_BASE_URL}/validate_po.php`, {
+        po: po.trim(),
+        action: apiAction
+      });
       const data = res.data || {};
-      setPoValidation({ checked: true, exists: !!data.exists, allowed: !!data.allowed, summary: data.summary || '' });
+      setPoValidation({
+        checked: true,
+        exists: !!data.exists,
+        allowed: !!data.allowed,
+        status: data.status || '',
+        summary: data.summary || '',
+        counts: data.counts || null
+      });
     } catch (e) {
-      setPoValidation({ checked: true, exists: false, allowed: false, summary: 'Validation failed' });
+      const msg = e.response?.data?.message || 'Validation failed';
+      setPoValidation({
+        checked: true,
+        exists: false,
+        allowed: false,
+        status: 'not_found',
+        summary: msg,
+        counts: null
+      });
     }
   }, 400)).current;
 
@@ -855,8 +912,7 @@ const CartonScanner = () => {
         expected_po: expectedPo || undefined
       };
       
-      // Add truck_shipment_id if there's an active truck and action is exit
-      if (activeTruck && actionToUse === 'exit') {
+      if (activeTruck && actionToUse === 'exit' && !exitWithoutTruck) {
         requestData.truck_shipment_id = activeTruck.id;
         requestData.notes = `Loaded to ${activeTruck.truck_reg}`;
       }
@@ -1044,6 +1100,17 @@ const CartonScanner = () => {
 
     setLoading(true);
     setError(null);
+
+    if (!expectedPo.trim()) {
+      setError('Please enter the PO number before scanning.');
+      setLoading(false);
+      return;
+    }
+    if (!poValidation.checked || !poValidation.exists || !poValidation.allowed) {
+      setError(poValidation.summary || 'This PO cannot be scanned for the selected action.');
+      setLoading(false);
+      return;
+    }
     
     try {
       if (batchMode) {
@@ -1174,38 +1241,79 @@ const CartonScanner = () => {
       </div>
       
       {/* Active Truck Banner */}
-      {activeTruck && (
-        <div className="alert alert-success mb-4 d-flex justify-content-between align-items-center">
-          <div>
-            <i className="bi bi-truck me-2"></i>
-            <strong>Loading to: {activeTruck.truck_reg}</strong>
-            <br />
-            <small>Driver: {activeTruck.driver_name}</small>
-            {activeTruck.shipment_week && (
-              <>
-                <br />
-                <small>Week: {activeTruck.shipment_week} | Date: {activeTruck.shipment_date}</small>
-              </>
-            )}
+      {(activeTrucks.length > 0 || (action === 'exit' && exitWithoutTruck)) && (
+        <div className="alert alert-success mb-4">
+          <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div className="flex-grow-1">
+              <i className="bi bi-truck me-2"></i>
+              {exitWithoutTruck && !activeTruck ? (
+                <strong>Exit mode — no truck assignment</strong>
+              ) : (
+                <>
+                  <strong>Loading to: {activeTruck?.truck_reg}</strong>
+                  <br />
+                  <small>Driver: {activeTruck?.driver_name}</small>
+                  {activeTrucks.length > 1 && (
+                    <div className="mt-2">
+                      <label className="small text-muted me-2">Switch truck:</label>
+                      <select
+                        className="form-select form-select-sm d-inline-block w-auto"
+                        value={activeTruck?.id || ''}
+                        onChange={(e) => {
+                          const truck = activeTrucks.find((t) => String(t.id) === e.target.value);
+                          if (truck) {
+                            setActiveTruck(truck);
+                            setExitWithoutTruck(false);
+                          }
+                        }}
+                      >
+                        {activeTrucks.map((t) => (
+                          <option key={t.id} value={t.id}>{t.truck_reg} — {t.driver_name}</option>
+                        ))}
+                      </select>
+                      <small className="text-muted ms-2">({activeTrucks.length} open trucks)</small>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary"
+                onClick={() => setShowTruckChoiceModal(true)}
+              >
+                <i className="bi bi-plus-circle me-1"></i>
+                Add / switch truck
+              </button>
+              {activeTruck && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-warning"
+                  onClick={() => {
+                    if (window.confirm(`Park truck ${activeTruck.truck_reg}? You can start another truck while this one stays open.`)) {
+                      const remaining = removeActiveTruck(activeTruck.id);
+                      setActiveTrucks(remaining);
+                      setActiveTruck(remaining.length ? remaining[remaining.length - 1] : null);
+                      if (remaining.length === 0) {
+                        setAction('');
+                        setExitWithoutTruck(false);
+                      }
+                      setScanResult({
+                        success: true,
+                        message: `Truck ${activeTruck.truck_reg} parked — still open in Truck Summary.`
+                      });
+                    }
+                  }}
+                >
+                  Park truck
+                </button>
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-danger"
-            onClick={() => {
-              if (window.confirm('Are you sure you want to finish loading this truck?')) {
-                localStorage.removeItem('active_truck');
-                setActiveTruck(null);
-                setAction('enter');
-                setScanResult({
-                  success: true,
-                  message: 'Truck loading completed!'
-                });
-              }
-            }}
-          >
-            <i className="bi bi-check-circle me-1"></i>
-            Finish Loading
-          </button>
+          <small className="text-muted d-block mt-2">
+            Trucks do not need to be fully loaded. Park when done for now and load another truck anytime.
+          </small>
         </div>
       )}
       
@@ -1227,36 +1335,32 @@ const CartonScanner = () => {
                     <input
                       ref={poInputRef}
                       type="text"
-                      className={`form-control-modern ${poValidation.checked ? (poValidation.exists ? (poValidation.allowed ? 'is-valid' : 'is-invalid') : 'is-invalid') : ''}`}
-                      placeholder="Enter or select PO number"
+                      className={`form-control-modern ${getPoInputClass()}`}
+                      placeholder="FTM PO from Purchase Orders (e.g. OTTO-852)"
                       value={expectedPo}
                       onChange={(e) => setExpectedPo(e.target.value)}
                       disabled={loading}
                       autoComplete="off"
                     />
-                    {expectedPo && (
-                      <div className="small mt-1">
-                        {poValidation.checked ? (
-                          poValidation.exists ? (
-                            poValidation.allowed ? (
-                              <span className="text-success">
-                                <i className="bi bi-check-circle-fill me-1"></i>{poValidation.summary}
+                    <div className="small mt-1">
+                      {expectedPo ? (
+                        poValidation.checked ? (
+                          <span className={`text-${getPoFeedbackTone()}`}>
+                            <i className={`bi ${renderPoFeedbackIcon()} me-1`}></i>
+                            {poValidation.summary}
+                            {!action && poValidation.exists && poValidation.status !== 'fully_shipped' && poValidation.status !== 'not_found' && (
+                              <span className="d-block mt-1 text-muted">
+                                Select Enter or Exit Warehouse to continue scanning.
                               </span>
-                            ) : (
-                              <span className="text-danger">
-                                <i className="bi bi-x-circle-fill me-1"></i>{poValidation.summary}
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-danger">
-                              <i className="bi bi-x-circle-fill me-1"></i>PO not found
-                            </span>
-                          )
+                            )}
+                          </span>
                         ) : (
-                          <span className="text-muted">Type to validate PO...</span>
-                        )}
-                      </div>
-                    )}
+                          <span className="text-muted">Validating PO...</span>
+                        )
+                      ) : (
+                        <span className="text-muted">Use the same FTM PO shown in Purchase Orders</span>
+                      )}
+                    </div>
                   </div>
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <label className="form-label-modern">
@@ -1315,13 +1419,13 @@ const CartonScanner = () => {
                         value={barcodes}
                         onChange={(e) => setBarcodes(e.target.value)}
                         rows="4"
-                        disabled={loading}
+                        disabled={loading || !poValidation.checked || !poValidation.exists || !poValidation.allowed}
                       />
                     </div>
                   )}
                   
                   <div className="text-muted small mt-1">
-                    {!batchMode ? "Enter manually or use your device's camera to scan" : "Enter multiple barcodes, one per line"}
+                    {!batchMode ? "Use barcode scanner or use your device's camera to scan" : "Enter multiple barcodes, one per line"}
                     {processingTimes.length > 0 && (
                       <span className="ms-2">
                         Avg. processing time: {(processingTimes.reduce((a, b) => a + b, 0) / processingTimes.length).toFixed(2)} ms
@@ -1384,15 +1488,8 @@ const CartonScanner = () => {
                       className={`flex-grow-1 py-3 ${action === 'enter' ? 'btn-modern btn-modern-primary' : 'btn-modern btn-modern-outline-secondary'}`}
                       onClick={() => {
                         if (loading) return;
-                        if (activeTruck) {
-                          if (window.confirm('You have an active truck. Switching to Enter mode will finish loading. Continue?')) {
-                            localStorage.removeItem('active_truck');
-                            setActiveTruck(null);
-                            setAction('enter');
-                          }
-                        } else {
-                          setAction('enter');
-                        }
+                        setExitWithoutTruck(false);
+                        setAction('enter');
                       }}
                       style={{ cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
                     >
@@ -1404,12 +1501,7 @@ const CartonScanner = () => {
                       className={`flex-grow-1 py-3 ${action === 'exit' ? 'btn-modern btn-modern-success' : 'btn-modern btn-modern-outline-secondary'}`}
                       onClick={() => {
                         if (loading) return;
-                        if (activeTruck) {
-                          alert('You already have an active truck. Please finish loading first.');
-                        } else {
-                          setAction('exit');
-                          setShowExitModal(true);
-                        }
+                        setShowTruckChoiceModal(true);
                       }}
                       style={{ cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
                     >
@@ -1417,10 +1509,20 @@ const CartonScanner = () => {
                       <div className="fs-6 fw-medium">Exit Warehouse</div>
                     </button>
                   </div>
-                  {activeTruck && (
+                  {action === 'exit' && (
                     <div className="alert alert-info mt-2 py-2 px-3 small mb-0">
                       <i className="bi bi-info-circle me-1"></i>
-                      Currently loading to <strong>{activeTruck.truck_reg}</strong>. Click "Enter Warehouse" to finish and switch modes, or click "Finish Loading" above.
+                      {activeTruck
+                        ? <>Loading to <strong>{activeTruck.truck_reg}</strong>. Use &quot;Add / switch truck&quot; for another truck or park when partially loaded.</>
+                        : exitWithoutTruck
+                          ? <>Exiting without truck assignment. Use &quot;Add / switch truck&quot; to load onto a truck.</>
+                          : <>Choose a truck or exit mode using the options above.</>}
+                    </div>
+                  )}
+                  {action && expectedPo.trim() && poValidation.checked && !poValidation.allowed && (
+                    <div className={`alert mt-2 py-2 px-3 small mb-0 ${poValidation.status === 'fully_shipped' || !poValidation.exists ? 'alert-danger' : 'alert-warning'}`}>
+                      <i className={`bi ${poValidation.status === 'fully_shipped' || !poValidation.exists ? 'bi-x-circle' : 'bi-exclamation-triangle'} me-1`}></i>
+                      {poValidation.summary}
                     </div>
                   )}
                 </div>
@@ -1731,7 +1833,7 @@ const CartonScanner = () => {
             </div>
             <div>
               <p className="mb-0"><strong>Scan Barcode</strong></p>
-              <p className="text-muted small">Use your phone's camera or enter the barcode manually</p>
+              <p className="text-muted small">Use your phone's camera or barcode scanner</p>
             </div>
           </div>
           <div className="d-flex mb-3">
@@ -1961,34 +2063,54 @@ const CartonScanner = () => {
         </Modal>
 
         {/* Exit Scan Modal */}
+        <TruckLoadChoiceModal
+          show={showTruckChoiceModal}
+          onHide={() => setShowTruckChoiceModal(false)}
+          activeTrucks={activeTrucks}
+          onContinueTruck={(truck) => {
+            setActiveTruck(truck);
+            setExitWithoutTruck(false);
+            setAction('exit');
+            setShowTruckChoiceModal(false);
+            setScanResult({
+              success: true,
+              message: `Continuing load on ${truck.truck_reg}`
+            });
+          }}
+          onNewTruck={() => {
+            setShowTruckChoiceModal(false);
+            setShowExitModal(true);
+          }}
+          onExitWithoutTruck={() => {
+            setActiveTruck(null);
+            setExitWithoutTruck(true);
+            setAction('exit');
+            setShowTruckChoiceModal(false);
+            setScanResult({
+              success: true,
+              message: 'Exit mode: cartons will leave warehouse without truck assignment.'
+            });
+          }}
+        />
+
         <ExitScanModal
           show={showExitModal}
           onHide={() => setShowExitModal(false)}
           onSuccess={(result) => {
             if (result.mode === 'created') {
-              // Truck was created, set it as active and continue scanning
+              const list = addActiveTruck(result.truck);
+              setActiveTrucks(list);
               setActiveTruck(result.truck);
+              setExitWithoutTruck(false);
               setAction('exit');
               setShowExitModal(false);
-              
-              // Show success message
               setScanResult({
                 success: true,
-                message: `Truck ${result.truck.truck_reg} created! You can now scan cartons to load onto this truck.`
+                message: `Truck ${result.truck.truck_reg} added. Scan cartons to load (other trucks can stay open).`
               });
-              
-              // Focus on barcode input
               setTimeout(() => {
-                if (barcodeInputRef.current) {
-                  barcodeInputRef.current.focus();
-                }
+                if (barcodeInputRef.current) barcodeInputRef.current.focus();
               }, 100);
-            } else {
-              // Loading complete (old workflow)
-              alert(`Loading complete!\n${result.cartonsScanned} cartons (${result.totalUnits} units) loaded to ${result.truck.truck_reg}`);
-              localStorage.removeItem('active_truck');
-              setActiveTruck(null);
-              window.location.reload();
             }
           }}
         />

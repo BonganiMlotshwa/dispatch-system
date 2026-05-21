@@ -85,6 +85,50 @@ const TruckSummary = () => {
     window.open(`${API_BASE_URL}/truck_shipment_export.php?id=${truckId}&format=${format}`, '_blank');
   };
 
+  const handleEditClick = (truck) => {
+    setEditingTruck(truck);
+    setEditForm({
+      truck_reg: truck.truck_reg || '',
+      driver_name: truck.driver_name || '',
+      shipment_date: truck.shipment_date ? truck.shipment_date.split(' ')[0] : '',
+      shipment_week: truck.shipment_week || '',
+      remarks: truck.remarks || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTruck) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await axios.put(`${API_BASE_URL}/truck_shipment.php`, {
+        id: editingTruck.id,
+        shipment_date: editForm.shipment_date,
+        shipment_week: editForm.shipment_week,
+        truck_reg: editForm.truck_reg,
+        driver_name: editForm.driver_name,
+        remarks: editForm.remarks
+      });
+      if (response.data.success) {
+        setShowEditModal(false);
+        setEditingTruck(null);
+        await fetchTruckSummary();
+      } else {
+        setError(response.data.message || 'Failed to update truck');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update truck');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -296,6 +340,13 @@ const TruckSummary = () => {
                       <td className="text-center">
                         <div className="btn-group btn-group-sm">
                           <button
+                            className="btn btn-outline-warning"
+                            onClick={() => handleEditClick(truck)}
+                            title="Edit driver & truck info"
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button
                             className="btn btn-outline-primary"
                             onClick={() => handleExport(truck.id, 'csv')}
                             title="Export to CSV"
@@ -319,6 +370,79 @@ const TruckSummary = () => {
           )}
         </div>
       </div>
+
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="bi bi-pencil me-2"></i>
+            Edit Truck / Driver
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Truck Registration</Form.Label>
+              <Form.Control
+                name="truck_reg"
+                value={editForm.truck_reg}
+                onChange={handleEditFormChange}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Driver Name</Form.Label>
+              <Form.Control
+                name="driver_name"
+                value={editForm.driver_name}
+                onChange={handleEditFormChange}
+                placeholder="First and surname"
+              />
+            </Form.Group>
+            <div className="row g-2">
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Shipment Date</Form.Label>
+                  <Form.Control
+                    type="date"
+                    name="shipment_date"
+                    value={editForm.shipment_date}
+                    onChange={handleEditFormChange}
+                  />
+                </Form.Group>
+              </div>
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>Week</Form.Label>
+                  <Form.Control
+                    name="shipment_week"
+                    value={editForm.shipment_week}
+                    onChange={handleEditFormChange}
+                    placeholder="e.g. Wk16"
+                  />
+                </Form.Group>
+              </div>
+            </div>
+            <Form.Group>
+              <Form.Label>Remarks</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                name="remarks"
+                value={editForm.remarks}
+                onChange={handleEditFormChange}
+                placeholder="e.g. Incomplete load — goods arriving later"
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSaveEdit} disabled={loading}>
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

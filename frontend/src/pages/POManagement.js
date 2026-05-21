@@ -9,6 +9,8 @@ import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useAdminAuth } from '../contexts/AdminAuthContext';
+import { formatFtmInternalPo } from '../utils/poDisplay';
 
 /**
  * Enhanced PO Management Page
@@ -16,6 +18,8 @@ import { API_BASE_URL } from '../config';
  * Modern card-based interface for managing Purchase Orders
  */
 const POManagement = () => {
+  const { withAdminAuth } = useAdminAuth();
+
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('import_date');
@@ -182,6 +186,8 @@ const POManagement = () => {
       return;
     }
 
+    try {
+    await withAdminAuth('delete purchase orders', async (adminCode) => {
     console.log('=== BULK DELETE REQUEST ===');
     console.log('Deleting PO IDs:', selectedPOs);
 
@@ -193,7 +199,8 @@ const POManagement = () => {
     for (const poId of selectedPOs) {
       try {
         const response = await axios.post(`${API_BASE_URL}/delete_po.php`, {
-          id: poId
+          id: poId,
+          admin_code: adminCode
         });
 
         if (response.data.success) {
@@ -233,6 +240,10 @@ const POManagement = () => {
     await handleRefresh();
     setShowBulkDeleteConfirm(false);
     setSelectedPOs([]);
+    });
+    } catch (_) {
+      /* admin cancelled */
+    }
   };
 
   const togglePOSelection = (poId) => {
@@ -330,9 +341,12 @@ const POManagement = () => {
       return;
     }
 
+    try {
+    await withAdminAuth('delete purchase order', async (adminCode) => {
     const url = `${API_BASE_URL}/delete_po.php`;
     const payload = {
-      id: deletingPO.id
+      id: deletingPO.id,
+      admin_code: adminCode
     };
 
     console.log('=== DELETE PO REQUEST ===');
@@ -378,6 +392,10 @@ const POManagement = () => {
         type: 'danger',
         message: `Error deleting PO: ${errorMsg}`
       });
+    }
+    });
+    } catch (_) {
+      /* admin cancelled */
     }
   };
 
@@ -599,7 +617,7 @@ const POManagement = () => {
                           to={`/po/${po.id}`} 
                           className="text-decoration-none text-dark"
                         >
-                          {po.internal_po_number}
+                          {formatFtmInternalPo(po.internal_po_number)}
                         </Link>
                       </h5>
                       <div className="d-flex align-items-center gap-2">
@@ -739,7 +757,7 @@ const POManagement = () => {
                           to={`/po/${po.id}`} 
                           className="text-decoration-none fw-medium"
                         >
-                          {po.internal_po_number}
+                          {formatFtmInternalPo(po.internal_po_number)}
                         </Link>
                       </td>
                       <td>{po.customer_po_number || '-'}</td>
@@ -937,7 +955,7 @@ const POManagement = () => {
             This action cannot be undone!
           </Alert>
           <p>
-            Are you sure you want to delete <strong>{selectedPOs.length}</strong> purchase order{selectedPOs.length > 1 ? 's' : ''}?
+            Are you sure you want to delete <strong>{selectedPOs.length}</strong> purchase order{selectedPOs.length > 1 ? 's' : ''}? You will be asked for the admin code to confirm.
           </p>
           <p className="text-muted small">
             This will permanently delete the selected POs and all their associated cartons from the database.
@@ -1002,7 +1020,7 @@ const POManagement = () => {
                 This action cannot be undone!
               </Alert>
               <p>
-                Are you sure you want to delete the following purchase order?
+                Are you sure you want to delete the following purchase order? You will be asked for the admin code to confirm.
               </p>
               <div className="bg-light p-3 rounded">
                 <strong>PO Number:</strong> {deletingPO.internal_po_number}<br />

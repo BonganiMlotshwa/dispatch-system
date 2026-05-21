@@ -21,6 +21,8 @@ import {
 import { useApi } from '../hooks/useApi';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useAdminAuth } from '../contexts/AdminAuthContext';
+import { isOtbCustomer, formatFtmInternalPo } from '../utils/poDisplay';
 
 // Register ChartJS components
 ChartJS.register(
@@ -43,6 +45,7 @@ ChartJS.register(
 const PODetails = React.memo(() => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { withAdminAuth } = useAdminAuth();
   
   // State management
   const [activeTab, setActiveTab] = useState('overview');
@@ -62,6 +65,7 @@ const PODetails = React.memo(() => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCartonIds, setSelectedCartonIds] = useState([]);
   
   // Refresh state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -282,27 +286,15 @@ const PODetails = React.memo(() => {
   }, [timelineData]);
 
   // Event handlers
-  const handleExport = useCallback(async (format) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/shipments.php?id=${id}&export=${format}`, {
-        responseType: format === 'csv' ? 'blob' : 'text'
-      });
-      
-      const filename = `PO_${poData?.shipment?.internal_po_number || id}_${new Date().toISOString().split('T')[0]}.${format}`;
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      setShowExportModal(false);
-    } catch (error) {
-      console.error(`Error exporting ${format}:`, error);
+  const handleExport = useCallback((format) => {
+    const exportUrl = `${API_BASE_URL}/shipments.php?id=${id}&export=${format}`;
+    if (format === 'pdf') {
+      window.open(exportUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      window.location.href = exportUrl;
     }
-  }, [id, poData]);
+    setShowExportModal(false);
+  }, [id]);
 
 
 
@@ -329,15 +321,23 @@ const PODetails = React.memo(() => {
     setShowCartonModal(true);
   }, []);
 
-  const handleEditCarton = useCallback((carton) => {
-    navigate(`/scanner?barcode=${carton.barcode_2d}&action=edit`);
-  }, [navigate]);
+  const handleEditCarton = useCallback(async (carton) => {
+    try {
+      await withAdminAuth('edit carton', async () => {
+        navigate(`/scanner?barcode=${encodeURIComponent(carton.barcode_2d)}&action=edit`);
+      });
+    } catch (_) {
+      /* cancelled */
+    }
+  }, [navigate, withAdminAuth]);
 
   const handleMarkAsShipped = useCallback(async (carton) => {
     try {
+      await withAdminAuth('mark as shipped', async (adminCode) => {
       await axios.post(`${API_BASE_URL}/update_carton_status.php`, {
         carton_id: carton.id,
-        status: 'exited'
+        status: 'exited',
+        admin_code: adminCode
       }, {
         timeout: 5000 // 5 second timeout
       });
@@ -351,11 +351,13 @@ const PODetails = React.memo(() => {
       
       // Refresh only table and stats data
       await refreshTableAndStats();
+      });
     } catch (error) {
+      if (error?.message === 'Admin verification cancelled') return;
       console.error('Error updating carton status:', error);
       const errorMessage = error.code === 'ECONNABORTED' 
         ? 'Request timed out. Please try again.' 
-        : 'Failed to update carton status';
+        : (error.response?.data?.error || error.response?.data?.message || 'Failed to update carton status');
         
       setNotifications(prev => [...prev, {
         id: Date.now(),
@@ -364,9 +366,9 @@ const PODetails = React.memo(() => {
         timestamp: new Date()
       }]);
     }
-  }, [refreshTableAndStats]);
+  }, [refreshTableAndStats, withAdminAuth]);
 
-  const handlePrintLabel = useCallback((carton) => {
+  const printCartonLabel = useCallback((carton) => {
     // Create a print window with enhanced carton label including barcode and QR code
     const printWindow = window.open('', '_blank');
     const labelContent = `
@@ -507,6 +509,16 @@ const PODetails = React.memo(() => {
     printWindow.document.close();
   }, []);
 
+  const handlePrintLabel = useCallback(async (carton) => {
+    try {
+      await withAdminAuth('print label', async () => {
+        printCartonLabel(carton);
+      });
+    } catch (_) {
+      /* cancelled */
+    }
+  }, [withAdminAuth, printCartonLabel]);
+
   const handleCopyBarcode = useCallback((barcode) => {
     navigator.clipboard.writeText(barcode).then(() => {
       setNotifications(prev => [...prev, {
@@ -545,12 +557,52 @@ const PODetails = React.memo(() => {
     return filtered;
   }, [cartonData, searchTerm]);
 
+  const shippableFiltered = useMemo(
+    () => filteredCartons.filter((c) => c.status === 'entered'),
+    [filteredCartons]
+  );
+
   // Paginate filtered cartons
   const paginatedCartons = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     return filteredCartons.slice(startIndex, endIndex);
   }, [filteredCartons, currentPage, itemsPerPage]);
+
+  const shippableOnPage = useMemo(
+    () => paginatedCartons.filter((c) => c.status === 'entered'),
+    [paginatedCartons]
+  );
+
+  const allPageSelected =
+    shippableOnPage.length > 0 &&
+    shippableOnPage.every((c) => selectedCartonIds.includes(c.id));
+
+  const toggleCartonSelection = useCallback((cartonId) => {
+    setSelectedCartonIds((prev) =>
+      prev.includes(cartonId) ? prev.filter((id) => id !== cartonId) : [...prev, cartonId]
+    );
+  }, []);
+
+  const toggleSelectAllOnPage = useCallback(() => {
+    const pageIds = shippableOnPage.map((c) => c.id);
+    if (allPageSelected) {
+      setSelectedCartonIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      setSelectedCartonIds((prev) => [...new Set([...prev, ...pageIds])]);
+    }
+  }, [shippableOnPage, allPageSelected]);
+
+  const toggleSelectAllShippable = useCallback(() => {
+    const allIds = shippableFiltered.map((c) => c.id);
+    const allSelected =
+      allIds.length > 0 && allIds.every((id) => selectedCartonIds.includes(id));
+    if (allSelected) {
+      setSelectedCartonIds((prev) => prev.filter((id) => !allIds.includes(id)));
+    } else {
+      setSelectedCartonIds(allIds);
+    }
+  }, [shippableFiltered, selectedCartonIds]);
 
   // Pagination info
   const paginationInfo = useMemo(() => {
@@ -770,9 +822,31 @@ const PODetails = React.memo(() => {
   const handleBulkExitWarehouse = useCallback(async () => {
     if (!bulkActionAnalysis?.warehouseCartons.length) return;
     await processBulkUpdate(bulkActionAnalysis.warehouseCartons, 'exited', 'Ship Cartons');
+    setSelectedCartonIds([]);
   }, [bulkActionAnalysis, processBulkUpdate]);
 
-  const handleBulkPrintLabels = useCallback(() => {
+  const handleBulkShipSelected = useCallback(async () => {
+    if (!cartonData?.cartons || selectedCartonIds.length === 0) return;
+    const toShip = cartonData.cartons.filter(
+      (c) => selectedCartonIds.includes(c.id) && c.status === 'entered'
+    );
+    if (toShip.length === 0) {
+      setNotifications((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: 'warning',
+          message: 'No selected cartons are in warehouse (entered) status.',
+          timestamp: new Date()
+        }
+      ]);
+      return;
+    }
+    await processBulkUpdate(toShip, 'exited', 'Ship Selected Cartons');
+    setSelectedCartonIds([]);
+  }, [cartonData, selectedCartonIds, processBulkUpdate]);
+
+  const handleBulkPrintLabels = useCallback(async () => {
     if (!cartonData?.cartons) return;
     
     const cartonsToProcess = cartonData.cartons.filter(carton => carton.status !== 'exited');
@@ -786,21 +860,23 @@ const PODetails = React.memo(() => {
       }]);
       return;
     }
-    
-    // Print labels with a small delay between each to avoid overwhelming the browser
-    cartonsToProcess.forEach((carton, index) => {
-      setTimeout(() => {
-        handlePrintLabel(carton);
-      }, index * 1000); // 1 second delay between prints
-    });
-    
-    setNotifications(prev => [...prev, {
-      id: Date.now(),
-      type: 'success',
-      message: `Printing ${cartonsToProcess.length} labels...`,
-      timestamp: new Date()
-    }]);
-  }, [cartonData, handlePrintLabel]);
+
+    try {
+      await withAdminAuth('print labels', async () => {
+        cartonsToProcess.forEach((carton, index) => {
+          setTimeout(() => printCartonLabel(carton), index * 1000);
+        });
+        setNotifications(prev => [...prev, {
+          id: Date.now(),
+          type: 'success',
+          message: `Printing ${cartonsToProcess.length} labels...`,
+          timestamp: new Date()
+        }]);
+      });
+    } catch (_) {
+      /* cancelled */
+    }
+  }, [cartonData, withAdminAuth, printCartonLabel]);
 
   // Loading state
   if (loading) {
@@ -834,6 +910,7 @@ const PODetails = React.memo(() => {
   }
 
   const shipment = poData?.shipment;
+  const hideSizeColumn = isOtbCustomer(shipment?.customer);
   
   return (
     <Container fluid className="py-3">
@@ -884,7 +961,7 @@ const PODetails = React.memo(() => {
               </nav>
               <h1 className="display-6 mb-2">
                 <i className="bi bi-box-seam me-2 text-primary"></i>
-                {shipment?.internal_po_number || `PO #${id}`}
+                {formatFtmInternalPo(shipment?.internal_po_number) || `PO #${id}`}
               </h1>
               <div className="d-flex align-items-center gap-3">
                 <Badge bg={stats?.completionRate >= 80 ? 'success' : stats?.completionRate >= 50 ? 'warning' : 'danger'} className="fs-6">
@@ -1254,6 +1331,7 @@ const PODetails = React.memo(() => {
                     <option value="exited">Shipped</option>
                   </Form.Select>
                 </Col>
+                {!hideSizeColumn && (
                 <Col md={2}>
                   <Form.Select 
                     size="sm"
@@ -1266,6 +1344,7 @@ const PODetails = React.memo(() => {
                     ))}
                   </Form.Select>
                 </Col>
+                )}
                 <Col md={2}>
                   <Button 
                     variant="outline-secondary" 
@@ -1310,6 +1389,15 @@ const PODetails = React.memo(() => {
                         </Dropdown.Item>
                       )}
                       
+                      {selectedCartonIds.length > 0 && (
+                        <Dropdown.Item
+                          onClick={handleBulkShipSelected}
+                          disabled={isBulkProcessing}
+                        >
+                          <i className="bi bi-check2-square me-2 text-success"></i>
+                          Ship Selected ({selectedCartonIds.length})
+                        </Dropdown.Item>
+                      )}
                       {bulkActionAnalysis?.canExitWarehouse && (
                         <Dropdown.Item 
                           onClick={handleBulkExitWarehouse}
@@ -1352,6 +1440,42 @@ const PODetails = React.memo(() => {
                   </Dropdown>
                 </Col>
               </Row>
+
+              {shippableFiltered.length > 0 && (
+                <div className="d-flex flex-wrap align-items-center gap-2 mb-3 p-2 bg-light rounded">
+                  <Form.Check
+                    type="checkbox"
+                    id="select-all-shippable"
+                    label={`Mark all in warehouse (${shippableFiltered.length})`}
+                    checked={
+                      shippableFiltered.length > 0 &&
+                      shippableFiltered.every((c) => selectedCartonIds.includes(c.id))
+                    }
+                    onChange={toggleSelectAllShippable}
+                  />
+                  {selectedCartonIds.length > 0 && (
+                    <>
+                      <Badge bg="primary">{selectedCartonIds.length} selected</Badge>
+                      <Button
+                        size="sm"
+                        variant="success"
+                        onClick={handleBulkShipSelected}
+                        disabled={isBulkProcessing}
+                      >
+                        <i className="bi bi-truck me-1"></i>
+                        Ship Selected
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        onClick={() => setSelectedCartonIds([])}
+                      >
+                        Clear
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Table Info and Pagination Controls */}
               <Row className="mb-2">
@@ -1401,8 +1525,17 @@ const PODetails = React.memo(() => {
                   <Table striped hover>
                     <thead className="bg-light">
                       <tr>
+                        <th style={{ width: '40px' }}>
+                          <Form.Check
+                            type="checkbox"
+                            checked={allPageSelected}
+                            onChange={toggleSelectAllOnPage}
+                            title="Select all shippable on this page"
+                            disabled={shippableOnPage.length === 0}
+                          />
+                        </th>
                         <th>Barcode</th>
-                        <th>Size</th>
+                        {!hideSizeColumn && <th>Size</th>}
                         <th>Units</th>
                         <th>Status</th>
                         <th>Last Scan</th>
@@ -1412,11 +1545,20 @@ const PODetails = React.memo(() => {
                     <tbody>
                       {paginatedCartons.length > 0 ? (
                         paginatedCartons.map(carton => (
-                          <tr key={carton.id}>
+                          <tr key={carton.id} className={selectedCartonIds.includes(carton.id) ? 'table-primary' : ''}>
+                            <td>
+                              <Form.Check
+                                type="checkbox"
+                                checked={selectedCartonIds.includes(carton.id)}
+                                onChange={() => toggleCartonSelection(carton.id)}
+                                disabled={carton.status !== 'entered'}
+                                title={carton.status !== 'entered' ? 'Only in-warehouse cartons can be selected to ship' : 'Select to ship'}
+                              />
+                            </td>
                             <td>
                               <code className="small">{carton.barcode_2d}</code>
                             </td>
-                            <td>{carton.size}</td>
+                            {!hideSizeColumn && <td>{carton.size}</td>}
                             <td>{carton.units}</td>
                             <td>
                               <Badge bg={
@@ -1503,7 +1645,7 @@ const PODetails = React.memo(() => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="6" className="text-center text-muted py-4">
+                          <td colSpan={hideSizeColumn ? 6 : 7} className="text-center text-muted py-4">
                             {searchTerm || filters.status || filters.size 
                               ? 'No cartons match the current filters' 
                               : cartonData ? 'No cartons found for this shipment' : 'Loading carton data...'

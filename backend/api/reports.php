@@ -4,6 +4,7 @@
  */
 
 require_once '../includes/reports.php';
+require_once '../includes/csv_export.php';
 require_once '../config/database.php';
 
 header('Access-Control-Allow-Origin: *');
@@ -16,20 +17,8 @@ header('Content-Type: application/json');
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
-// Helper: output CSV with BOM + sep hint so Excel always splits columns
 function outputCsv($filename, $data) {
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-    $out = fopen('php://output', 'w');
-    fputs($out, "\xEF\xBB\xBF");   // UTF-8 BOM
-    fputs($out, "sep=,\n");         // Excel column-split hint
-    foreach ($data as $row) {
-        fputcsv($out, $row, ',', '"');
-    }
-    fclose($out);
-    exit;
+    csvOutputRows($filename, $data);
 }
 
 switch ($action) {

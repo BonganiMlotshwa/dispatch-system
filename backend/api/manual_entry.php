@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'PUT
 }
 
 require_once '../config/database.php';
+require_once '../includes/po_helpers.php';
 
 try {
     $pdo = getDbConnection();
@@ -79,16 +80,22 @@ try {
                 (shipment_id, po_number, barcode_2d, size, units, status, scan_timestamp) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)");
             
+            $stmtPo = $pdo->prepare("SELECT po_number FROM cartons WHERE shipment_id = ? LIMIT 1");
+            $stmtPo->execute([$shipmentId]);
+            $existingPo = $stmtPo->fetchColumn();
+            $customerPoFull = $existingPo ?: buildCustomerPoNumber($shipment['customer'], '');
+            $customerPoSuffix = preg_replace('/^[A-Z]+-/i', '', $customerPoFull);
+
             for ($i = 1; $i <= $addCartons; $i++) {
                 $cartonNum = $currentCount + $i;
-                $barcode = $shipment['customer'] . '-' . explode('-', $shipment['internal_po_number'])[1] . '-' . str_pad($cartonNum, 4, '0', STR_PAD_LEFT);
+                $barcode = $shipment['customer'] . '-' . $customerPoSuffix . '-' . str_pad($cartonNum, 4, '0', STR_PAD_LEFT);
                 
                 $status = isset($input['mark_as_received']) && $input['mark_as_received'] ? 'entered' : 'pending';
                 $timestamp = $status === 'entered' ? date('Y-m-d H:i:s') : null;
                 
                 $stmt->execute([
                     $shipmentId,
-                    explode('-', $shipment['internal_po_number'])[1],
+                    $customerPoFull,
                     $barcode,
                     $input['size'] ?? 'N/A',
                     $unitsPerCarton,
@@ -110,7 +117,7 @@ try {
     
     // Handle CREATE (POST request)
     // Validate required fields
-    $required = ['customer', 'po_number', 'style', 'color', 'order_qty', 'cartons_expected', 'units_expected'];
+    $required = ['customer', 'order_no', 'customer_po', 'style', 'color', 'order_qty', 'cartons_expected', 'units_expected'];
     foreach ($required as $field) {
         if (!isset($input[$field]) || $input[$field] === '') {
             throw new Exception("Field '$field' is required");
@@ -119,14 +126,15 @@ try {
     
     $pdo->beginTransaction();
     
-    // Generate unique internal PO number by combining customer and PO
-    $internalPO = $input['customer'] . '-' . $input['po_number'];
+    $internalPO = normalizeOrderNumber($input['order_no']);
+    $customerPoFull = buildCustomerPoNumber($input['customer'], $input['customer_po']);
+    $customerPoSuffix = preg_replace('/^[A-Z]+-/i', '', $customerPoFull);
     
-    // Check if this PO already exists
+    // Check if this order number already exists
     $checkStmt = $pdo->prepare("SELECT id FROM shipments WHERE internal_po_number = ?");
     $checkStmt->execute([$internalPO]);
     if ($checkStmt->fetch()) {
-        throw new Exception("PO number '$internalPO' already exists. Please use a different PO number.");
+        throw new Exception("Order number '$internalPO' already exists. Please use a different order number.");
     }
     
     // Create shipment record
@@ -134,7 +142,7 @@ try {
         (internal_po_number, customer, style, color, order_qty, file_name, entry_type, import_date) 
         VALUES (?, ?, ?, ?, ?, ?, 'manual', NOW())");
     
-    $fileName = $input['customer'] . '-' . $input['po_number'] . '-' . date('Ymd-His');
+    $fileName = $input['customer'] . '-' . $customerPoSuffix . '-' . date('Ymd-His');
     $stmt->execute([
         $internalPO,
         $input['customer'],
@@ -157,7 +165,7 @@ try {
         VALUES (?, ?, ?, ?, ?, ?, ?)");
     
     for ($i = 1; $i <= $cartonsExpected; $i++) {
-        $barcode = $input['customer'] . '-' . $input['po_number'] . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
+        $barcode = $input['customer'] . '-' . $customerPoSuffix . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
         $units = $unitsPerCarton + ($i <= $remainingUnits ? 1 : 0);
         
         // Determine status and timestamp based on whether cartons were received
@@ -173,7 +181,7 @@ try {
         
         $stmt->execute([
             $shipmentId,
-            $input['po_number'],
+            $customerPoFull,
             $barcode,
             $input['size'] ?? 'N/A',
             $units,

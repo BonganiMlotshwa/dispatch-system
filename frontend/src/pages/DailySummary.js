@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
+import { downloadCsv } from '../utils/csvExport';
+import { formatFtmInternalPo } from '../utils/poDisplay';
 
 const DailySummary = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -18,37 +20,32 @@ const DailySummary = () => {
     if (!data?.pos || data.pos.length === 0) return;
 
     const rows = [
-      ['Goods Received Today'],
-      ['Customer', 'PO Number', 'Ctns Expected', 'Units Expected', 'Ctns Entered Today', 'Units Entered Today', 'Ctns Pending', 'Units Pending'],
+      ['Goods Received Today', selectedDate],
+      [],
+      ['Customer', 'FTM PO', 'Ctns Expected', 'Units Expected', 'Ctns Entered Today', 'Units Entered Today', 'Ctns Pending', 'Units Pending'],
       ...data.pos.map(po => [
-        po.customer || '', 
-        po.internal_po_number || '', 
-        po.cartons_expected || 0, 
-        po.units_expected || 0, 
-        po.cartons_entered_today || 0, 
+        po.customer || '',
+        formatFtmInternalPo(po.internal_po_number),
+        po.cartons_expected || 0,
+        po.units_expected || 0,
+        po.cartons_entered_today || 0,
         po.units_entered_today || 0,
         po.cartons_pending || 0,
         po.units_pending || 0
       ]),
       [
-        'Total', 
-        '', 
-        data.totals?.cartons_expected || 0, 
-        data.totals?.units_expected || 0, 
-        data.totals?.cartons_entered_today || 0, 
+        'Total',
+        '',
+        data.totals?.cartons_expected || 0,
+        data.totals?.units_expected || 0,
+        data.totals?.cartons_entered_today || 0,
         data.totals?.units_entered_today || 0,
         data.totals?.cartons_pending || 0,
         data.totals?.units_pending || 0
       ]
     ];
 
-    const csvContent = rows.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `daily-summary-${selectedDate}.csv`;
-    a.click();
+    downloadCsv(`daily-summary-${selectedDate}.csv`, rows);
   };
 
   const exportToPDF = () => {

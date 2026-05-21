@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 // Include required files
 require_once '../config/database.php';
 require_once '../includes/reports.php';
+require_once '../includes/csv_export.php';
 
 // Generate cache key based on request parameters
 $cacheKey = md5($_SERVER['REQUEST_URI'] . serialize($_GET));
@@ -69,22 +70,7 @@ try {
                 throw new Exception($csvReport['message']);
             }
             
-            // Set headers for CSV download
-            header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename="' . $csvReport['filename'] . '"');
-            header('Pragma: no-cache');
-            header('Expires: 0');
-            
-            // Output CSV data with UTF-8 BOM so Excel splits columns correctly
-            $output = fopen('php://output', 'w');
-            fputs($output, "\xEF\xBB\xBF");
-            // sep= hint forces Excel to use comma as delimiter regardless of regional settings
-            fputs($output, "sep=,\n");
-            foreach ($csvReport['data'] as $row) {
-                fputcsv($output, $row, ',', '"');
-            }
-            fclose($output);
-            exit;
+            csvOutputRows($csvReport['filename'], $csvReport['data']);
         }
         // Handle PDF export
         else if ($exportType === 'pdf') {

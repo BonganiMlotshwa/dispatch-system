@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
+import { getCustomerPoPrefix } from '../utils/poDisplay';
 
 const ManualEntry = () => {
   const navigate = useNavigate();
@@ -10,7 +11,8 @@ const ManualEntry = () => {
   
   const [formData, setFormData] = useState({
     customer: 'OTB',
-    po_number: '',
+    order_no: '',
+    customer_po: '',
     style: '',
     color: '',
     order_qty: '',
@@ -22,21 +24,14 @@ const ManualEntry = () => {
 
   const customers = ['MRP', 'OTB', 'OBSW', 'Other'];
 
-  const getPoPrefix = (customer) => {
-    if (customer === 'MRP') return 'FTM-';
-    if (customer === 'OTB') return 'OTTO-';
-    return customer + '-';
-  };
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // If customer changes, clear the PO number
     if (name === 'customer') {
       setFormData({
         ...formData,
         customer: value,
-        po_number: ''
+        customer_po: ''
       });
     } else {
       setFormData({
@@ -54,9 +49,7 @@ const ManualEntry = () => {
     setSuccess('');
 
     try {
-      console.log('Submitting manual entry:', formData);
       const response = await apiService.post('/manual_entry.php', formData);
-      console.log('Response:', response);
       
       if (response.data && response.data.success) {
         setSuccess('Entry created successfully!');
@@ -67,13 +60,15 @@ const ManualEntry = () => {
         setError(response.data?.message || 'Failed to create entry');
       }
     } catch (err) {
-      console.error('Error creating manual entry:', err);
-      console.error('Error response:', err.response);
       setError(err.response?.data?.message || err.message || 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
+
+  const customerPrefix = getCustomerPoPrefix(formData.customer);
+  const orderPreview = formData.order_no ? `FTM-${formData.order_no.replace(/^FTM-/i, '')}` : 'FTM-___';
+  const customerPoPreview = `${customerPrefix}${formData.customer_po || '___'}`;
 
   return (
     <div className="py-2">
@@ -120,20 +115,37 @@ const ManualEntry = () => {
                   </div>
 
                   <div className="col-md-6">
-                    <label className="form-label">PO Number *</label>
+                    <label className="form-label">Order No *</label>
                     <div className="input-group">
-                      <span className="input-group-text">{getPoPrefix(formData.customer)}</span>
+                      <span className="input-group-text">FTM-</span>
                       <input
                         type="text"
                         className="form-control"
-                        name="po_number"
-                        value={formData.po_number}
+                        name="order_no"
+                        value={formData.order_no}
                         onChange={handleChange}
-                        placeholder="e.g., 823"
+                        placeholder="e.g., 125459"
                         required
                       />
                     </div>
-                    <small className="text-muted">Full PO: {getPoPrefix(formData.customer)}{formData.po_number || '___'}</small>
+                    <small className="text-muted">Internal PO: {orderPreview}</small>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="form-label">Customer PO *</label>
+                    <div className="input-group">
+                      <span className="input-group-text">{customerPrefix}</span>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="customer_po"
+                        value={formData.customer_po}
+                        onChange={handleChange}
+                        placeholder="e.g., 809"
+                        required
+                      />
+                    </div>
+                    <small className="text-muted">Customer PO: {customerPoPreview}</small>
                   </div>
 
                   <div className="col-md-6">
@@ -272,10 +284,10 @@ const ManualEntry = () => {
                 Use this form to manually enter data for customers like Otto, OBSW, etc.
               </p>
               <ul className="small text-muted">
-                <li>Select the customer name</li>
-                <li>Enter the PO number</li>
+                <li><strong>Order No</strong> is your internal FTM PO (e.g. FTM-125459)</li>
+                <li><strong>Customer PO</strong> is the customer&apos;s PO (e.g. OTTO-809 for OTB)</li>
                 <li>Provide style and color information</li>
-                <li>Enter order quantity and cartons received</li>
+                <li>Enter order quantity and expected cartons/units</li>
                 <li>System will automatically create carton records</li>
               </ul>
             </div>

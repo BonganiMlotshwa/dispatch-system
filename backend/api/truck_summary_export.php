@@ -4,20 +4,16 @@
  * Export all trucks with summary information
  */
 
-header('Content-Type: text/csv');
-header('Content-Disposition: attachment; filename="truck_summary_' . date('Y-m-d') . '.csv"');
-
 require_once '../config/database.php';
+require_once '../includes/csv_export.php';
 
 try {
     $pdo = getDbConnection();
     
-    // Get filter parameters
     $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : null;
     $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : null;
     $week = isset($_GET['week']) ? $_GET['week'] : null;
     
-    // Build WHERE clause
     $whereConditions = [];
     $params = [];
     
@@ -34,7 +30,6 @@ try {
     
     $whereClause = count($whereConditions) > 0 ? "WHERE " . implode(" AND ", $whereConditions) : "";
     
-    // Get all trucks with summary
     $sql = "
         SELECT 
             ts.shipment_date,
@@ -58,10 +53,7 @@ try {
     $stmt->execute($params);
     $trucks = $stmt->fetchAll();
     
-    $output = fopen('php://output', 'w');
-    
-    // Column headers - all in one row
-    fputcsv($output, [
+    $rows = [[
         'Date',
         'Shipment Week',
         'Truck Registration',
@@ -71,11 +63,10 @@ try {
         'Total Cartons',
         'Total Units',
         'Remarks'
-    ]);
+    ]];
     
-    // Data rows - each truck is one row
     foreach ($trucks as $truck) {
-        fputcsv($output, [
+        $rows[] = [
             $truck['shipment_date'],
             $truck['shipment_week'] ?? '',
             $truck['truck_reg'],
@@ -85,10 +76,10 @@ try {
             $truck['total_cartons'],
             $truck['total_units'],
             $truck['remarks'] ?? ''
-        ]);
+        ];
     }
     
-    fclose($output);
+    csvOutputRows('truck_summary_' . date('Y-m-d') . '.csv', $rows);
     
 } catch (Exception $e) {
     http_response_code(400);

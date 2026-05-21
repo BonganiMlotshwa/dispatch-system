@@ -4,6 +4,7 @@ import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext } from 'react-r
 import './App.css';
 import './styles/modern-theme.css';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AdminAuthProvider } from './contexts/AdminAuthContext';
 import Sidebar from './components/Sidebar';
 import ModernHeader from './components/ModernHeader';
 import Footer from './components/Footer';
@@ -23,7 +24,6 @@ import TruckShipment from './pages/TruckShipment';
 import TruckSummary from './pages/TruckSummary';
 import EmployeeLogin from './pages/EmployeeLogin';
 import Reports from './pages/Reports';
-import DatabaseTest from './components/DatabaseTest';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Enable React Router v7 future flags
@@ -47,6 +47,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <AdminAuthProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         {authed ? (
           <div className="app-with-sidebar">
@@ -71,7 +72,6 @@ function App() {
                       <Route path="/truck-summary" element={<TruckSummary />} />
                       <Route path="/employee-login" element={<EmployeeLogin />} />
                       <Route path="/reports" element={<Reports />} />
-                      <Route path="/db-test" element={<DatabaseTest />} />
                       <Route path="/login" element={<Dashboard />} />
                     </Routes>
                   </ErrorBoundary>
@@ -93,6 +93,7 @@ function App() {
           </main>
         )}
       </Router>
+      </AdminAuthProvider>
     </ThemeProvider>
   );
 }

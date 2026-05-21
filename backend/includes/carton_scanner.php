@@ -5,6 +5,8 @@
  * This file contains functions for handling carton scanning operations.
  */
 
+require_once __DIR__ . '/po_helpers.php';
+
 /**
  * Process a carton scan
  * 
@@ -47,10 +49,7 @@ function processCartonScan($barcode, $action, $pdo, $expectedPo = null, $truckSh
         
         // If an expected PO was provided, verify carton belongs to that PO (match either po_number or internal PO)
         if ($expectedPo !== null && $expectedPo !== '') {
-            $poMatches = (
-                (isset($carton['po_number']) && strval($carton['po_number']) === strval($expectedPo)) ||
-                (isset($carton['internal_po_number']) && strval($carton['internal_po_number']) === strval($expectedPo))
-            );
+            $poMatches = cartonMatchesExpectedPo($carton, $expectedPo);
             if (!$poMatches) {
                 return [
                     'success' => false,

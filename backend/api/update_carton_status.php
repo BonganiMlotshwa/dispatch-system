@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Include database configuration
 require_once '../config/database.php';
+require_once '../includes/admin_auth.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -42,6 +43,9 @@ if (!isset($data['carton_id']) || !isset($data['status'])) {
     echo json_encode(['error' => 'Missing required parameters: carton_id and status']);
     exit;
 }
+
+// Manual status changes require admin code (e.g. mark as shipped)
+requireAdminCode($data);
 
 // Validate status value
 $allowedStatuses = ['pending', 'entered', 'exited'];

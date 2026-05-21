@@ -7,8 +7,7 @@ echo.
 echo This script will help you set up network access for the application.
 echo.
 
-echo Step 1: Opening network test page in your default browser...
-start "" "file:///C:/xampp/htdocs/dispatch/frontend/network_test.html"
+echo Step 1: After npm start, open the app at http://localhost:3000 in your browser.
 echo.
 
 echo Step 2: Running firewall configuration script...

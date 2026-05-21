@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/admin_auth.php';
 
 // Get database connection
 $pdo = getDbConnection();
@@ -40,6 +41,8 @@ try {
         error_log("Missing id field");
         throw new Exception('Missing required field: id');
     }
+
+    requireAdminCode($input);
     
     $id = intval($input['id']);
     error_log("Deleting PO with ID: " . $id);

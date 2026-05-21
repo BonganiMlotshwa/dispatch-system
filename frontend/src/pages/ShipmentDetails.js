@@ -8,6 +8,7 @@ import axios from 'axios';
 import DataTable from 'react-data-table-component';
 import { API_BASE_URL } from '../config';
 import { formatDate } from '../utils/formatters';
+import { formatCustomerPoDisplay, formatFtmInternalPo } from '../utils/poDisplay';
 
 /**
  * ShipmentDetails Page Component
@@ -68,7 +69,7 @@ const ShipmentDetails = () => {
     const fetchShipmentData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:8001/api/shipments.php?id=${id}&cartons=true`);
+        const response = await axios.get(`${API_BASE_URL}/shipments.php?id=${id}&cartons=true`);
         setShipment(response.data.shipment);
         setCartons(response.data.cartons || []);
         setError(null);
@@ -125,7 +126,7 @@ const ShipmentDetails = () => {
     // but kept for backward compatibility
     try {
       setLoading(true);
-      let url = `http://localhost:8001/api/shipments.php?id=${id}&cartons=true`;
+      let url = `${API_BASE_URL}/shipments.php?id=${id}&cartons=true`;
       
       if (filters.status) {
         url += `&status=${filters.status}`;
@@ -156,7 +157,7 @@ const ShipmentDetails = () => {
     
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:8001/api/shipments.php?id=${id}&cartons=true`);
+      const response = await axios.get(`${API_BASE_URL}/shipments.php?id=${id}&cartons=true`);
       setCartons(response.data.cartons || []);
       setError(null);
     } catch (err) {
@@ -169,7 +170,7 @@ const ShipmentDetails = () => {
 
   // Generate CSV export
   const handleExportCsv = () => {
-    window.location.href = `http://localhost:8001/api/shipments.php?id=${id}&export=csv`;
+    window.location.href = `${API_BASE_URL}/shipments.php?id=${id}&export=csv`;
   };
 
   // Get status badge variant
@@ -292,12 +293,16 @@ const ShipmentDetails = () => {
                 <p>
                   <i className="bi bi-receipt me-2 text-secondary"></i>
                   <strong>Customer PO:</strong> 
-                  <span className="ms-2">{cartons && cartons.length > 0 ? cartons[0].po_number : 'N/A'}</span>
+                  <span className="ms-2">
+                    {cartons && cartons.length > 0
+                      ? formatCustomerPoDisplay(shipment.customer, cartons[0].po_number)
+                      : 'N/A'}
+                  </span>
                 </p>
                 <p>
                   <i className="bi bi-file-earmark-text me-2 text-secondary"></i>
-                  <strong>Internal PO:</strong> 
-                  <Badge bg="info" className="ms-2">{shipment.internal_po_number || 'N/A'}</Badge>
+                  <strong>FTM PO (Internal):</strong> 
+                  <Badge bg="info" className="ms-2">{formatFtmInternalPo(shipment.internal_po_number)}</Badge>
                 </p>
                 {shipment.style && (
                   <p>
@@ -399,7 +404,7 @@ const ShipmentDetails = () => {
               </Button>
               <Button 
                 variant="danger" 
-                href={`http://localhost:8001/api/shipments.php?id=${id}&export=pdf`}
+                href={`${API_BASE_URL}/shipments.php?id=${id}&export=pdf`}
                 target="_blank"
               >
                 <i className="bi bi-file-earmark-pdf me-1"></i> Export to PDF
