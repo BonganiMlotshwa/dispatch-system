@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Form, Table, Badge, Button } from 'react-bootstrap';
+import { Alert, Form, Table, Badge, Button, Modal } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
@@ -9,6 +9,17 @@ const TruckSummary = () => {
   const [availableWeeks, setAvailableWeeks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTruck, setEditingTruck] = useState(null);
+  const [editForm, setEditForm] = useState({
+    truck_reg: '',
+    driver_name: '',
+    shipment_date: '',
+    shipment_week: '',
+    remarks: ''
+  });
   
   // Filters
   const [filters, setFilters] = useState({

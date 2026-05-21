@@ -422,16 +422,57 @@ const Dashboard = () => {
             </div>
           </div>
           
-          {/* Charts */}
+          {/* Charts Row - Carton Status/Data Completeness + Quick Stats */}
           <div className="row g-3 g-md-4 mb-4">
-            <div className="col-12">
+            {/* Left Half - Carton Status */}
+            <div className="col-12 col-lg-6">
               <div className="modern-card h-100">
                 <div className="modern-card-header">
-                  <h5 className="mb-0">Carton Status</h5>
+                  <h5 className="mb-0">Carton Status & Data Completeness</h5>
                 </div>
                 <div className="modern-card-body">
                   <div style={{ height: '300px' }}>
                     {statusChartData && <Doughnut data={statusChartData} options={doughnutChartOptions} key="status-chart" />}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right Half - Quick Stats */}
+            <div className="col-12 col-lg-6">
+              <div className="modern-card h-100">
+                <div className="modern-card-header">
+                  <h5 className="mb-0">Quick Stats</h5>
+                </div>
+                <div className="modern-card-body">
+                  <div className="d-flex flex-column gap-3">
+                    <div className="d-flex align-items-center p-3 bg-success bg-opacity-10 rounded">
+                      <div className="stat-icon success me-3">
+                        <i className="bi bi-check-circle fs-3"></i>
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="fs-2 fw-bold text-success">{dashboardData.stats?.status_counts?.exited || 0}</div>
+                        <div className="text-muted">Shipped</div>
+                      </div>
+                    </div>
+                    <div className="d-flex align-items-center p-3 bg-warning bg-opacity-10 rounded">
+                      <div className="stat-icon warning me-3">
+                        <i className="bi bi-clock fs-3"></i>
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="fs-2 fw-bold text-warning">{dashboardData.stats?.status_counts?.pending || 0}</div>
+                        <div className="text-muted">Pending</div>
+                      </div>
+                    </div>
+                    <div className="d-flex align-items-center p-3 bg-info bg-opacity-10 rounded">
+                      <div className="stat-icon info me-3">
+                        <i className="bi bi-box fs-3"></i>
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="fs-2 fw-bold text-info">{dashboardData.stats?.status_counts?.entered || 0}</div>
+                        <div className="text-muted">In Warehouse</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -58,22 +58,24 @@ try {
     }
     
     if ($format === 'csv') {
-        // CSV Export
+        // CSV Export - Match exact format from image
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="truck_shipment_' . $shipment['truck_reg'] . '_' . $shipment['shipment_date'] . '.csv"');
         
         $output = fopen('php://output', 'w');
         
-        // Header info
+        // Title
         fputcsv($output, ['Truck Shipment Summary']);
+        
+        // Truck info - each field on its own row
         fputcsv($output, ['Date', $shipment['shipment_date']]);
         fputcsv($output, ['Shipment Week', $shipment['shipment_week'] ?? '']);
         fputcsv($output, ['Truck Registration', $shipment['truck_reg']]);
         fputcsv($output, ['Driver', $shipment['driver_name'] ?? '']);
         fputcsv($output, ['Remarks', $shipment['remarks'] ?? '']);
-        fputcsv($output, []);
+        fputcsv($output, []); // Empty row
         
-        // Column headers
+        // Data table column headers
         fputcsv($output, ['Customer', 'PO Number', 'Style', 'Color', 'Order Qty', 'Units Shipped', 'Total Cartons', 'Cartons Shipped']);
         
         // Data rows
@@ -87,14 +89,14 @@ try {
                 $item['color'] ?? '',
                 $item['order_qty'] ?? 0,
                 $item['units_shipped'],
-                '', // Total cartons column (empty for now)
+                '', // Total Cartons column (empty)
                 $item['cartons_shipped']
             ]);
             $totalCartons += $item['cartons_shipped'];
             $totalUnits += $item['units_shipped'];
         }
         
-        // Totals
+        // Totals row
         fputcsv($output, []);
         fputcsv($output, ['Total', '', '', '', '', $totalUnits, '', $totalCartons]);
         

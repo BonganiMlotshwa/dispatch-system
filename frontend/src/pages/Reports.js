@@ -419,7 +419,16 @@ const Reports = () => {
                         <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-primary">{comprehensiveReport.summary.total_cartons.toLocaleString()}</div>
                           <div className="text-muted">Total Cartons Expected</div>
-                          <small className="text-muted">From imports</small>
+                          <small className="text-muted">{comprehensiveReport.summary.total_units.toLocaleString()} units</small>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md={3}>
+                      <div className="modern-card text-center">
+                        <div className="modern-card-body">
+                          <div className="fs-2 fw-bold text-success">{comprehensiveReport.summary.cartons_entered.toLocaleString()}</div>
+                          <div className="text-muted">Cartons Received</div>
+                          <small className="text-muted">{comprehensiveReport.summary.units_entered.toLocaleString()} units</small>
                         </div>
                       </div>
                     </Col>
@@ -435,18 +444,9 @@ const Reports = () => {
                     <Col md={3}>
                       <div className="modern-card text-center">
                         <div className="modern-card-body">
-                          <div className="fs-2 fw-bold text-success">{comprehensiveReport.summary.cartons_entered.toLocaleString()}</div>
-                          <div className="text-muted">Cartons Received</div>
-                          <small className="text-muted">{comprehensiveReport.summary.cartons_shipped.toLocaleString()} shipped</small>
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md={3}>
-                      <div className="modern-card text-center">
-                        <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-info">{comprehensiveReport.summary.cartons_in_warehouse.toLocaleString()}</div>
                           <div className="text-muted">In Warehouse</div>
-                          <small className="text-muted">{comprehensiveReport.summary.total_orders.toLocaleString()} orders</small>
+                          <small className="text-muted">{comprehensiveReport.summary.cartons_shipped.toLocaleString()} shipped</small>
                         </div>
                       </div>
                     </Col>

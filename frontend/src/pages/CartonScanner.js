@@ -356,7 +356,7 @@ const CartonScanner = () => {
   const [barcode, setBarcode] = useState('');
   const [barcodes, setBarcodes] = useState(''); // For batch scanning
   const [batchMode, setBatchMode] = useState(false); // Toggle for batch mode
-  const [action, setAction] = useState('enter'); // 'enter' or 'exit'
+  const [action, setAction] = useState(''); // 'enter' or 'exit' - empty by default
   const [expectedPo, setExpectedPo] = useState(''); // Required: PO to validate scans
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState(null);
@@ -1381,27 +1381,46 @@ const CartonScanner = () => {
                   <div className="d-flex gap-2">
                     <button
                       type="button"
-                      className={`flex-grow-1 py-3 ${action === 'enter' ? 'btn-modern btn-modern-primary' : 'btn-modern btn-modern-secondary'}`}
-                      onClick={() => setAction('enter')}
-                      disabled={loading || activeTruck}
+                      className={`flex-grow-1 py-3 ${action === 'enter' ? 'btn-modern btn-modern-primary' : 'btn-modern btn-modern-outline-secondary'}`}
+                      onClick={() => {
+                        if (loading) return;
+                        if (activeTruck) {
+                          if (window.confirm('You have an active truck. Switching to Enter mode will finish loading. Continue?')) {
+                            localStorage.removeItem('active_truck');
+                            setActiveTruck(null);
+                            setAction('enter');
+                          }
+                        } else {
+                          setAction('enter');
+                        }
+                      }}
+                      style={{ cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
                     >
                       <i className="bi bi-box-arrow-in-down me-2 fs-5"></i>
                       <div className="fs-6 fw-medium">Enter Warehouse</div>
                     </button>
                     <button
                       type="button"
-                      className="flex-grow-1 py-3 btn-modern btn-modern-success"
-                      onClick={() => setShowExitModal(true)}
-                      disabled={loading || activeTruck}
+                      className={`flex-grow-1 py-3 ${action === 'exit' ? 'btn-modern btn-modern-success' : 'btn-modern btn-modern-outline-secondary'}`}
+                      onClick={() => {
+                        if (loading) return;
+                        if (activeTruck) {
+                          alert('You already have an active truck. Please finish loading first.');
+                        } else {
+                          setAction('exit');
+                          setShowExitModal(true);
+                        }
+                      }}
+                      style={{ cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
                     >
                       <i className="bi bi-box-arrow-right me-2 fs-5"></i>
                       <div className="fs-6 fw-medium">Exit Warehouse</div>
                     </button>
                   </div>
                   {activeTruck && (
-                    <div className="text-muted small mt-2">
+                    <div className="alert alert-info mt-2 py-2 px-3 small mb-0">
                       <i className="bi bi-info-circle me-1"></i>
-                      Currently loading to {activeTruck.truck_reg}. Click "Finish Loading" above to change mode.
+                      Currently loading to <strong>{activeTruck.truck_reg}</strong>. Click "Enter Warehouse" to finish and switch modes, or click "Finish Loading" above.
                     </div>
                   )}
                 </div>
@@ -1412,6 +1431,7 @@ const CartonScanner = () => {
                     className="btn-modern btn-modern-primary py-3"
                     disabled={
                       loading ||
+                      !action ||
                       (batchMode ? !barcodes.trim() : !barcode.trim()) ||
                       !expectedPo.trim() ||
                       !poValidation.checked || !poValidation.exists || !poValidation.allowed
@@ -1428,6 +1448,12 @@ const CartonScanner = () => {
                       </>
                     )}
                   </button>
+                  {!action && (
+                    <small className="text-muted text-center mt-2">
+                      <i className="bi bi-info-circle me-1"></i>
+                      Please select an action (Enter or Exit Warehouse)
+                    </small>
+                  )}
                 </div>
               </form>
             </div>

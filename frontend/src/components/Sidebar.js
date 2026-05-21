@@ -96,40 +96,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               </Link>
             ))}
           </div>
-
-          {/* Quick Stats Section */}
-          <div className="nav-section">
-            <div className="nav-section-title">Quick Stats</div>
-            <div className="sidebar-stats">
-              <div className="stat-item">
-                <div className="stat-icon success">
-                  <i className="bi bi-check-circle"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-number">{statusCounts.exited || 0}</div>
-                  <div className="stat-label">Shipped</div>
-                </div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-icon warning">
-                  <i className="bi bi-clock"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-number">{statusCounts.pending || 0}</div>
-                  <div className="stat-label">Pending</div>
-                </div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-icon info">
-                  <i className="bi bi-box"></i>
-                </div>
-                <div className="stat-content">
-                  <div className="stat-number">{statusCounts.entered || 0}</div>
-                  <div className="stat-label">In Warehouse</div>
-                </div>
-              </div>
-            </div>
-          </div>
         </nav>
 
         {/* Footer */}
