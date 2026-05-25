@@ -8,7 +8,7 @@ import axios from 'axios';
 import DataTable from 'react-data-table-component';
 import { API_BASE_URL } from '../config';
 import { formatDate } from '../utils/formatters';
-import { formatCustomerPoDisplay, formatFtmInternalPo, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
+import { formatCustomerPoForDisplay, formatInternalPoDisplay, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
 
 /**
  * ShipmentDetails Page Component
@@ -295,14 +295,14 @@ const ShipmentDetails = () => {
                   <strong>Customer PO:</strong> 
                   <span className="ms-2">
                     {cartons && cartons.length > 0
-                      ? formatCustomerPoDisplay(shipment.customer, cartons[0].po_number)
+                      ? formatCustomerPoForDisplay(shipment.customer, cartons[0].po_number)
                       : 'N/A'}
                   </span>
                 </p>
                 <p>
                   <i className="bi bi-file-earmark-text me-2 text-secondary"></i>
                   <strong>FTM PO (Internal):</strong> 
-                  <Badge bg="info" className="ms-2">{formatFtmInternalPo(shipment.internal_po_number)}</Badge>
+                  <Badge bg="info" className="ms-2">{formatInternalPoDisplay(shipment.customer, shipment.internal_po_number)}</Badge>
                 </p>
                 {shipment.style && (
                   <p>

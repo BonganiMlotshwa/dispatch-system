@@ -89,7 +89,8 @@ try {
 
             for ($i = 1; $i <= $addCartons; $i++) {
                 $cartonNum = $currentCount + $i;
-                $barcode = $shipment['customer'] . '-' . $customerPoSuffix . '-' . str_pad($cartonNum, 4, '0', STR_PAD_LEFT);
+                $barcodePrefix = getInternalPoPrefix($shipment['customer']);
+                $barcode = $barcodePrefix . '-' . $customerPoSuffix . '-' . str_pad($cartonNum, 4, '0', STR_PAD_LEFT);
                 
                 $status = isset($input['mark_as_received']) && $input['mark_as_received'] ? 'entered' : 'pending';
                 $timestamp = $status === 'entered' ? date('Y-m-d H:i:s') : null;
@@ -183,7 +184,8 @@ try {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     
     for ($i = 1; $i <= $cartonsExpected; $i++) {
-        $barcode = $input['customer'] . '-' . $customerPoSuffix . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
+        $barcodePrefix = getInternalPoPrefix($input['customer']);
+        $barcode = $barcodePrefix . '-' . $customerPoSuffix . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
         $units = $unitsPerCarton + ($i <= $remainingUnits ? 1 : 0);
         
         // Determine status and timestamp based on whether cartons were received

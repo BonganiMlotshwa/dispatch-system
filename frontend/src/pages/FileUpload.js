@@ -22,6 +22,48 @@ const FileUpload = () => {
   const [uploadSpeed, setUploadSpeed] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [uploadStartTime, setUploadStartTime] = useState(null);
+  const styleStorageKey = 'fileUpload:lastStyle';
+  const colorStorageKey = 'fileUpload:lastColor';
+  const styleHistoryKey = 'fileUpload:styleHistory';
+  const colorHistoryKey = 'fileUpload:colorHistory';
+  const [styleHistory, setStyleHistory] = useState([]);
+  const [colorHistory, setColorHistory] = useState([]);
+
+  const loadHistory = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveToHistory = (key, value, setter) => {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return;
+    const prev = loadHistory(key);
+    const next = [trimmed, ...prev.filter((v) => v.toLowerCase() !== trimmed.toLowerCase())].slice(0, 30);
+    localStorage.setItem(key, JSON.stringify(next));
+    setter(next);
+  };
+
+  useEffect(() => {
+    const savedStyle = localStorage.getItem(styleStorageKey);
+    const savedColor = localStorage.getItem(colorStorageKey);
+    if (savedStyle !== null) setStyle(savedStyle);
+    if (savedColor !== null) setColor(savedColor);
+    setStyleHistory(loadHistory(styleHistoryKey));
+    setColorHistory(loadHistory(colorHistoryKey));
+  }, []);
+
+  useEffect(() => {
+    if (style.trim()) localStorage.setItem(styleStorageKey, style);
+  }, [style]);
+
+  useEffect(() => {
+    if (color.trim()) localStorage.setItem(colorStorageKey, color);
+  }, [color]);
 
   // Auto-clear success messages after 6 seconds
   useEffect(() => {
@@ -218,6 +260,8 @@ const FileUpload = () => {
 
       // Handle successful upload
       if (response.data.success) {
+        saveToHistory(styleHistoryKey, style, setStyleHistory);
+        saveToHistory(colorHistoryKey, color, setColorHistory);
         setUploadResult({
           success: true,
           message: response.data.message,
@@ -232,8 +276,6 @@ const FileUpload = () => {
         // Reset form
         setFile(null);
         setInternalPoNumber('');
-        setStyle('');
-        setColor('');
         setQuantity('');
         document.getElementById('fileUpload').value = '';
       } else {
@@ -360,12 +402,19 @@ const FileUpload = () => {
                     <input
                       type="text"
                       className="form-control-modern w-100"
+                      list="import-style-suggestions"
                       value={style}
                       onChange={(e) => setStyle(e.target.value)}
+                      onBlur={() => saveToHistory(styleHistoryKey, style, setStyleHistory)}
                       disabled={uploading}
                       placeholder="Enter style"
                       required
                     />
+                    <datalist id="import-style-suggestions">
+                      {styleHistory.map((s) => (
+                        <option key={s} value={s} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="col-md-4">
                     <label className="form-label-modern">
@@ -374,12 +423,19 @@ const FileUpload = () => {
                     <input
                       type="text"
                       className="form-control-modern w-100"
+                      list="import-color-suggestions"
                       value={color}
                       onChange={(e) => setColor(e.target.value)}
+                      onBlur={() => saveToHistory(colorHistoryKey, color, setColorHistory)}
                       disabled={uploading}
                       placeholder="Enter color"
                       required
                     />
+                    <datalist id="import-color-suggestions">
+                      {colorHistory.map((c) => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="col-md-4">
                     <label className="form-label-modern">
@@ -444,6 +500,8 @@ const FileUpload = () => {
                       setUploadSpeed(0);
                       setTimeRemaining(0);
                       setUploadStartTime(null);
+                      localStorage.removeItem(styleStorageKey);
+                      localStorage.removeItem(colorStorageKey);
                       document.getElementById('fileUpload').value = '';
                     }}
                     disabled={uploading}

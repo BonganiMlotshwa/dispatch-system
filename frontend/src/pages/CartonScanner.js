@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Modal, Button, Form, Alert, Badge, Table, InputGroup } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Badge, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import Quagga from 'quagga';
@@ -13,6 +13,25 @@ import {
   fetchOpenTrucks,
   mergeOpenTruckLists
 } from '../utils/truckStorage';
+
+const normalizeExpectedPo = (po) => {
+  const value = String(po || '').trim();
+  if (!value) return '';
+  if (/^FTM-/i.test(value)) {
+    return `FTM-${value.replace(/^FTM-/i, '')}`;
+  }
+  const match = value.match(/^[A-Za-z]+-(.+)$/);
+  if (match) {
+    return `FTM-${match[1]}`;
+  }
+  return `FTM-${value}`;
+};
+
+const poMatches = (left, right) => {
+  const a = normalizeExpectedPo(left);
+  const b = normalizeExpectedPo(right);
+  return a !== '' && a === b;
+};
 
 // Simple audio cues using Web Audio API for distinct feedback tones
 const createAudioContext = () => {
@@ -365,7 +384,8 @@ const CartonScanner = () => {
   const [barcodes, setBarcodes] = useState(''); // For batch scanning
   const [batchMode, setBatchMode] = useState(false); // Toggle for batch mode
   const [action, setAction] = useState(''); // 'enter' or 'exit' - empty by default
-  const [expectedPo, setExpectedPo] = useState(''); // Required: PO to validate scans
+  const [poPrefix, setPoPrefix] = useState('FTM');
+  const [poNumber, setPoNumber] = useState(''); // Required: PO number to validate scans
   const [loading, setLoading] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [error, setError] = useState(null);
@@ -403,6 +423,8 @@ const CartonScanner = () => {
   const [sessionScanCount, setSessionScanCount] = useState(0); // Count scans in current session
   const [sessionUnitCount, setSessionUnitCount] = useState(0); // Count units in current session
   const [counterPulse, setCounterPulse] = useState(false); // Trigger pulse animation
+  const expectedPo = normalizeExpectedPo(poNumber ? `${poPrefix}-${poNumber}` : '');
+  const normalizedPo = expectedPo;
 
   // Reference to barcode input for focus management
   const barcodeInputRef = useRef(null);
@@ -524,14 +546,16 @@ const CartonScanner = () => {
 
   const getPoInputClass = () => {
     if (!poValidation.checked) return '';
-    if (!poValidation.exists || poValidation.status === 'fully_shipped') return 'is-invalid';
+    if (!poValidation.exists) return 'is-invalid';
+    if (poValidation.status === 'fully_shipped') return 'is-valid';
     if (poValidation.allowed) return 'is-valid';
     return '';
   };
 
   const getPoFeedbackTone = () => {
     if (!poValidation.checked) return 'muted';
-    if (!poValidation.exists || poValidation.status === 'fully_shipped') return 'danger';
+    if (!poValidation.exists) return 'danger';
+    if (poValidation.status === 'fully_shipped') return 'success';
     if (poValidation.allowed) return 'success';
     if (poValidation.status === 'found') return 'info';
     return 'warning';
@@ -560,8 +584,9 @@ const CartonScanner = () => {
     }
     const apiAction = currentAction && ['enter', 'exit'].includes(currentAction) ? currentAction : 'check';
     try {
+      const normalizedPo = normalizeExpectedPo(po);
       const res = await axios.post(`${API_BASE_URL}/validate_po.php`, {
-        po: po.trim(),
+        po: normalizedPo || po.trim(),
         action: apiAction
       });
       const data = res.data || {};
@@ -945,16 +970,35 @@ const CartonScanner = () => {
     setError(null);
   };
 
+  const handlePoPrefixChange = (prefix) => {
+    setPoPrefix(prefix);
+    setError(null);
+  };
+
+  const handlePoNumberChange = (e) => {
+    const value = e.target.value;
+    const trimmed = String(value || '').trim();
+    const match = trimmed.match(/^([A-Za-z]+)-(.+)$/);
+    if (match) {
+      setPoPrefix(match[1].toUpperCase());
+      setPoNumber(match[2]);
+    } else {
+      setPoNumber(value);
+    }
+    setError(null);
+  };
+
   // Process single carton scan
   const handleSingleScan = async (barcodeToScan, actionToUse) => {
     try {
       console.log(`Processing scan for barcode: ${barcodeToScan}, action: ${actionToUse}`);
+      const normalizedPo = normalizeExpectedPo(expectedPo);
       
       // Prepare request data
       const requestData = {
         barcode: barcodeToScan,
         action: actionToUse,
-        expected_po: expectedPo || undefined
+        expected_po: normalizedPo || undefined
       };
       
       if (activeTruck && actionToUse === 'exit' && !exitWithoutTruck) {
@@ -1003,7 +1047,7 @@ const CartonScanner = () => {
         {
           barcode: barcodeToScan,
           action: actionToUse,
-          po_number: expectedPo,
+          po_number: normalizedPo,
           timestamp: new Date().toLocaleTimeString(),
           fullTimestamp: new Date().toISOString(),
           success: true,
@@ -1018,7 +1062,7 @@ const CartonScanner = () => {
         scanHistory.unshift({
           barcode: barcodeToScan,
           action: actionToUse,
-          po_number: expectedPo,
+          po_number: normalizedPo,
           timestamp: new Date().toISOString(),
           success: true
         });
@@ -1146,7 +1190,9 @@ const CartonScanner = () => {
     setLoading(true);
     setError(null);
 
-    if (!expectedPo.trim()) {
+    const normalizedPo = normalizeExpectedPo(expectedPo);
+
+    if (!normalizedPo) {
       setError('Please enter the PO number before scanning.');
       setLoading(false);
       return;
@@ -1387,16 +1433,34 @@ const CartonScanner = () => {
                     <label className="form-label-modern">
                       <i className="bi bi-receipt me-1"></i>PO Number (required)
                     </label>
-                    <input
-                      ref={poInputRef}
-                      type="text"
-                      className={`form-control-modern ${getPoInputClass()}`}
-                      placeholder="FTM PO from Purchase Orders (e.g. OTTO-852)"
-                      value={expectedPo}
-                      onChange={(e) => setExpectedPo(e.target.value)}
-                      disabled={loading}
-                      autoComplete="off"
-                    />
+                    <div className="d-flex flex-wrap gap-2 mb-2">
+                      {['FTM', 'OTTO', 'OBSW'].map((prefix) => (
+                        <Form.Check
+                          key={prefix}
+                          type="radio"
+                          id={`po-prefix-${prefix.toLowerCase()}`}
+                          name="poPrefix"
+                          label={prefix}
+                          checked={poPrefix === prefix}
+                          onChange={() => handlePoPrefixChange(prefix)}
+                          disabled={loading}
+                          className="me-2"
+                        />
+                      ))}
+                    </div>
+                    <div className="input-group">
+                      <span className="input-group-text">{poPrefix}-</span>
+                      <input
+                        ref={poInputRef}
+                        type="text"
+                        className={`form-control-modern ${getPoInputClass()}`}
+                        placeholder="Enter number only, e.g. 1234"
+                        value={poNumber}
+                        onChange={handlePoNumberChange}
+                        disabled={loading}
+                        autoComplete="off"
+                      />
+                    </div>
                     <div className="small mt-1">
                       {expectedPo ? (
                         poValidation.checked ? (
@@ -1413,7 +1477,7 @@ const CartonScanner = () => {
                           <span className="text-muted">Validating PO...</span>
                         )
                       ) : (
-                        <span className="text-muted">Use the same FTM PO shown in Purchase Orders</span>
+                        <span className="text-muted">Choose a prefix, then type the number. Example: FTM-1234.</span>
                       )}
                     </div>
                   </div>
@@ -1574,7 +1638,7 @@ const CartonScanner = () => {
                           : <>Choose a truck or exit mode using the options above.</>}
                     </div>
                   )}
-                  {action && expectedPo.trim() && poValidation.checked && !poValidation.allowed && (
+                  {action && normalizedPo && poValidation.checked && !poValidation.allowed && (
                     <div className={`alert mt-2 py-2 px-3 small mb-0 ${poValidation.status === 'fully_shipped' || !poValidation.exists ? 'alert-danger' : 'alert-warning'}`}>
                       <i className={`bi ${poValidation.status === 'fully_shipped' || !poValidation.exists ? 'bi-x-circle' : 'bi-exclamation-triangle'} me-1`}></i>
                       {poValidation.summary}
@@ -1590,7 +1654,7 @@ const CartonScanner = () => {
                       loading ||
                       !action ||
                       (batchMode ? !barcodes.trim() : !barcode.trim()) ||
-                      !expectedPo.trim() ||
+                      !normalizedPo ||
                       !poValidation.checked || !poValidation.exists || !poValidation.allowed
                     }
                   >
@@ -1781,9 +1845,9 @@ const CartonScanner = () => {
                 }
                 
                 // Filter by current PO if one is selected
-                if (expectedPo.trim() && !showAllHistory) {
+                if (normalizedPo && !showAllHistory) {
                   scansToShow = scansToShow.filter(scan => 
-                    scan.po_number === expectedPo.trim()
+                    poMatches(scan.po_number, normalizedPo)
                   );
                 }
                 
@@ -2162,9 +2226,19 @@ const CartonScanner = () => {
               setExitWithoutTruck(false);
               setAction('exit');
               setShowExitModal(false);
+              let msg = `Truck ${result.truck.truck_reg} added. Scan cartons to load (other trucks can stay open).`;
+              if (result.assigned_orders?.length > 0) {
+                const names = result.assigned_orders
+                  .map((o) => `${o.customer} ${o.internal_po_number} (${o.cartons_shipped} ctns)`)
+                  .join('; ');
+                msg = `Truck ${result.truck.truck_reg} ready. ${result.assigned_orders.length} manual order(s) assigned: ${names}. You can still scan MRP cartons onto this truck.`;
+              }
+              if (result.assign_errors?.length > 0) {
+                msg += ` Warnings: ${result.assign_errors.join('; ')}`;
+              }
               setScanResult({
                 success: true,
-                message: `Truck ${result.truck.truck_reg} added. Scan cartons to load (other trucks can stay open).`
+                message: msg
               });
               setTimeout(() => {
                 if (barcodeInputRef.current) barcodeInputRef.current.focus();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
 import { downloadCsv } from '../utils/csvExport';
-import { formatFtmInternalPo } from '../utils/poDisplay';
+import { formatInternalPoDisplay } from '../utils/poDisplay';
 
 const DailySummary = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -25,7 +25,7 @@ const DailySummary = () => {
       ['Customer', 'FTM PO', 'Ctns Expected', 'Units Expected', 'Ctns Entered Today', 'Units Entered Today', 'Ctns Pending', 'Units Pending'],
       ...data.pos.map(po => [
         po.customer || '',
-        formatFtmInternalPo(po.internal_po_number),
+        formatInternalPoDisplay(po.customer, po.internal_po_number),
         po.cartons_expected || 0,
         po.units_expected || 0,
         po.cartons_entered_today || 0,
@@ -157,7 +157,7 @@ const DailySummary = () => {
             ${data.pos.map(po => `
               <tr>
                 <td>${po.customer || ''}</td>
-                <td>${po.internal_po_number || ''}</td>
+                <td>${formatInternalPoDisplay(po.customer, po.internal_po_number)}</td>
                 <td style="text-align: right;">${(po.cartons_expected || 0)}</td>
                 <td style="text-align: right;">${(po.units_expected || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(po.cartons_entered_today || 0)}</td>
@@ -243,6 +243,7 @@ const DailySummary = () => {
         <div className="modern-card">
           <div className="modern-card-header">
             <h5 className="mb-0">Goods Received on {new Date(selectedDate).toLocaleDateString()}</h5>
+            <p className="small text-muted mb-0 mt-1">Only purchase orders with cartons physically received on this date</p>
           </div>
           <div className="modern-card-body p-0">
             <div className="table-responsive">
@@ -270,7 +271,7 @@ const DailySummary = () => {
                       {data.pos.map((po, index) => (
                         <tr key={index}>
                           <td className="fw-medium">{po.customer}</td>
-                          <td>{po.internal_po_number}</td>
+                          <td>{formatInternalPoDisplay(po.customer, po.internal_po_number)}</td>
                           <td className="text-end">{po.cartons_expected}</td>
                           <td className="text-end">{po.units_expected.toLocaleString()}</td>
                           <td className="text-end">{po.cartons_entered_today}</td>

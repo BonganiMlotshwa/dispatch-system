@@ -22,7 +22,7 @@ import { useApi } from '../hooks/useApi';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
-import { isOtbCustomer, formatFtmInternalPo, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
+import { isOtbCustomer, formatInternalPoDisplay, formatCustomerPoForDisplay, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
 import { formatCartonStatus } from '../utils/formatters';
 import {
   WAREHOUSE_ORDER_STATUS_OPTIONS,
@@ -1009,7 +1009,7 @@ const PODetails = React.memo(() => {
               </nav>
               <h1 className="display-6 mb-2">
                 <i className="bi bi-box-seam me-2 text-primary"></i>
-                {formatFtmInternalPo(shipment?.internal_po_number) || `PO #${id}`}
+                {formatInternalPoDisplay(shipment?.customer, shipment?.internal_po_number) || `PO #${id}`}
               </h1>
               <div className="d-flex align-items-center flex-wrap gap-3">
                 <Badge bg={getWarehouseOrderStatusBadge(warehouseOrderStatus)} className="fs-6">
@@ -1906,7 +1906,7 @@ const PODetails = React.memo(() => {
                     </div>
                   </div>
                   <div className="mb-2">
-                    <strong>PO Number:</strong> <span className="text-muted">{selectedCarton.po_number}</span>
+                    <strong>Customer PO:</strong> <span className="text-muted">{formatCustomerPoForDisplay(shipment?.customer, selectedCarton.po_number)}</span>
                   </div>
                   <div className="mb-2">
                     <strong>Size:</strong> <span className="text-muted">{selectedCarton.size}</span>

@@ -219,11 +219,11 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
         foreach ($cartons as $carton) {
             $row = [
                 $shipment['customer'] ?? 'MRP',
-                formatFtmInternalPo($shipment['internal_po_number']),
+                formatInternalPoDisplay($shipment['customer'] ?? '', $shipment['internal_po_number']),
                 $shipment['style'] ?? '',
                 $shipment['color'] ?? '',
                 $carton['barcode_2d'],
-                formatCustomerPoDisplay($shipment['customer'] ?? '', $carton['po_number']),
+                formatCustomerPoForDisplay($shipment['customer'] ?? '', $carton['po_number']),
             ];
             if (!$hideSize) {
                 $row[] = $carton['size'];
@@ -334,7 +334,7 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         // Shipment Information
         echo "<h2>Shipment Information</h2>";
         echo "<table class='info-table'>";
-        $ftmPoDisplay = htmlspecialchars(formatFtmInternalPo($shipment['internal_po_number']));
+        $ftmPoDisplay = htmlspecialchars(formatInternalPoDisplay($shipment['customer'] ?? '', $shipment['internal_po_number']));
         echo "<tr><th>FTM PO</th><td>{$ftmPoDisplay}</td></tr>";
         echo "<tr><th>File Name</th><td>{$shipment['file_name']}</td></tr>";
         echo "<tr><th>Import Date</th><td>{$shipment['import_date']}</td></tr>";
@@ -371,7 +371,7 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         echo "</tr>";
 
         foreach ($cartons as $carton) {
-            $poDisplay = htmlspecialchars(formatCustomerPoDisplay($shipment['customer'] ?? '', $carton['po_number']));
+            $poDisplay = htmlspecialchars(formatCustomerPoForDisplay($shipment['customer'] ?? '', $carton['po_number']));
             echo "<tr>";
             echo "<td>{$carton['barcode_2d']}</td>";
             echo "<td>{$poDisplay}</td>";
@@ -857,7 +857,7 @@ function generateComprehensiveCsvReport($pdo, $period = 'all', $startDate = null
         foreach ($reportData['top_orders'] as $order) {
             $csvData[] = [
                 $order['customer'] ?? 'MRP',
-                formatFtmInternalPo($order['ftm_po']),
+                formatInternalPoDisplay($order['customer'] ?? '', $order['ftm_po']),
                 $order['carton_count'],
                 $order['total_units'],
                 $order['cartons_pending'],
@@ -1011,7 +1011,7 @@ function generateComprehensivePdfReport($pdo, $period = 'all', $startDate = null
 
         foreach ($reportData['top_orders'] as $order) {
             echo "<tr>";
-            echo "<td>" . htmlspecialchars(formatFtmInternalPo($order['ftm_po'])) . "</td>";
+            echo "<td>" . htmlspecialchars(formatInternalPoDisplay($order['customer'] ?? '', $order['ftm_po'])) . "</td>";
             echo "<td>{$order['carton_count']}</td>";
             echo "<td>{$order['total_units']}</td>";
             echo "<td>{$order['cartons_pending']}</td>";
@@ -1085,7 +1085,7 @@ function generateTimeBasedCsvReport($pdo, $period = 'daily', $startDate = null, 
             $csvData[] = [
                 $periodValue,
                 $report['customer'] ?? 'MRP',
-                formatFtmInternalPo($report['po_number']),
+                formatInternalPoDisplay($report['customer'] ?? '', $report['po_number']),
                 $report['cartons_received'],
                 $report['units_received'],
                 $report['cartons_pending'] ?? 0,
@@ -1298,7 +1298,7 @@ function generateInventoryCsvReport($pdo) {
         foreach ($inventoryData['inventory'] as $item) {
             $csvData[] = [
                 $item['customer'] ?? 'MRP',
-                formatFtmInternalPo($item['ftm_po']),
+                formatInternalPoDisplay($item['customer'] ?? '', $item['ftm_po']),
                 $item['file_name'],
                 date('Y-m-d', strtotime($item['import_date'])),
                 $item['total_cartons'],
@@ -1398,7 +1398,7 @@ function generateInventoryPdfReport($pdo) {
 
         foreach ($inventoryData['inventory'] as $item) {
             echo "<tr>";
-            echo "<td><strong>" . htmlspecialchars(formatFtmInternalPo($item['ftm_po'])) . "</strong></td>";
+            echo "<td><strong>" . htmlspecialchars(formatInternalPoDisplay($item['customer'] ?? '', $item['ftm_po'])) . "</strong></td>";
             echo "<td>{$item['file_name']}</td>";
             echo "<td>" . date('M d, Y', strtotime($item['import_date'])) . "</td>";
             echo "<td class='text-right'>" . number_format($item['total_cartons']) . "</td>";

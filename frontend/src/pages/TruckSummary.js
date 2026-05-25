@@ -81,8 +81,23 @@ const TruckSummary = () => {
     setTimeout(() => fetchTruckSummary(), 100);
   };
 
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
+    if (filters.week) params.append('week', filters.week);
+    if (filters.truck_reg) params.append('truck_reg', filters.truck_reg);
+    return params;
+  };
+
   const handleExport = (truckId, format) => {
     window.open(`${API_BASE_URL}/truck_shipment_export.php?id=${truckId}&format=${format}`, '_blank');
+  };
+
+  const handleReportExport = (format) => {
+    const params = buildFilterParams();
+    params.append('format', format);
+    window.open(`${API_BASE_URL}/truck_summary_export.php?${params.toString()}`, '_blank');
   };
 
   const handleEditClick = (truck) => {
@@ -137,9 +152,29 @@ const TruckSummary = () => {
 
   return (
     <div className="py-2">
-      <div className="mb-4">
-        <h1 className="text-gradient mb-0">Truck Summary</h1>
-        <p className="text-muted">View and filter truck shipments with carton and unit counts</p>
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+          <h1 className="text-gradient mb-0">Truck Summary</h1>
+          <p className="text-muted mb-0">View and filter truck shipments with carton and unit counts</p>
+        </div>
+        <div className="d-flex gap-2">
+          <Button
+            variant="outline-success"
+            onClick={() => handleReportExport('csv')}
+            disabled={loading || trucks.length === 0}
+          >
+            <i className="bi bi-file-earmark-spreadsheet me-1"></i>
+            Export report CSV
+          </Button>
+          <Button
+            variant="outline-danger"
+            onClick={() => handleReportExport('pdf')}
+            disabled={loading || trucks.length === 0}
+          >
+            <i className="bi bi-file-earmark-pdf me-1"></i>
+            Export report PDF
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

@@ -8,15 +8,72 @@ export function getCustomerPoPrefix(customer) {
   return `${customer}-`;
 }
 
+/** Internal / list PO prefix: OTB → OTTO-, MRP → FTM- */
+export function getInternalPoPrefix(customer) {
+  return getCustomerPoPrefix(customer);
+}
+
 export function formatCustomerPoDisplay(customer, poNumber) {
   if (poNumber === null || poNumber === undefined || poNumber === '') {
     return 'N/A';
   }
   const po = String(poNumber).trim();
   if (/^[A-Za-z]+-/.test(po)) {
+    const c = String(customer || '').toUpperCase();
+    if (c === 'OTB' || c === 'OTTO') {
+      const m = po.match(/^[A-Za-z]+-(.+)$/i);
+      return m ? `OTTO-${m[1].replace(/^OTTO-/i, '')}` : po;
+    }
     return po;
   }
   return `${getCustomerPoPrefix(customer || '')}${po}`;
+}
+
+/** MRP: number only. OTB: OTTO-###. Others: full prefixed PO. */
+export function formatCustomerPoForDisplay(customer, poNumber) {
+  if (poNumber === null || poNumber === undefined || poNumber === '') {
+    return 'N/A';
+  }
+  const c = String(customer || '').toUpperCase();
+  if (c === 'MRP') {
+    return formatCustomerPoNumberOnly(poNumber);
+  }
+  if (c === 'OTB' || c === 'OTTO') {
+    return formatCustomerPoDisplay('OTB', poNumber);
+  }
+  return formatCustomerPoDisplay(customer, poNumber);
+}
+
+export function formatCustomerPoNumberOnly(poNumber) {
+  if (poNumber === null || poNumber === undefined || poNumber === '') {
+    return 'N/A';
+  }
+
+  const po = String(poNumber).trim();
+  const match = po.match(/^[A-Za-z]+-(.+)$/);
+  return match ? match[1] : po;
+}
+
+/** PO number in lists/reports — respects customer (OTB → OTTO-, MRP → FTM-). */
+export function formatInternalPoDisplay(customer, internalPoNumber) {
+  if (internalPoNumber === null || internalPoNumber === undefined || internalPoNumber === '') {
+    return 'N/A';
+  }
+  const c = String(customer || '').toUpperCase();
+  const po = String(internalPoNumber).trim();
+  const digits = po.replace(/^[A-Za-z]+-/i, '');
+  if (c === 'OTB' || c === 'OTTO') {
+    return `OTTO-${digits.replace(/^OTTO-/i, '')}`;
+  }
+  if (c === 'MRP') {
+    return formatFtmInternalPo(po);
+  }
+  if (c === 'OBSW' || c === 'OTHER') {
+    const prefix = c === 'OTHER' ? 'FTM' : c;
+    return `${prefix}-${digits}`;
+  }
+  const prefix = getInternalPoPrefix(customer).replace(/-$/, '');
+  return `${prefix}-${digits}`;
 }
 
 export function isOtbCustomer(customer) {

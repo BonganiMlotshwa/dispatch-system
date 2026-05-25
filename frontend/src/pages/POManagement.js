@@ -10,7 +10,7 @@ import apiService from '../services/apiService';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
-import { formatFtmInternalPo } from '../utils/poDisplay';
+import { formatInternalPoDisplay, formatCustomerPoForDisplay } from '../utils/poDisplay';
 import {
   WAREHOUSE_ORDER_STATUS_OPTIONS,
   getWarehouseOrderStatusBadge,
@@ -621,7 +621,7 @@ const POManagement = () => {
                           to={`/po/${po.id}`} 
                           className="text-decoration-none text-dark"
                         >
-                          {formatFtmInternalPo(po.internal_po_number)}
+                          {formatInternalPoDisplay(po.customer, po.internal_po_number)}
                         </Link>
                       </h5>
                       <div className="d-flex align-items-center gap-2">
@@ -668,7 +668,7 @@ const POManagement = () => {
                     {po.customer_po_number && (
                       <div className="mb-2">
                         <small className="text-muted">Customer PO:</small>
-                        <div className="small fw-medium">{po.customer_po_number}</div>
+                        <div className="small fw-medium">{formatCustomerPoForDisplay(po.customer, po.customer_po_number)}</div>
                       </div>
                     )}
                     
@@ -761,10 +761,10 @@ const POManagement = () => {
                           to={`/po/${po.id}`} 
                           className="text-decoration-none fw-medium"
                         >
-                          {formatFtmInternalPo(po.internal_po_number)}
+                          {formatInternalPoDisplay(po.customer, po.internal_po_number)}
                         </Link>
                       </td>
-                      <td>{po.customer_po_number || '-'}</td>
+                      <td>{po.customer_po_number ? formatCustomerPoForDisplay(po.customer, po.customer_po_number) : '-'}</td>
                       <td>{getStatusBadge(po)}</td>
                       <td>
                         <span className="fw-medium">{po.carton_count}</span>

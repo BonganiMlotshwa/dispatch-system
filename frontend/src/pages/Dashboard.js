@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { useTheme } from '../contexts/ThemeContext';
 import apiService from '../services/apiService';
-import { formatFtmInternalPo } from '../utils/poDisplay';
+import { formatInternalPoDisplay } from '../utils/poDisplay';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -529,7 +529,7 @@ const Dashboard = () => {
                   <tbody>
                     {dashboardData.stats && dashboardData.stats.recent_shipments ? dashboardData.stats.recent_shipments.map((shipment) => (
                       <tr key={shipment.id}>
-                        <td className="fw-medium">{formatFtmInternalPo(shipment.internal_po_number)}</td>
+                        <td className="fw-medium">{formatInternalPoDisplay(shipment.customer, shipment.internal_po_number)}</td>
                         <td className="d-none d-md-table-cell text-muted">{shipment.file_name}</td>
                         <td className="d-none d-lg-table-cell text-muted">{new Date(shipment.import_date).toLocaleDateString()}</td>
                         <td>{shipment.carton_count}</td>

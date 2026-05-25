@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
-import { getCustomerPoPrefix } from '../utils/poDisplay';
+import { getCustomerPoPrefix, getInternalPoPrefix } from '../utils/poDisplay';
 
 const ManualEntry = () => {
   const navigate = useNavigate();
@@ -67,7 +67,9 @@ const ManualEntry = () => {
   };
 
   const customerPrefix = getCustomerPoPrefix(formData.customer);
-  const orderPreview = formData.order_no ? `FTM-${formData.order_no.replace(/^FTM-/i, '')}` : 'FTM-___';
+  const internalPrefix = getInternalPoPrefix(formData.customer);
+  const orderDigits = formData.order_no ? formData.order_no.replace(/^[A-Za-z]+-/i, '') : '';
+  const orderPreview = orderDigits ? `${internalPrefix}${orderDigits}` : `${internalPrefix}___`;
   const customerPoPreview = `${customerPrefix}${formData.customer_po || '___'}`;
 
   return (
@@ -117,14 +119,14 @@ const ManualEntry = () => {
                   <div className="col-md-6">
                     <label className="form-label">Order No *</label>
                     <div className="input-group">
-                      <span className="input-group-text">FTM-</span>
+                      <span className="input-group-text">{internalPrefix}</span>
                       <input
                         type="text"
                         className="form-control"
                         name="order_no"
                         value={formData.order_no}
                         onChange={handleChange}
-                        placeholder="e.g., 125459"
+                        placeholder={formData.customer === 'OTB' ? 'e.g., 809' : 'e.g., 125459'}
                         required
                       />
                     </div>

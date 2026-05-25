@@ -86,9 +86,9 @@ try {
 
             $carton['barcode_2d'],
 
-            formatFtmInternalPo($carton['internal_po_number']),
+            formatInternalPoDisplay($carton['customer'] ?? '', $carton['internal_po_number']),
 
-            formatCustomerPoDisplay($carton['customer'] ?? '', $carton['po_number']),
+            formatCustomerPoForDisplay($carton['customer'] ?? '', $carton['po_number']),
 
             $carton['customer'],
 

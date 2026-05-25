@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/database.php';
+require_once '../includes/truck_manual_assign.php';
 
 try {
     $pdo = getDbConnection();
@@ -45,19 +46,34 @@ try {
     $stmt->execute($params);
     
     $truckShipmentId = $pdo->lastInsertId();
-    
+
+    $assignResult = ['assigned' => [], 'errors' => []];
+    if (!empty($input['assign_orders']) && is_array($input['assign_orders'])) {
+        $assignResult = assignManualOrdersToTruck($pdo, $truckShipmentId, $input['assign_orders']);
+        if (count($assignResult['assigned']) === 0 && count($assignResult['errors']) > 0) {
+            throw new Exception(implode('; ', $assignResult['errors']));
+        }
+    }
+
     $pdo->commit();
-    
+
+    $message = 'Truck created successfully';
+    if (count($assignResult['assigned']) > 0) {
+        $message .= '. ' . count($assignResult['assigned']) . ' manual order(s) assigned to truck.';
+    }
+
     echo json_encode([
         'success' => true,
-        'message' => 'Truck created successfully',
+        'message' => $message,
         'truck' => [
             'id' => $truckShipmentId,
             'truck_reg' => $input['truck_reg'],
             'driver_name' => $input['driver_name'],
             'shipment_date' => $shipmentDate,
             'shipment_week' => $shipmentWeek
-        ]
+        ],
+        'assigned_orders' => $assignResult['assigned'],
+        'assign_errors' => $assignResult['errors']
     ]);
     
 } catch (Exception $e) {

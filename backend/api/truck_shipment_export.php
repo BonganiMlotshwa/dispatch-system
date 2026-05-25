@@ -73,7 +73,7 @@ try {
         foreach ($items as $item) {
             $rows[] = [
                 $item['customer'],
-                formatFtmInternalPo($item['internal_po_number']),
+                formatInternalPoDisplay($item['customer'] ?? '', $item['internal_po_number']),
                 $item['style'] ?? '',
                 $item['color'] ?? '',
                 $item['order_qty'] ?? 0,

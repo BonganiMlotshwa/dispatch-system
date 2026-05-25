@@ -72,13 +72,13 @@ try {
 
             WHERE cx.shipment_id = s.id
 
-            AND ({$receivedOnDateCx} OR cx.status = 'pending')
+            AND {$receivedOnDateCx}
 
         )
 
         GROUP BY s.id, s.customer, s.internal_po_number
 
-        HAVING cartons_entered_today > 0 OR cartons_pending > 0
+        HAVING cartons_entered_today > 0
 
         ORDER BY s.customer ASC, s.internal_po_number ASC
 
