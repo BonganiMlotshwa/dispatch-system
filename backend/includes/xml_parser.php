@@ -153,18 +153,33 @@ function saveImportedData($importData, $pdo) {
             ];
         }
         
-        // Insert shipment record with customer (default MRP for XML imports)
-        $stmt = $pdo->prepare("INSERT INTO shipments (internal_po_number, customer, file_name, import_date, style, color, order_qty, entry_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $importData['shipment']['internal_po_number'],
-            'MRP', // Default customer for XML imports
-            $importData['shipment']['file_name'],
-            $importData['shipment']['import_date'],
-            $importData['style'] ?? null,
-            $importData['color'] ?? null,
-            $importData['quantity'] ?? null,
-            'xml' // Entry type for XML imports
-        ]);
+        // Insert shipment record with customer (default MRP for XML imports) — always Active until changed
+        $hasWhStatus = (bool)$pdo->query("SHOW COLUMNS FROM shipments LIKE 'warehouse_order_status'")->fetch();
+        if ($hasWhStatus) {
+            $stmt = $pdo->prepare("INSERT INTO shipments (internal_po_number, customer, file_name, import_date, style, color, order_qty, entry_type, warehouse_order_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+            $stmt->execute([
+                $importData['shipment']['internal_po_number'],
+                'MRP',
+                $importData['shipment']['file_name'],
+                $importData['shipment']['import_date'],
+                $importData['style'] ?? null,
+                $importData['color'] ?? null,
+                $importData['quantity'] ?? null,
+                'xml'
+            ]);
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO shipments (internal_po_number, customer, file_name, import_date, style, color, order_qty, entry_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $importData['shipment']['internal_po_number'],
+                'MRP',
+                $importData['shipment']['file_name'],
+                $importData['shipment']['import_date'],
+                $importData['style'] ?? null,
+                $importData['color'] ?? null,
+                $importData['quantity'] ?? null,
+                'xml'
+            ]);
+        }
         
         $shipmentId = $pdo->lastInsertId();
         

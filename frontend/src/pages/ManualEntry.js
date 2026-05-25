@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
 import { getCustomerPoPrefix } from '../utils/poDisplay';
 
@@ -290,6 +290,15 @@ const ManualEntry = () => {
                 <li>Enter order quantity and expected cartons/units</li>
                 <li>System will automatically create carton records</li>
               </ul>
+              <hr className="my-3" />
+              <p className="small fw-semibold mb-2">Prior-year stock still in warehouse? (Spec 1.5)</p>
+              <p className="small text-muted mb-2">
+                Cancelled, failed audit, waiting for booking, not audited, etc. — use the legacy tracker (not this form).
+              </p>
+              <Link to="/legacy-warehouse" className="btn btn-sm btn-outline-primary w-100">
+                <i className="bi bi-archive me-1"></i>
+                Legacy Warehouse Stock
+              </Link>
             </div>
           </div>
         </div>

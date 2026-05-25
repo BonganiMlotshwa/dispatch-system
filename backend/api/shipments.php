@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 require_once '../config/database.php';
 require_once '../includes/reports.php';
 require_once '../includes/csv_export.php';
+require_once '../includes/warehouse_order_statuses.php';
 
 // Generate cache key based on request parameters
 $cacheKey = md5($_SERVER['REQUEST_URI'] . serialize($_GET));
@@ -147,10 +148,18 @@ try {
                             FROM shipments s 
                             ORDER BY import_date DESC");
         $shipments = $stmt->fetchAll();
+        $options = warehouseOrderStatusOptions();
+        foreach ($shipments as &$s) {
+            $status = displayWarehouseOrderStatus($s['warehouse_order_status'] ?? 'active');
+            $s['warehouse_order_status'] = $status;
+            $s['warehouse_order_status_label'] = $options[$status] ?? $status;
+        }
+        unset($s);
         
         $response = json_encode([
             'success' => true,
-            'shipments' => $shipments
+            'shipments' => $shipments,
+            'warehouse_order_status_options' => $options
         ]);
         if ($cachingEnabled) {
             file_put_contents($cacheFile, $response);

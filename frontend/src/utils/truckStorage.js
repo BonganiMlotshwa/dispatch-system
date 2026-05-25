@@ -1,5 +1,32 @@
+import axios from 'axios';
+import { API_BASE_URL } from '../config';
+
 const STORAGE_KEY = 'active_trucks';
 const LEGACY_KEY = 'active_truck';
+
+/** Merge API open trucks with this browser's session list (dedupe by id). */
+export function mergeOpenTruckLists(apiTrucks = [], localTrucks = []) {
+  const byId = new Map();
+  [...apiTrucks, ...localTrucks].forEach((t) => {
+    if (!t?.id) return;
+    const id = Number(t.id);
+    byId.set(id, { ...byId.get(id), ...t, id });
+  });
+  return Array.from(byId.values()).sort((a, b) => Number(b.id) - Number(a.id));
+}
+
+/** Fetch unfinished trucks from the server (works across devices / after park). */
+export async function fetchOpenTrucks() {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/active_trucks.php`);
+    if (res.data?.success && Array.isArray(res.data.trucks)) {
+      return res.data.trucks;
+    }
+  } catch (_) {
+    /* fall through */
+  }
+  return [];
+}
 
 export function getActiveTrucks() {
   try {

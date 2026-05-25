@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/po_helpers.php';
+require_once __DIR__ . '/carton_timestamps.php';
 // po_helpers: formatFtmInternalPo, formatCustomerPoDisplay, isOtbCustomer
 
 // Define constants for PDF generation
@@ -207,10 +208,14 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
         if (!$hideSize) {
             $header[] = 'Size';
         }
-        $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan Timestamp', 'Notes']);
+        $isManual = ($shipment['entry_type'] ?? '') === 'manual';
+        if ($isManual) {
+            $header = array_merge($header, ['Units', 'Item', 'Status', 'Entry Time', 'Exit Time', 'Notes']);
+        } else {
+            $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan Timestamp', 'Notes']);
+        }
         $csvData[] = $header;
         
-        // Add data rows
         foreach ($cartons as $carton) {
             $row = [
                 $shipment['customer'] ?? 'MRP',
@@ -227,9 +232,14 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
                 $carton['units'],
                 $carton['item'],
                 $carton['status'],
-                $carton['scan_timestamp'] ?? '',
-                $carton['notes'] ?? ''
             ]);
+            if ($isManual) {
+                $row[] = $carton['entry_timestamp'] ?? '';
+                $row[] = $carton['exit_timestamp'] ?? '';
+            } else {
+                $row[] = $carton['scan_timestamp'] ?? '';
+            }
+            $row[] = $carton['notes'] ?? '';
             $csvData[] = $row;
         }
         
@@ -352,7 +362,12 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         }
         echo "<th>Units</th>";
         echo "<th>Status</th>";
-        echo "<th>Scan Timestamp</th>";
+        $isManual = ($shipment['entry_type'] ?? '') === 'manual';
+        if ($isManual) {
+            echo "<th>Entry Time</th><th>Exit Time</th>";
+        } else {
+            echo "<th>Scan Timestamp</th>";
+        }
         echo "</tr>";
 
         foreach ($cartons as $carton) {
@@ -365,7 +380,12 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
             }
             echo "<td>{$carton['units']}</td>";
             echo "<td>{$carton['status']}</td>";
-            echo "<td>" . ($carton['scan_timestamp'] ?? '—') . "</td>";
+            if ($isManual) {
+                echo "<td>" . ($carton['entry_timestamp'] ?? '—') . "</td>";
+                echo "<td>" . ($carton['exit_timestamp'] ?? '—') . "</td>";
+            } else {
+                echo "<td>" . ($carton['scan_timestamp'] ?? '—') . "</td>";
+            }
             echo "</tr>";
         }
 
@@ -1414,6 +1434,88 @@ function generateInventoryPdfReport($pdo) {
             'html' => $html
         ];
 
+    } catch (PDOException $e) {
+        return [
+            'success' => false,
+            'message' => 'Database error: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Cartons and units entered into warehouse per day, grouped by customer.
+ * Uses entry_timestamp (excludes cartons only marked shipped without receiving).
+ */
+function getDailyEnteredByCustomer($pdo, $startDate = null, $endDate = null, $filterPeriod = 'all') {
+    try {
+        if ($startDate && $endDate) {
+            $rangeStart = $startDate;
+            $rangeEnd = $endDate;
+        } else {
+            switch ($filterPeriod) {
+                case 'daily':
+                    $rangeStart = $rangeEnd = date('Y-m-d');
+                    break;
+                case 'weekly':
+                    $rangeStart = date('Y-m-d', strtotime('monday this week'));
+                    $rangeEnd = date('Y-m-d');
+                    break;
+                case 'monthly':
+                    $rangeStart = date('Y-m-01');
+                    $rangeEnd = date('Y-m-d');
+                    break;
+                case 'yearly':
+                    $rangeStart = date('Y-01-01');
+                    $rangeEnd = date('Y-m-d');
+                    break;
+                default:
+                    $rangeStart = date('Y-m-d', strtotime('-29 days'));
+                    $rangeEnd = date('Y-m-d');
+            }
+        }
+
+        $sql = "
+            SELECT
+                DATE(c.entry_timestamp) AS entry_date,
+                s.customer,
+                COUNT(*) AS cartons_entered,
+                COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) AS units_entered
+            FROM cartons c
+            INNER JOIN shipments s ON c.shipment_id = s.id
+            WHERE c.entry_timestamp IS NOT NULL
+              AND (c.exit_timestamp IS NULL OR c.entry_timestamp < c.exit_timestamp OR c.status = 'entered')
+              AND DATE(c.entry_timestamp) BETWEEN ? AND ?
+            GROUP BY DATE(c.entry_timestamp), s.customer
+            ORDER BY entry_date ASC, s.customer ASC
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$rangeStart, $rangeEnd]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $dates = [];
+        $customers = [];
+        foreach ($rows as $row) {
+            if (!in_array($row['entry_date'], $dates, true)) {
+                $dates[] = $row['entry_date'];
+            }
+            if (!in_array($row['customer'], $customers, true)) {
+                $customers[] = $row['customer'];
+            }
+        }
+        sort($customers);
+
+        return [
+            'success' => true,
+            'start_date' => $rangeStart,
+            'end_date' => $rangeEnd,
+            'dates' => $dates,
+            'customers' => $customers,
+            'series' => $rows,
+            'totals' => [
+                'cartons_entered' => array_sum(array_column($rows, 'cartons_entered')),
+                'units_entered' => array_sum(array_column($rows, 'units_entered')),
+            ],
+        ];
     } catch (PDOException $e) {
         return [
             'success' => false,

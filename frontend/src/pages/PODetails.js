@@ -22,7 +22,13 @@ import { useApi } from '../hooks/useApi';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
-import { isOtbCustomer, formatFtmInternalPo } from '../utils/poDisplay';
+import { isOtbCustomer, formatFtmInternalPo, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
+import { formatCartonStatus } from '../utils/formatters';
+import {
+  WAREHOUSE_ORDER_STATUS_OPTIONS,
+  getWarehouseOrderStatusBadge,
+  getWarehouseOrderStatusLabel
+} from '../utils/warehouseOrderStatuses';
 
 // Register ChartJS components
 ChartJS.register(
@@ -75,7 +81,8 @@ const PODetails = React.memo(() => {
   // Bulk operation state
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, action: '' });
-
+  const [warehouseOrderStatus, setWarehouseOrderStatus] = useState('active');
+  const [savingWhStatus, setSavingWhStatus] = useState(false);
 
   // Memoize API URLs to prevent unnecessary re-renders
   const analyticsUrl = useMemo(() => 
@@ -116,6 +123,44 @@ const PODetails = React.memo(() => {
   const { data: poData, loading, error, refetch: refetchAnalytics } = useApi(analyticsUrl, { 
     debounceMs: 200 // Debounce rapid changes
   });
+
+  useEffect(() => {
+    const s = poData?.shipment;
+    if (s) {
+      setWarehouseOrderStatus(s.warehouse_order_status || 'active');
+    }
+  }, [poData?.shipment]);
+
+  const handleWarehouseOrderStatusChange = async (e) => {
+    const next = e.target.value;
+    setSavingWhStatus(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/update_shipment_warehouse_status.php`, {
+        shipment_id: id,
+        warehouse_order_status: next
+      });
+      if (res.data?.success) {
+        setWarehouseOrderStatus(next);
+        await refetchAnalytics();
+        setNotifications((prev) => [...prev, {
+          id: Date.now(),
+          type: 'success',
+          message: `Order status set to ${getWarehouseOrderStatusLabel(next)}`,
+          timestamp: new Date()
+        }]);
+      }
+    } catch (err) {
+      setNotifications((prev) => [...prev, {
+        id: Date.now(),
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to update order status',
+        timestamp: new Date()
+      }]);
+    } finally {
+      setSavingWhStatus(false);
+    }
+  };
+
   const { data: cartonData, loading: cartonLoading, refetch: refetchCartons } = useApi(cartonUrl, { 
     debounceMs: 300 // Longer debounce for filter changes
   });
@@ -313,6 +358,8 @@ const PODetails = React.memo(() => {
     // Pre-process carton data for faster modal rendering
     const processedCarton = {
       ...carton,
+      formattedEntryTime: formatCartonDateTime(getCartonEntryTime(carton)),
+      formattedExitTime: formatCartonDateTime(getCartonExitTime(carton)),
       formattedScanTime: carton.scan_timestamp ? new Date(carton.scan_timestamp).toLocaleString() : 'Never scanned',
       formattedCreatedAt: new Date(carton.created_at).toLocaleString(),
       formattedUpdatedAt: new Date(carton.updated_at).toLocaleString()
@@ -910,6 +957,7 @@ const PODetails = React.memo(() => {
   }
 
   const shipment = poData?.shipment;
+  const isManualEntry = shipment?.entry_type === 'manual';
   const hideSizeColumn = isOtbCustomer(shipment?.customer);
   
   return (
@@ -963,9 +1011,24 @@ const PODetails = React.memo(() => {
                 <i className="bi bi-box-seam me-2 text-primary"></i>
                 {formatFtmInternalPo(shipment?.internal_po_number) || `PO #${id}`}
               </h1>
-              <div className="d-flex align-items-center gap-3">
+              <div className="d-flex align-items-center flex-wrap gap-3">
+                <Badge bg={getWarehouseOrderStatusBadge(warehouseOrderStatus)} className="fs-6">
+                  {getWarehouseOrderStatusLabel(warehouseOrderStatus)}
+                </Badge>
+                <Form.Select
+                  size="sm"
+                  className="w-auto"
+                  value={warehouseOrderStatus}
+                  onChange={handleWarehouseOrderStatusChange}
+                  disabled={savingWhStatus}
+                  aria-label="Warehouse order status"
+                >
+                  {Object.entries(WAREHOUSE_ORDER_STATUS_OPTIONS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </Form.Select>
                 <Badge bg={stats?.completionRate >= 80 ? 'success' : stats?.completionRate >= 50 ? 'warning' : 'danger'} className="fs-6">
-                  {stats?.completionRate}% Complete
+                  {stats?.completionRate}% cartons shipped
                 </Badge>
                 <span className="text-muted">
                   <i className="bi bi-calendar3 me-1"></i>
@@ -1538,7 +1601,14 @@ const PODetails = React.memo(() => {
                         {!hideSizeColumn && <th>Size</th>}
                         <th>Units</th>
                         <th>Status</th>
-                        <th>Last Scan</th>
+                        {isManualEntry ? (
+                          <>
+                            <th>Entry Time</th>
+                            <th>Exit Time</th>
+                          </>
+                        ) : (
+                          <th>Last Scan</th>
+                        )}
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -1565,12 +1635,23 @@ const PODetails = React.memo(() => {
                                 carton.status === 'exited' ? 'success' :
                                 carton.status === 'entered' ? 'info' : 'warning'
                               }>
-                                {carton.status}
+                                {formatCartonStatus(carton.status)}
                               </Badge>
                             </td>
-                            <td className="small text-muted">
-                              {carton.scan_timestamp ? new Date(carton.scan_timestamp).toLocaleDateString() : 'Never'}
-                            </td>
+                            {isManualEntry ? (
+                              <>
+                                <td className="small text-muted">
+                                  {formatCartonDateTime(getCartonEntryTime(carton))}
+                                </td>
+                                <td className="small text-muted">
+                                  {formatCartonDateTime(getCartonExitTime(carton))}
+                                </td>
+                              </>
+                            ) : (
+                              <td className="small text-muted">
+                                {carton.scan_timestamp ? new Date(carton.scan_timestamp).toLocaleDateString() : 'Never'}
+                              </td>
+                            )}
                             <td>
                               <div className="d-flex gap-1">
                                 <OverlayTrigger
@@ -1842,7 +1923,7 @@ const PODetails = React.memo(() => {
                       selectedCarton.status === 'exited' ? 'success' :
                       selectedCarton.status === 'entered' ? 'info' : 'warning'
                     }>
-                      {selectedCarton.status}
+                      {formatCartonStatus(selectedCarton.status)}
                     </Badge>
                   </div>
                 </div>
@@ -1871,10 +1952,23 @@ const PODetails = React.memo(() => {
                   <h6 className="text-muted mb-3 fw-semibold">Timestamps</h6>
                   <div className="row">
                     <div className="col-md-6">
-                      <div className="mb-2">
-                        <strong>Last Scan:</strong><br />
-                        <small className="text-muted">{selectedCarton.formattedScanTime}</small>
-                      </div>
+                      {isManualEntry ? (
+                        <>
+                          <div className="mb-2">
+                            <strong>Entry Time:</strong><br />
+                            <small className="text-muted">{selectedCarton.formattedEntryTime}</small>
+                          </div>
+                          <div className="mb-2">
+                            <strong>Exit Time:</strong><br />
+                            <small className="text-muted">{selectedCarton.formattedExitTime}</small>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mb-2">
+                          <strong>Last Scan:</strong><br />
+                          <small className="text-muted">{selectedCarton.formattedScanTime}</small>
+                        </div>
+                      )}
                       <div className="mb-2">
                         <strong>Created:</strong><br />
                         <small className="text-muted">{selectedCarton.formattedCreatedAt}</small>

@@ -56,6 +56,12 @@ try {
             $stmt->execute([$id]);
             $message = 'Truck shipment deleted successfully';
             break;
+
+        case 'legacy_warehouse_goods':
+            $stmt = $pdo->prepare('DELETE FROM legacy_warehouse_goods WHERE id = ?');
+            $stmt->execute([$id]);
+            $message = 'Legacy warehouse entry deleted successfully';
+            break;
             
         case 'user':
             // Delete user (prevent deleting admin)

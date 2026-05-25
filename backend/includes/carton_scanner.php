@@ -6,6 +6,9 @@
  */
 
 require_once __DIR__ . '/po_helpers.php';
+require_once __DIR__ . '/carton_timestamps.php';
+require_once __DIR__ . '/carton_status_helpers.php';
+require_once __DIR__ . '/sync_shipment_warehouse_status.php';
 
 /**
  * Process a carton scan
@@ -91,23 +94,28 @@ function processCartonScan($barcode, $action, $pdo, $expectedPo = null, $truckSh
             ];
         }
         
-        // Update carton status - use direct ID for faster update
-        // Include truck_shipment_id for exit scans
+        $hasTsCols = cartonTimestampColumnsExist($pdo);
+        $tsUpdate = buildCartonStatusTimestampUpdate($newStatus, $carton['status'], $hasTsCols);
+
         if ($action === 'exit' && $truckShipmentId) {
-            $stmt = $pdo->prepare("UPDATE cartons SET status = ?, scan_timestamp = NOW(), truck_shipment_id = ? WHERE id = ?");
-            $stmt->execute([$newStatus, $truckShipmentId, $carton['id']]);
+            $stmt = $pdo->prepare("UPDATE cartons SET {$tsUpdate['sql']}, truck_shipment_id = ? WHERE id = ?");
+            $stmt->execute(array_merge($tsUpdate['params'], [$truckShipmentId, $carton['id']]));
         } else {
-            $stmt = $pdo->prepare("UPDATE cartons SET status = ?, scan_timestamp = NOW() WHERE id = ?");
-            $stmt->execute([$newStatus, $carton['id']]);
+            $stmt = $pdo->prepare("UPDATE cartons SET {$tsUpdate['sql']} WHERE id = ?");
+            $stmt->execute(array_merge($tsUpdate['params'], [$carton['id']]));
         }
         
+        if (!empty($carton['shipment_id'])) {
+            syncShipmentWarehouseStatus($pdo, (int)$carton['shipment_id']);
+        }
+
         // Calculate processing time
         $processingTime = round((microtime(true) - $startTime) * 1000, 2); // in milliseconds
         
         // Return minimal data needed for UI to improve response time
         return [
             'success' => true,
-            'message' => 'Carton ' . $newStatus . ' successfully',
+            'message' => cartonScanSuccessMessage($newStatus),
             'processing_time_ms' => $processingTime,
             'carton' => [
                 'id' => $carton['id'],
@@ -118,6 +126,7 @@ function processCartonScan($barcode, $action, $pdo, $expectedPo = null, $truckSh
                 'units' => $carton['units'],
                 'item' => $carton['item'],
                 'status' => $newStatus,
+                'status_label' => cartonStatusLabel($newStatus),
                 'timestamp' => date('Y-m-d H:i:s')
             ]
         ];

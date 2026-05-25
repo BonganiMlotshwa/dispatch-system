@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS `shipments` (
   `color` varchar(50) DEFAULT NULL COMMENT 'Product color',
   `order_qty` int(11) DEFAULT NULL COMMENT 'Total order quantity',
   `entry_type` enum('xml','manual') DEFAULT 'xml' COMMENT 'How the shipment was created',
+  `warehouse_order_status` varchar(50) NOT NULL DEFAULT 'active' COMMENT 'Spec 1.5: active, shipped, cancelled, not_audited, failed_audit, waiting_for_booking',
   `quantity` int(11) DEFAULT NULL COMMENT 'Legacy quantity field',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -64,7 +65,9 @@ CREATE TABLE IF NOT EXISTS `cartons` (
   `qc_number` varchar(50) DEFAULT NULL COMMENT 'Manually entered QC number',
   `finishing_number` varchar(50) DEFAULT NULL COMMENT 'Manually entered finishing number',
   `status` enum('pending','entered','exited') NOT NULL DEFAULT 'pending' COMMENT 'Current status of carton',
-  `scan_timestamp` datetime DEFAULT NULL COMMENT 'Timestamp when carton was scanned/entered',
+  `scan_timestamp` datetime DEFAULT NULL COMMENT 'Timestamp of last scan activity',
+  `entry_timestamp` datetime DEFAULT NULL COMMENT 'When carton entered warehouse',
+  `exit_timestamp` datetime DEFAULT NULL COMMENT 'When carton exited warehouse',
   `notes` text DEFAULT NULL COMMENT 'Additional notes or comments',
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -153,6 +156,34 @@ COMMIT;
 
 
 -- ============================================
+-- LEGACY WAREHOUSE GOODS (prior-year stock still inside)
+-- ============================================
+CREATE TABLE IF NOT EXISTS `legacy_warehouse_goods` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `internal_po` varchar(50) NOT NULL COMMENT 'FTM PO e.g. FTM-15730',
+  `customer_order_number` varchar(50) DEFAULT NULL,
+  `customer` varchar(50) DEFAULT 'MRP',
+  `style` varchar(200) DEFAULT NULL,
+  `color` varchar(100) DEFAULT NULL,
+  `order_qty` int(11) DEFAULT NULL,
+  `quantity_inside` int(11) DEFAULT NULL,
+  `cartons_label` varchar(50) DEFAULT NULL,
+  `cartons_count` int(11) DEFAULT NULL,
+  `status` varchar(50) NOT NULL DEFAULT 'active',
+  `remarks` text DEFAULT NULL,
+  `new_developments` text DEFAULT NULL,
+  `shipped_qty` int(11) DEFAULT 0,
+  `source_year` smallint(6) DEFAULT 2025,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_internal_po` (`internal_po`),
+  KEY `idx_customer` (`customer`),
+  KEY `idx_source_year` (`source_year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- TRUCK SHIPMENT TABLES
 -- ============================================
 
@@ -163,6 +194,7 @@ CREATE TABLE IF NOT EXISTS `truck_shipments` (
     `truck_reg` varchar(50) NOT NULL COMMENT 'Truck registration number',
     `driver_name` varchar(100) DEFAULT NULL COMMENT 'Driver name',
     `remarks` text DEFAULT NULL COMMENT 'Remarks (e.g., shipment incomplete)',
+    `loading_status` enum('open','closed') NOT NULL DEFAULT 'open' COMMENT 'open = loading in progress, closed = finished',
     `created_at` datetime NOT NULL DEFAULT current_timestamp(),
     `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
     PRIMARY KEY (`id`),

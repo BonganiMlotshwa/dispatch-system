@@ -9,7 +9,9 @@ import TruckLoadChoiceModal from '../components/TruckLoadChoiceModal';
 import {
   getActiveTrucks,
   addActiveTruck,
-  removeActiveTruck
+  removeActiveTruck,
+  fetchOpenTrucks,
+  mergeOpenTruckLists
 } from '../utils/truckStorage';
 
 // Simple audio cues using Web Audio API for distinct feedback tones
@@ -393,6 +395,7 @@ const CartonScanner = () => {
   const [searchTerm, setSearchTerm] = useState(''); // For filtering recent scans
   const [showExitModal, setShowExitModal] = useState(false);
   const [showTruckChoiceModal, setShowTruckChoiceModal] = useState(false);
+  const [loadingOpenTrucks, setLoadingOpenTrucks] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [activeTrucks, setActiveTrucks] = useState([]);
   const [activeTruck, setActiveTruck] = useState(null);
@@ -477,6 +480,48 @@ const CartonScanner = () => {
       }
     }
   }, [scanResult, showScanner, loading, poValidation]);
+
+  const refreshOpenTrucks = useCallback(async () => {
+    setLoadingOpenTrucks(true);
+    try {
+      const fromApi = await fetchOpenTrucks();
+      const merged = mergeOpenTruckLists(fromApi, getActiveTrucks());
+      setActiveTrucks(merged);
+      return merged;
+    } finally {
+      setLoadingOpenTrucks(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showTruckChoiceModal) return;
+    refreshOpenTrucks();
+  }, [showTruckChoiceModal, refreshOpenTrucks]);
+
+  const handleFinishLoading = async () => {
+    if (!activeTruck) return;
+    if (!window.confirm(`Mark truck ${activeTruck.truck_reg} as finished loading? You can still view it in Truck Summary.`)) {
+      return;
+    }
+    try {
+      await axios.post(`${API_BASE_URL}/close_truck_loading.php`, { id: activeTruck.id });
+      const remaining = removeActiveTruck(activeTruck.id);
+      const merged = mergeOpenTruckLists(await fetchOpenTrucks(), remaining);
+      setActiveTrucks(merged);
+      setActiveTruck(merged.length ? merged[merged.length - 1] : null);
+      if (merged.length === 0) {
+        setAction('');
+        setExitWithoutTruck(false);
+      }
+      setScanResult({
+        success: true,
+        message: `Truck ${activeTruck.truck_reg} loading complete.`
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to close truck loading');
+    }
+  };
+
   const getPoInputClass = () => {
     if (!poValidation.checked) return '';
     if (!poValidation.exists || poValidation.status === 'fully_shipped') return 'is-invalid';
@@ -1289,6 +1334,16 @@ const CartonScanner = () => {
               {activeTruck && (
                 <button
                   type="button"
+                  className="btn btn-sm btn-success"
+                  onClick={handleFinishLoading}
+                >
+                  <i className="bi bi-check-circle me-1"></i>
+                  Finish loading
+                </button>
+              )}
+              {activeTruck && (
+                <button
+                  type="button"
                   className="btn btn-sm btn-outline-warning"
                   onClick={() => {
                     if (window.confirm(`Park truck ${activeTruck.truck_reg}? You can start another truck while this one stays open.`)) {
@@ -2067,7 +2122,10 @@ const CartonScanner = () => {
           show={showTruckChoiceModal}
           onHide={() => setShowTruckChoiceModal(false)}
           activeTrucks={activeTrucks}
+          loadingTrucks={loadingOpenTrucks}
           onContinueTruck={(truck) => {
+            const list = addActiveTruck(truck);
+            setActiveTrucks(list);
             setActiveTruck(truck);
             setExitWithoutTruck(false);
             setAction('exit');

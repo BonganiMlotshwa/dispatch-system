@@ -29,10 +29,20 @@ export const formatDate = (dateString) => {
  * @param {string} status - The status string to format
  * @returns {string} - The formatted status string
  */
-export const formatStatus = (status) => {
+export const formatStatus = (status) => formatCartonStatus(status);
+
+/** Carton scan status labels (exited displays as Shipped). */
+export const formatCartonStatus = (status) => {
   if (!status) return 'Unknown';
-  
-  // Capitalize first letter and replace underscores with spaces
-  return status.charAt(0).toUpperCase() + 
-         status.slice(1).replace(/_/g, ' ');
+  switch (String(status).toLowerCase()) {
+    case 'entered':
+      return 'In Warehouse';
+    case 'exited':
+    case 'shipped':
+      return 'Shipped';
+    case 'pending':
+      return 'Pending';
+    default:
+      return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
+  }
 };

@@ -20,6 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Include database configuration
 require_once '../config/database.php';
+require_once '../includes/carton_timestamps.php';
+require_once '../includes/carton_status_helpers.php';
+require_once '../includes/sync_shipment_warehouse_status.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -70,13 +73,12 @@ try {
             continue;
         }
         
-        if (!in_array($update['status'], $allowedStatuses)) {
+        $status = normalizeCartonScanStatus($update['status']);
+        if (!in_array($status, $allowedStatuses, true)) {
             $errorCount++;
             $errors[] = "Invalid status '{$update['status']}' for carton {$update['carton_id']}";
             continue;
         }
-        
-        $status = $update['status'];
         if (!isset($updatesByStatus[$status])) {
             $updatesByStatus[$status] = [];
         }
@@ -91,9 +93,17 @@ try {
             // Create placeholders for IN clause
             $placeholders = str_repeat('?,', count($cartonIds) - 1) . '?';
             
-            // Build and execute batch update query
-            $sql = "UPDATE cartons SET status = ?, scan_timestamp = ?, updated_at = ? WHERE id IN ($placeholders)";
-            $params = array_merge([$status, $timestamp, $timestamp], $cartonIds);
+            $hasTsCols = cartonTimestampColumnsExist($db);
+            if ($hasTsCols && $status === 'entered') {
+                $sql = "UPDATE cartons SET status = ?, scan_timestamp = ?, entry_timestamp = COALESCE(entry_timestamp, ?), updated_at = ? WHERE id IN ($placeholders)";
+                $params = array_merge([$status, $timestamp, $timestamp, $timestamp], $cartonIds);
+            } elseif ($hasTsCols && $status === 'exited') {
+                $sql = "UPDATE cartons SET status = ?, scan_timestamp = ?, exit_timestamp = ?, updated_at = ? WHERE id IN ($placeholders)";
+                $params = array_merge([$status, $timestamp, $timestamp, $timestamp], $cartonIds);
+            } else {
+                $sql = "UPDATE cartons SET status = ?, scan_timestamp = ?, updated_at = ? WHERE id IN ($placeholders)";
+                $params = array_merge([$status, $timestamp, $timestamp], $cartonIds);
+            }
             
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -118,6 +128,16 @@ try {
     // Commit transaction if we have any successes
     if ($successCount > 0) {
         $db->commit();
+        if (!empty($updatedCartons)) {
+            $ph = str_repeat('?,', count($updatedCartons) - 1) . '?';
+            $sidStmt = $db->prepare("SELECT DISTINCT shipment_id FROM cartons WHERE id IN ($ph)");
+            $sidStmt->execute($updatedCartons);
+            while ($sidRow = $sidStmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!empty($sidRow['shipment_id'])) {
+                    syncShipmentWarehouseStatus($db, (int)$sidRow['shipment_id']);
+                }
+            }
+        }
     } else {
         $db->rollback();
     }

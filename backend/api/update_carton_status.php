@@ -21,6 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Include database configuration
 require_once '../config/database.php';
 require_once '../includes/admin_auth.php';
+require_once '../includes/carton_timestamps.php';
+require_once '../includes/carton_status_helpers.php';
+require_once '../includes/sync_shipment_warehouse_status.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -47,11 +50,13 @@ if (!isset($data['carton_id']) || !isset($data['status'])) {
 // Manual status changes require admin code (e.g. mark as shipped)
 requireAdminCode($data);
 
+$data['status'] = normalizeCartonScanStatus($data['status'] ?? '');
+
 // Validate status value
 $allowedStatuses = ['pending', 'entered', 'exited'];
-if (!in_array($data['status'], $allowedStatuses)) {
-    http_response_code(400); // Bad Request
-    echo json_encode(['error' => 'Invalid status. Allowed values: ' . implode(', ', $allowedStatuses)]);
+if (!in_array($data['status'], $allowedStatuses, true)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid status. Allowed: Pending, In Warehouse (entered), Shipped (exited)']);
     exit;
 }
 
@@ -59,11 +64,19 @@ try {
     // Get database connection
     $db = getDbConnection();
     
-    // Update carton status
-    $stmt = $db->prepare("UPDATE cartons SET status = ?, scan_timestamp = ?, updated_at = ? WHERE id = ?");
-    $timestamp = date('Y-m-d H:i:s');
-    
-    $stmt->execute([$data['status'], $timestamp, $timestamp, $data['carton_id']]);
+    $stmt = $db->prepare("SELECT status FROM cartons WHERE id = ?");
+    $stmt->execute([$data['carton_id']]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$existing) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Carton not found with ID: ' . $data['carton_id']]);
+        exit;
+    }
+
+    $hasTsCols = cartonTimestampColumnsExist($db);
+    $tsUpdate = buildCartonStatusTimestampUpdate($data['status'], $existing['status'], $hasTsCols);
+    $stmt = $db->prepare("UPDATE cartons SET {$tsUpdate['sql']} WHERE id = ?");
+    $stmt->execute(array_merge($tsUpdate['params'], [$data['carton_id']]));
     
     // Check if carton exists
     if ($stmt->rowCount() === 0) {
@@ -76,12 +89,15 @@ try {
     $stmt = $db->prepare("SELECT * FROM cartons WHERE id = ?");
     $stmt->execute([$data['carton_id']]);
     $carton = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!empty($carton['shipment_id'])) {
+        syncShipmentWarehouseStatus($db, (int)$carton['shipment_id']);
+    }
     
     // Return success response
     echo json_encode([
         'success' => true,
-        'message' => 'Carton status updated successfully',
-        'carton' => $carton
+        'message' => cartonScanSuccessMessage($carton['status']),
+        'carton' => array_merge($carton, ['status_label' => cartonStatusLabel($carton['status'])])
     ]);
     
 } catch (PDOException $e) {

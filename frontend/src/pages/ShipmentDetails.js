@@ -8,7 +8,7 @@ import axios from 'axios';
 import DataTable from 'react-data-table-component';
 import { API_BASE_URL } from '../config';
 import { formatDate } from '../utils/formatters';
-import { formatCustomerPoDisplay, formatFtmInternalPo } from '../utils/poDisplay';
+import { formatCustomerPoDisplay, formatFtmInternalPo, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
 
 /**
  * ShipmentDetails Page Component
@@ -569,12 +569,29 @@ const ShipmentDetails = () => {
                   sortable: true,
                   cell: row => shipment?.customer || row.division || 'N/A'
                 },
-                {
-                  name: 'Scan Time',
-                  selector: row => row.scan_timestamp,
-                  sortable: true,
-                  cell: row => row.scan_timestamp ? new Date(row.scan_timestamp).toLocaleString() : '—'
-                }
+                ...(shipment?.entry_type === 'manual'
+                  ? [
+                      {
+                        name: 'Entry Time',
+                        selector: row => getCartonEntryTime(row),
+                        sortable: true,
+                        cell: row => formatCartonDateTime(getCartonEntryTime(row))
+                      },
+                      {
+                        name: 'Exit Time',
+                        selector: row => getCartonExitTime(row),
+                        sortable: true,
+                        cell: row => formatCartonDateTime(getCartonExitTime(row))
+                      }
+                    ]
+                  : [
+                      {
+                        name: 'Scan Time',
+                        selector: row => row.scan_timestamp,
+                        sortable: true,
+                        cell: row => formatCartonDateTime(row.scan_timestamp)
+                      }
+                    ])
               ]}
               data={cartons}
               pagination

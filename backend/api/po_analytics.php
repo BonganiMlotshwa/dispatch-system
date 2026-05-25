@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 // Include required files
 require_once '../config/database.php';
+require_once '../includes/warehouse_order_statuses.php';
 
 /**
  * Calculate PO analytics and metrics
@@ -87,6 +88,11 @@ function calculatePOAnalytics($shipmentId, $timeRange, $pdo) {
         ");
         $stmt->execute($timeParams);
         $analytics = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $options = warehouseOrderStatusOptions();
+        $status = displayWarehouseOrderStatus($shipment['warehouse_order_status'] ?? 'active');
+        $shipment['warehouse_order_status'] = $status;
+        $shipment['warehouse_order_status_label'] = $options[$status] ?? $status;
 
         // Get size distribution
         $stmt = $pdo->prepare("

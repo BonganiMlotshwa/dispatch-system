@@ -928,7 +928,7 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
 }
 
 .nav-section {
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .nav-section-title {
@@ -1005,12 +1005,103 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
   letter-spacing: 0.05em;
 }
 
-/* Sidebar Stats */
-.sidebar-stats {
-  padding: 0 1.5rem;
+/* Donut chart directly under Reports — matches spec mockup */
+.sidebar-under-reports-chart {
+  padding: 0.5rem 1.5rem 1.25rem;
+  margin: 0 0.75rem 1rem;
+}
+
+.sidebar-under-reports-caption {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0 0 0.75rem;
+  text-align: center;
+}
+
+.sidebar-under-reports-wheel {
+  height: 160px;
+  max-width: 200px;
+  margin: 0 auto 0.75rem;
+  position: relative;
+}
+
+.sidebar-under-reports-wheel--small {
+  height: 72px;
+  max-width: 72px;
+  margin: 0.25rem auto 0;
+}
+
+.sidebar-under-reports-units-wheel {
+  text-align: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--gray-200);
+}
+
+.sidebar-under-reports-units-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-under-reports-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.35rem;
+}
+
+.sidebar-under-reports-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.sidebar-under-reports-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sidebar-under-reports-legend-label {
+  font-weight: 600;
+  min-width: 2.5rem;
+}
+
+.sidebar-under-reports-legend-values {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  margin-left: auto;
+  text-align: right;
+}
+
+.sidebar-under-reports-period {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0.5rem 0 0;
+}
+
+.sidebar-under-reports-empty,
+.sidebar-under-reports-loading {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem 0;
+}
+
+[data-theme="dark"] .sidebar-under-reports-units-wheel {
+  border-top-color: var(--gray-700);
 }
 
 .stat-item {
@@ -1681,6 +1772,16 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
   width: 100%;
   border-collapse: collapse;
   background: var(--bg-primary);
+}
+
+.warehouse-stock-table tbody td {
+  vertical-align: middle;
+  padding: 0.85rem 1rem;
+}
+
+.warehouse-stock-progress {
+  min-width: 120px;
+  max-width: 180px;
 }
 
 .modern-table thead th {

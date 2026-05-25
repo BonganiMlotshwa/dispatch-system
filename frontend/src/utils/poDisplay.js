@@ -25,6 +25,25 @@ export function isOtbCustomer(customer) {
 }
 
 /** FTM PO = internal_po_number, always shown as FTM-##### */
+/** Format datetime for carton entry/exit display */
+export function formatCartonDateTime(value) {
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+  return new Date(value).toLocaleString();
+}
+
+export function getCartonEntryTime(carton) {
+  if (!carton) return null;
+  return carton.entry_timestamp
+    || ((carton.status === 'entered' || carton.status === 'exited') ? carton.scan_timestamp : null);
+}
+
+export function getCartonExitTime(carton) {
+  if (!carton) return null;
+  return carton.exit_timestamp || (carton.status === 'exited' ? carton.scan_timestamp : null);
+}
+
 export function formatFtmInternalPo(internalPoNumber) {
   if (internalPoNumber === null || internalPoNumber === undefined || internalPoNumber === '') {
     return 'N/A';

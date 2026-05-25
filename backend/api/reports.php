@@ -49,6 +49,14 @@ switch ($action) {
         echo json_encode(getTimeBasedReports($pdo, $period, $startDate, $endDate, $filterPeriod));
         break;
 
+    case 'getDailyEnteredByCustomer':
+        $pdo          = getDbConnection();
+        $startDate    = $_GET['start_date']    ?? null;
+        $endDate      = $_GET['end_date']      ?? null;
+        $filterPeriod = $_GET['filter_period'] ?? $_GET['period'] ?? 'all';
+        echo json_encode(getDailyEnteredByCustomer($pdo, $startDate, $endDate, $filterPeriod));
+        break;
+
     case 'getShipmentDetails':
         $shipmentId = intval($_GET['shipmentId'] ?? 0);
         if ($shipmentId > 0) {

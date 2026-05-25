@@ -11,6 +11,11 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { formatFtmInternalPo } from '../utils/poDisplay';
+import {
+  WAREHOUSE_ORDER_STATUS_OPTIONS,
+  getWarehouseOrderStatusBadge,
+  getWarehouseOrderStatusLabel
+} from '../utils/warehouseOrderStatuses';
 
 /**
  * Enhanced PO Management Page
@@ -24,7 +29,7 @@ const POManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('import_date');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'list'
   const [selectedPOs, setSelectedPOs] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
@@ -96,20 +101,11 @@ const POManagement = () => {
       );
     }
     
-    // Apply status filter
+    // Apply spec 1.5 warehouse order status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(po => {
-        const completionRate = po.carton_count > 0 ? (po.shipped_count / po.carton_count) * 100 : 0;
-        switch (statusFilter) {
-          case 'pending':
-            return completionRate === 0;
-          case 'in_progress':
-            return completionRate > 0 && completionRate < 100;
-          case 'completed':
-            return completionRate === 100;
-          default:
-            return true;
-        }
+      filtered = filtered.filter((po) => {
+        const status = po.warehouse_order_status || 'active';
+        return status === statusFilter;
       });
     }
     
@@ -144,10 +140,18 @@ const POManagement = () => {
 
   // Helper functions
   const getStatusBadge = (po) => {
+    const status = po.warehouse_order_status || 'active';
+    const label = po.warehouse_order_status_label || getWarehouseOrderStatusLabel(status);
+    return (
+      <Badge bg={getWarehouseOrderStatusBadge(status)}>{label}</Badge>
+    );
+  };
+
+  const getProgressBadge = (po) => {
     const completionRate = po.carton_count > 0 ? (po.shipped_count / po.carton_count) * 100 : 0;
     
     if (completionRate === 0) {
-      return <Badge bg="warning">Pending</Badge>;
+      return <Badge bg="light" text="dark">No scans</Badge>;
     } else if (completionRate === 100) {
       return <Badge bg="success">Completed</Badge>;
     } else {
@@ -496,10 +500,10 @@ const POManagement = () => {
             <Col md={2}>
               <Form.Label className="small fw-medium text-muted">STATUS</Form.Label>
               <Form.Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
+                <option value="all">All statuses</option>
+                {Object.entries(WAREHOUSE_ORDER_STATUS_OPTIONS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
               </Form.Select>
             </Col>
             

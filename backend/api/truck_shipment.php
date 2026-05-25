@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/database.php';
+require_once '../includes/admin_auth.php';
 
 try {
     $pdo = getDbConnection();
@@ -180,16 +181,17 @@ try {
         ]);
     }
     
-    // DELETE: Delete truck shipment
+    // DELETE: Delete truck shipment (requires admin code)
     elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-        $input = json_decode(file_get_contents('php://input'), true);
-        
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        requireAdminCode($input);
+
         if (!isset($input['id'])) {
             throw new Exception('Truck shipment ID is required');
         }
-        
+
         $stmt = $pdo->prepare("DELETE FROM truck_shipments WHERE id = ?");
-        $stmt->execute([$input['id']]);
+        $stmt->execute([(int)$input['id']]);
         
         echo json_encode([
             'success' => true,

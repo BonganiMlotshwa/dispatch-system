@@ -30,18 +30,19 @@ try {
     
     $pdo->beginTransaction();
     
-    // Create truck shipment
-    $stmt = $pdo->prepare("
-        INSERT INTO truck_shipments 
-        (shipment_date, shipment_week, truck_reg, driver_name) 
-        VALUES (?, ?, ?, ?)
-    ");
-    $stmt->execute([
-        $shipmentDate,
-        $shipmentWeek,
-        $input['truck_reg'],
-        $input['driver_name']
-    ]);
+    $hasLoadingStatus = (bool)$pdo->query("SHOW COLUMNS FROM truck_shipments LIKE 'loading_status'")->fetch();
+    $cols = '(shipment_date, shipment_week, truck_reg, driver_name';
+    $vals = 'VALUES (?, ?, ?, ?';
+    $params = [$shipmentDate, $shipmentWeek, $input['truck_reg'], $input['driver_name']];
+    if ($hasLoadingStatus) {
+        $cols .= ', loading_status';
+        $vals .= ", 'open'";
+    }
+    $cols .= ')';
+    $vals .= ')';
+
+    $stmt = $pdo->prepare("INSERT INTO truck_shipments {$cols} {$vals}");
+    $stmt->execute($params);
     
     $truckShipmentId = $pdo->lastInsertId();
     

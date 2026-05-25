@@ -19,6 +19,7 @@ import ShipmentDetails from './pages/ShipmentDetails';
 import PODetails from './pages/PODetails';
 import POManagement from './pages/POManagement';
 import ManualEntry from './pages/ManualEntry';
+import LegacyWarehouseGoods from './pages/LegacyWarehouseGoods';
 import DailySummary from './pages/DailySummary';
 import TruckShipment from './pages/TruckShipment';
 import TruckSummary from './pages/TruckSummary';
@@ -67,6 +68,7 @@ function App() {
                       <Route path="/po/:id" element={<PODetails />} />
                       <Route path="/pos" element={<POManagement />} />
                       <Route path="/manual-entry" element={<ManualEntry />} />
+                      <Route path="/legacy-warehouse" element={<LegacyWarehouseGoods />} />
                       <Route path="/daily-summary" element={<DailySummary />} />
                       <Route path="/truck-shipment" element={<TruckShipment />} />
                       <Route path="/truck-summary" element={<TruckSummary />} />

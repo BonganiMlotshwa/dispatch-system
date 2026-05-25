@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'PUT
 
 require_once '../config/database.php';
 require_once '../includes/po_helpers.php';
+require_once '../includes/warehouse_order_statuses.php';
 
 try {
     $pdo = getDbConnection();
@@ -77,8 +78,8 @@ try {
             $unitsPerCarton = isset($input['units_per_carton']) ? (int)$input['units_per_carton'] : 1;
             
             $stmt = $pdo->prepare("INSERT INTO cartons 
-                (shipment_id, po_number, barcode_2d, size, units, status, scan_timestamp) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)");
+                (shipment_id, po_number, barcode_2d, size, units, status, scan_timestamp, entry_timestamp) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             
             $stmtPo = $pdo->prepare("SELECT po_number FROM cartons WHERE shipment_id = ? LIMIT 1");
             $stmtPo->execute([$shipmentId]);
@@ -100,6 +101,7 @@ try {
                     $input['size'] ?? 'N/A',
                     $unitsPerCarton,
                     $status,
+                    $timestamp,
                     $timestamp
                 ]);
             }
@@ -137,20 +139,36 @@ try {
         throw new Exception("Order number '$internalPO' already exists. Please use a different order number.");
     }
     
-    // Create shipment record
-    $stmt = $pdo->prepare("INSERT INTO shipments 
-        (internal_po_number, customer, style, color, order_qty, file_name, entry_type, import_date) 
-        VALUES (?, ?, ?, ?, ?, ?, 'manual', NOW())");
-    
+    $whStatus = normalizeWarehouseOrderStatus($input['warehouse_order_status'] ?? 'active');
+    $hasWhStatus = (bool)$pdo->query("SHOW COLUMNS FROM shipments LIKE 'warehouse_order_status'")->fetch();
+
     $fileName = $input['customer'] . '-' . $customerPoSuffix . '-' . date('Ymd-His');
-    $stmt->execute([
-        $internalPO,
-        $input['customer'],
-        $input['style'],
-        $input['color'],
-        $input['order_qty'],
-        $fileName
-    ]);
+    if ($hasWhStatus) {
+        $stmt = $pdo->prepare("INSERT INTO shipments 
+            (internal_po_number, customer, style, color, order_qty, file_name, entry_type, warehouse_order_status, import_date) 
+            VALUES (?, ?, ?, ?, ?, ?, 'manual', ?, NOW())");
+        $stmt->execute([
+            $internalPO,
+            $input['customer'],
+            $input['style'],
+            $input['color'],
+            $input['order_qty'],
+            $fileName,
+            $whStatus
+        ]);
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO shipments 
+            (internal_po_number, customer, style, color, order_qty, file_name, entry_type, import_date) 
+            VALUES (?, ?, ?, ?, ?, ?, 'manual', NOW())");
+        $stmt->execute([
+            $internalPO,
+            $input['customer'],
+            $input['style'],
+            $input['color'],
+            $input['order_qty'],
+            $fileName
+        ]);
+    }
     
     $shipmentId = $pdo->lastInsertId();
     
@@ -161,8 +179,8 @@ try {
     $remainingUnits = $unitsExpected % $cartonsExpected;
     
     $stmt = $pdo->prepare("INSERT INTO cartons 
-        (shipment_id, po_number, barcode_2d, size, units, status, scan_timestamp) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)");
+        (shipment_id, po_number, barcode_2d, size, units, status, scan_timestamp, entry_timestamp) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     
     for ($i = 1; $i <= $cartonsExpected; $i++) {
         $barcode = $input['customer'] . '-' . $customerPoSuffix . '-' . str_pad($i, 4, '0', STR_PAD_LEFT);
@@ -186,6 +204,7 @@ try {
             $input['size'] ?? 'N/A',
             $units,
             $status,
+            $timestamp,
             $timestamp
         ]);
     }

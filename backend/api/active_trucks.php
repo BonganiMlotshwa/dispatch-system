@@ -18,7 +18,11 @@ require_once '../config/database.php';
 try {
     $pdo = getDbConnection();
     
-    // Get truck shipments for today
+    $hasLoadingStatus = (bool)$pdo->query("SHOW COLUMNS FROM truck_shipments LIKE 'loading_status'")->fetch();
+
+    $statusFilter = $hasLoadingStatus ? "AND ts.loading_status = 'open'" : '';
+
+    // Open trucks still being loaded (any date — supports parked / multi-day loads)
     $stmt = $pdo->query("
         SELECT 
             ts.id,
@@ -27,13 +31,15 @@ try {
             ts.shipment_date,
             ts.shipment_week,
             ts.remarks,
+            ts.updated_at,
             COUNT(c.id) as cartons_loaded,
             COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as units_loaded
         FROM truck_shipments ts
         LEFT JOIN cartons c ON c.truck_shipment_id = ts.id AND c.status = 'exited'
-        WHERE DATE(ts.shipment_date) = CURDATE()
-        GROUP BY ts.id
-        ORDER BY ts.created_at DESC
+        WHERE 1=1 {$statusFilter}
+        GROUP BY ts.id, ts.truck_reg, ts.driver_name, ts.shipment_date, ts.shipment_week, ts.remarks, ts.updated_at
+        ORDER BY ts.updated_at DESC
+        LIMIT 50
     ");
     
     $trucks = $stmt->fetchAll();

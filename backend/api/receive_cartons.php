@@ -36,9 +36,10 @@ try {
     if (empty($ids)) throw new Exception('No pending cartons found for this shipment');
 
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $params = array_merge([date('Y-m-d H:i:s')], $ids);
+    $now = date('Y-m-d H:i:s');
+    $params = array_merge([$now, $now, $now], $ids);
     $pdo->prepare(
-        "UPDATE cartons SET status = 'entered', scan_timestamp = ? WHERE id IN ($placeholders)"
+        "UPDATE cartons SET status = 'entered', scan_timestamp = ?, entry_timestamp = COALESCE(entry_timestamp, ?), updated_at = ? WHERE id IN ($placeholders)"
     )->execute($params);
 
     // Return updated counts
