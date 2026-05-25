@@ -1,1 +1,0 @@
-php backend/run_all_migrations.php

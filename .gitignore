@@ -13,8 +13,12 @@ frontend/build/
 # Uploaded files
 backend/uploads/
 
-# Cache files
+# Cache files (generated at runtime)
 backend/cache/
+*.cache.json
+
+# Local dev notes
+newdbcol.txt
 
 # IDEs
 .vscode/
