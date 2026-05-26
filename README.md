@@ -65,6 +65,24 @@ cd warehouse-tracking-system
 mysql -u root -p < database_schema.sql
 ```
 
+### 2b. Run Database Migrations After Pulling
+
+If you pull new code and the app says a column is missing, run the tracked migrations against your local database:
+
+Open **PowerShell**, **Command Prompt**, or the **XAMPP Shell** in the project folder, then paste:
+
+```bash
+php backend/database/migrate.php
+```
+
+This updates the database schema safely and records which migrations were already applied. If you prefer the legacy entry point, this also works:
+
+```bash
+php backend/run_all_migrations.php
+```
+
+Use this whenever new backend code introduces a schema change, such as `entry_timestamp` or `exit_timestamp`.
+
 ### 3. Create Admin User
 
 Visit: `http://localhost:8001/create_admin_user.php`

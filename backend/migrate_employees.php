@@ -5,7 +5,7 @@
  * This script adds tables for employee code-based login
  */
 
-require_once 'config/database.php';
+require_once __DIR__ . '/config/database.php';
 
 try {
     $pdo = getDbConnection();

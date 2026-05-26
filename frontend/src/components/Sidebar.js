@@ -6,10 +6,6 @@ import { useApi } from '../hooks/useApi';
 
 import apiService from '../services/apiService';
 
-import SidebarEntryDonut from './SidebarEntryDonut';
-
-
-
 const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   const location = useLocation();
@@ -159,8 +155,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   {item.badge && <span className="nav-item-badge">{item.badge}</span>}
 
                 </Link>
-
-                {item.path === '/reports' && <SidebarEntryDonut />}
 
               </React.Fragment>
 

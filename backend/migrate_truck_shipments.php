@@ -5,7 +5,7 @@
  * This script adds tables for tracking truck shipments and scan audit trail
  */
 
-require_once 'config/database.php';
+require_once __DIR__ . '/config/database.php';
 
 try {
     $pdo = getDbConnection();
