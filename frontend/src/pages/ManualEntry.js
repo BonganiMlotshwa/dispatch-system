@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import apiService from '../services/apiService';
-import { getCustomerPoPrefix, getInternalPoPrefix } from '../utils/poDisplay';
+import { getCustomerPoPrefix } from '../utils/poDisplay';
 
 const ManualEntry = () => {
   const navigate = useNavigate();
@@ -67,10 +67,12 @@ const ManualEntry = () => {
   };
 
   const customerPrefix = getCustomerPoPrefix(formData.customer);
-  const internalPrefix = getInternalPoPrefix(formData.customer);
+  const internalPrefix = 'FTM-';
   const orderDigits = formData.order_no ? formData.order_no.replace(/^[A-Za-z]+-/i, '') : '';
   const orderPreview = orderDigits ? `${internalPrefix}${orderDigits}` : `${internalPrefix}___`;
-  const customerPoPreview = `${customerPrefix}${formData.customer_po || '___'}`;
+  const customerPoPreview = customerPrefix
+    ? `${customerPrefix}${formData.customer_po || '___'}`
+    : (formData.customer_po || '___');
 
   return (
     <div className="py-2">
@@ -126,7 +128,7 @@ const ManualEntry = () => {
                         name="order_no"
                         value={formData.order_no}
                         onChange={handleChange}
-                        placeholder={formData.customer === 'OTB' ? 'e.g., 809' : 'e.g., 125459'}
+                        placeholder="e.g., 125459"
                         required
                       />
                     </div>
@@ -136,14 +138,14 @@ const ManualEntry = () => {
                   <div className="col-md-6">
                     <label className="form-label">Customer PO *</label>
                     <div className="input-group">
-                      <span className="input-group-text">{customerPrefix}</span>
+                      {customerPrefix ? <span className="input-group-text">{customerPrefix}</span> : null}
                       <input
                         type="text"
                         className="form-control"
                         name="customer_po"
                         value={formData.customer_po}
                         onChange={handleChange}
-                        placeholder="e.g., 809"
+                        placeholder={formData.customer === 'MRP' ? 'e.g., 1055139' : 'e.g., 809'}
                         required
                       />
                     </div>
@@ -287,7 +289,7 @@ const ManualEntry = () => {
               </p>
               <ul className="small text-muted">
                 <li><strong>Order No</strong> is your internal FTM PO (e.g. FTM-125459)</li>
-                <li><strong>Customer PO</strong> is the customer&apos;s PO (e.g. OTTO-809 for OTB)</li>
+                <li><strong>Customer PO</strong> is the customer&apos;s PO (e.g. OTTO-809 for OTB, number only for MRP)</li>
                 <li>Provide style and color information</li>
                 <li>Enter order quantity and expected cartons/units</li>
                 <li>System will automatically create carton records</li>

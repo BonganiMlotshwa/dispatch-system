@@ -3,14 +3,14 @@
  */
 
 export function getCustomerPoPrefix(customer) {
-  if (customer === 'MRP') return 'FTM-';
+  if (customer === 'MRP') return '';
   if (customer === 'OTB') return 'OTTO-';
   return `${customer}-`;
 }
 
-/** Internal / list PO prefix: OTB → OTTO-, MRP → FTM- */
-export function getInternalPoPrefix(customer) {
-  return getCustomerPoPrefix(customer);
+/** Internal PO prefix is always FTM-. */
+export function getInternalPoPrefix() {
+  return 'FTM-';
 }
 
 export function formatCustomerPoDisplay(customer, poNumber) {
@@ -54,26 +54,13 @@ export function formatCustomerPoNumberOnly(poNumber) {
   return match ? match[1] : po;
 }
 
-/** PO number in lists/reports — respects customer (OTB → OTTO-, MRP → FTM-). */
+/** PO number in lists/reports — internal PO always normalizes to FTM-. */
 export function formatInternalPoDisplay(customer, internalPoNumber) {
   if (internalPoNumber === null || internalPoNumber === undefined || internalPoNumber === '') {
     return 'N/A';
   }
-  const c = String(customer || '').toUpperCase();
   const po = String(internalPoNumber).trim();
-  const digits = po.replace(/^[A-Za-z]+-/i, '');
-  if (c === 'OTB' || c === 'OTTO') {
-    return `OTTO-${digits.replace(/^OTTO-/i, '')}`;
-  }
-  if (c === 'MRP') {
-    return formatFtmInternalPo(po);
-  }
-  if (c === 'OBSW' || c === 'OTHER') {
-    const prefix = c === 'OTHER' ? 'FTM' : c;
-    return `${prefix}-${digits}`;
-  }
-  const prefix = getInternalPoPrefix(customer).replace(/-$/, '');
-  return `${prefix}-${digits}`;
+  return formatFtmInternalPo(po);
 }
 
 export function isOtbCustomer(customer) {

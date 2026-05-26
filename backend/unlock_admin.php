@@ -10,7 +10,7 @@ try {
     echo "Admin account unlocked successfully!\n";
     echo "You can now login with:\n";
     echo "  Username: admin\n";
-    echo "  Password: admin123\n";
+    echo "  Password: ChangeMe!123\n";
 } catch (Exception $e) {
     echo "Error: " . $e->getMessage() . "\n";
 }

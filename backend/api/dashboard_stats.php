@@ -25,16 +25,17 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Include required files
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/database.php';
 
 // Short cache time for dashboard stats
-$cacheFile = '../cache/dashboard_stats.json';
+$cacheDir = __DIR__ . '/../cache';
+$cacheFile = $cacheDir . '/dashboard_stats.json';
 $cacheTime = 5; // Very short cache time - 5 seconds for real-time feel
 $cachingEnabled = true; // Re-enabled with very short cache
 
 // Check if cache directory exists, create if not
-if (!is_dir('../cache')) {
-    mkdir('../cache', 0755, true);
+if (!is_dir($cacheDir)) {
+    mkdir($cacheDir, 0755, true);
 }
 
 // Allow cache bypass with refresh parameter
@@ -44,9 +45,12 @@ $forceRefresh = isset($_GET['refresh']) && $_GET['refresh'] === 'true';
 if ($cachingEnabled && !$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
     $cachedData = file_get_contents($cacheFile);
     if ($cachedData) {
-        header('X-Cache: HIT');
-        echo $cachedData;
-        exit;
+        $decoded = json_decode($cachedData, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            header('X-Cache: HIT');
+            echo $cachedData;
+            exit;
+        }
     }
 }
 
@@ -149,7 +153,7 @@ try {
     
     // Cache the response only if caching is enabled
     if ($cachingEnabled) {
-        file_put_contents($cacheFile, $response);
+        file_put_contents($cacheFile, $response, LOCK_EX);
         header('X-Cache: MISS');
     } else {
         header('X-Cache: DISABLED');

@@ -17,14 +17,11 @@ import {
 const normalizeExpectedPo = (po) => {
   const value = String(po || '').trim();
   if (!value) return '';
-  if (/^FTM-/i.test(value)) {
-    return `FTM-${value.replace(/^FTM-/i, '')}`;
-  }
-  const match = value.match(/^[A-Za-z]+-(.+)$/);
+  const match = value.match(/^([A-Za-z]+)-(.+)$/);
   if (match) {
-    return `FTM-${match[1]}`;
+    return `${match[1].toUpperCase()}-${match[2].trim()}`;
   }
-  return `FTM-${value}`;
+  return value.toUpperCase();
 };
 
 const poMatches = (left, right) => {

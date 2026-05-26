@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-require_once '../config/database.php';
-require_once '../includes/po_helpers.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/po_helpers.php';
 
 try {
     $pdo = getDbConnection();
@@ -54,7 +54,10 @@ try {
     $params = [];
 
     foreach ($lookupValues as $value) {
+        // Match both the shipment-level PO and the carton-facing PO alias.
         $matchConditions[] = 'LOWER(s.internal_po_number) = LOWER(?)';
+        $params[] = $value;
+        $matchConditions[] = 'LOWER(c.po_number) = LOWER(?)';
         $params[] = $value;
     }
 

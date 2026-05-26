@@ -5,7 +5,9 @@
  * This script cleans up old cache files to prevent disk space issues
  */
 
-function cleanupCache($cacheDir = '../cache', $maxAge = 3600) {
+function cleanupCache($cacheDir = null, $maxAge = 3600) {
+    $cacheDir = $cacheDir ?: __DIR__ . '/../cache';
+
     if (!is_dir($cacheDir)) {
         return;
     }

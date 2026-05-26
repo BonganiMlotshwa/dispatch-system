@@ -24,20 +24,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 // Include required files
-require_once '../config/database.php';
-require_once '../includes/reports.php';
-require_once '../includes/csv_export.php';
-require_once '../includes/warehouse_order_statuses.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/reports.php';
+require_once __DIR__ . '/../includes/csv_export.php';
+require_once __DIR__ . '/../includes/warehouse_order_statuses.php';
 
 // Generate cache key based on request parameters
 $cacheKey = md5($_SERVER['REQUEST_URI'] . serialize($_GET));
-$cacheFile = "../cache/shipments_{$cacheKey}.json";
+$cacheDir = __DIR__ . '/../cache';
+$cacheFile = $cacheDir . "/shipments_{$cacheKey}.json";
 $cacheTime = 15; // Reduced cache time to 15 seconds for faster updates
 $cachingEnabled = false; // Disabled to ensure immediate updates for new POs
 
 // Check if cache directory exists, create if not
-if (!is_dir('../cache')) {
-    mkdir('../cache', 0755, true);
+if (!is_dir($cacheDir)) {
+    mkdir($cacheDir, 0755, true);
 }
 
 // Allow cache bypass with refresh parameter
