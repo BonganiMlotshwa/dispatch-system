@@ -77,6 +77,26 @@ try {
         FROM cartons c");
     $combined = $stmt->fetch(PDO::FETCH_ASSOC);
     
+    // Get legacy warehouse goods statistics
+    $legacyStats = ['orders' => 0, 'cartons' => 0, 'units' => 0];
+    $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'legacy_warehouse_goods'")->fetch();
+    if ($legacyTableExists) {
+        $stmt = $pdo->query("SELECT 
+            COUNT(*) as orders_count,
+            COALESCE(SUM(cartons_count), 0) as total_cartons,
+            COALESCE(SUM(quantity_inside), 0) as total_units
+            FROM legacy_warehouse_goods 
+            WHERE status = 'active'");
+        $legacy = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($legacy) {
+            $legacyStats = [
+                'orders' => (int)$legacy['orders_count'],
+                'cartons' => (int)$legacy['total_cartons'],
+                'units' => (int)$legacy['total_units']
+            ];
+        }
+    }
+    
     $stats['totals'] = [
         'total_shipments' => (int)$combined['total_shipments'],
         'total_cartons' => (int)$combined['total_cartons'],
@@ -86,7 +106,8 @@ try {
     $stats['status_counts'] = [
         'pending' => (int)$combined['pending_count'],
         'entered' => (int)$combined['entered_count'],
-        'exited' => (int)$combined['exited_count']
+        'exited' => (int)$combined['exited_count'],
+        'received' => (int)$combined['entered_count'] + (int)$combined['exited_count'] // Cartons received (entered + exited)
     ];
     
     $stats['unit_counts'] = [
@@ -95,6 +116,8 @@ try {
         'shipped_units' => (int)$combined['shipped_units'],
         'total_units' => (int)$combined['total_units']
     ];
+    
+    $stats['legacy_warehouse'] = $legacyStats;
     
     $stats['missing_data'] = [
         'missing_qc' => (int)$combined['missing_qc'],

@@ -110,29 +110,13 @@ function formatCustomerPoForDisplay($customer, $poNumber) {
     return formatCustomerPoDisplay($customer, $poNumber);
 }
 
-/** List/report PO — OTB shows OTTO-, MRP shows FTM-. */
+/** List/report PO — Always show FTM- prefix for internal PO (spec clarification). */
 function formatInternalPoDisplay($customer, $internalPoNumber) {
     if ($internalPoNumber === null || $internalPoNumber === '') {
         return 'N/A';
     }
-    $c = strtoupper(trim((string)$customer));
-    $po = trim((string)$internalPoNumber);
-    if (preg_match('/^[A-Za-z]+-(.+)$/i', $po, $m)) {
-        $digits = $m[1];
-    } else {
-        $digits = $po;
-    }
-    if ($c === 'OTB' || $c === 'OTTO') {
-        return 'OTTO-' . preg_replace('/^OTTO-/i', '', $digits);
-    }
-    if ($c === 'MRP') {
-        return formatFtmInternalPo($internalPoNumber);
-    }
-    if ($c === 'OBSW') {
-        return 'OBSW-' . preg_replace('/^OBSW-/i', '', $digits);
-    }
-    $prefix = getInternalPoPrefix($customer);
-    return $prefix . '-' . preg_replace('/^' . preg_quote($prefix, '/') . '-/i', '', $digits);
+    // Always return FTM- format for internal PO, regardless of customer
+    return formatFtmInternalPo($internalPoNumber);
 }
 
 function isOtbCustomer($customer) {

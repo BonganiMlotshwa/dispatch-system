@@ -373,14 +373,14 @@ const Dashboard = () => {
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
-                <div className="dashboard-stat-label">Cartons Shipped</div>
-                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.exited || 0}</div>
+                <div className="dashboard-stat-label">Cartons Received</div>
+                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.received || 0}</div>
               </div>
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
-                <div className="dashboard-stat-label">In Warehouse</div>
-                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.entered || 0}</div>
+                <div className="dashboard-stat-label">Pending Cartons</div>
+                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.pending || 0}</div>
               </div>
             </div>
             <div className="col-6 col-lg-3">
@@ -391,34 +391,64 @@ const Dashboard = () => {
             </div>
           </div>
           
+          {/* Legacy Warehouse Cards */}
+          <div className="row g-3 g-md-4 mb-4">
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-archive me-2"></i>Legacy Orders
+                </div>
+                <div className="dashboard-stat-number text-purple">{dashboardData.stats?.legacy_warehouse?.orders || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #ec4899' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-boxes me-2"></i>Legacy Cartons in Warehouse
+                </div>
+                <div className="dashboard-stat-number text-pink">{dashboardData.stats?.legacy_warehouse?.cartons || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #f59e0b' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-box-seam me-2"></i>Legacy Units in Warehouse
+                </div>
+                <div className="dashboard-stat-number text-warning">{dashboardData.stats?.legacy_warehouse?.units?.toLocaleString() || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #10b981' }}>
+                <div className="dashboard-stat-label">Cartons Shipped</div>
+                <div className="dashboard-stat-number text-success">{dashboardData.stats?.status_counts?.exited || 0}</div>
+              </div>
+            </div>
+          </div>
+          
           {/* Unit Statistics */}
           <div className="row g-3 g-md-4 mb-4">
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #f59e0b' }}>
                 <div className="dashboard-stat-label">Units in Factory</div>
                 <div className="dashboard-stat-number text-warning">{dashboardData.stats?.unit_counts?.factory_units?.toLocaleString() || 0}</div>
-                <small className="text-muted">Currently in warehouse</small>
               </div>
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #10b981' }}>
                 <div className="dashboard-stat-label">Units Shipped</div>
                 <div className="dashboard-stat-number text-success">{dashboardData.stats?.unit_counts?.shipped_units?.toLocaleString() || 0}</div>
-                <small className="text-muted">Successfully delivered</small>
               </div>
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #6b7280' }}>
                 <div className="dashboard-stat-label">Units Pending</div>
                 <div className="dashboard-stat-number text-secondary">{dashboardData.stats?.unit_counts?.pending_units?.toLocaleString() || 0}</div>
-                <small className="text-muted">Awaiting processing</small>
               </div>
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #3b82f6' }}>
                 <div className="dashboard-stat-label">Total Units</div>
                 <div className="dashboard-stat-number text-primary">{dashboardData.stats?.unit_counts?.total_units?.toLocaleString() || 0}</div>
-                <small className="text-muted">All units in system</small>
               </div>
             </div>
           </div>

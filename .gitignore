@@ -26,6 +26,7 @@ newdbcol.txt
 
 # Logs
 *.log
+debug_log.txt
 
 # OS files
 Thumbs.db

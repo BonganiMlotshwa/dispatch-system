@@ -21,6 +21,12 @@ const TruckSummary = () => {
     remarks: ''
   });
   
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingTruck, setDeletingTruck] = useState(null);
+  const [deleteCode, setDeleteCode] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  
   // Filters
   const [filters, setFilters] = useState({
     start_date: '',
@@ -142,6 +148,52 @@ const TruckSummary = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteClick = (truck) => {
+    setDeletingTruck(truck);
+    setDeleteCode(''); // Always reset code for fresh prompt
+    setDeleteError('');
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingTruck) return;
+    if (!deleteCode.trim()) {
+      setDeleteError('Please enter the admin code');
+      return;
+    }
+    
+    setLoading(true);
+    setDeleteError('');
+    
+    try {
+      const response = await axios.post(`${API_BASE_URL}/admin_delete.php`, {
+        delete_type: 'truck_shipment',
+        id: deletingTruck.id,
+        admin_code: deleteCode.trim()
+      });
+      
+      if (response.data.success) {
+        setShowDeleteModal(false);
+        setDeletingTruck(null);
+        setDeleteCode(''); // Clear code after successful delete
+        await fetchTruckSummary();
+      } else {
+        setDeleteError(response.data.message || 'Failed to delete truck');
+      }
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || 'Invalid admin code or deletion failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setDeletingTruck(null);
+    setDeleteCode(''); // Always clear code when closing
+    setDeleteError('');
   };
 
   const formatDate = (dateString) => {
@@ -395,6 +447,13 @@ const TruckSummary = () => {
                           >
                             <i className="bi bi-file-earmark-pdf"></i>
                           </button>
+                          <button
+                            className="btn btn-outline-danger"
+                            onClick={() => handleDeleteClick(truck)}
+                            title="Delete truck shipment"
+                          >
+                            <i className="bi bi-trash"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -475,6 +534,81 @@ const TruckSummary = () => {
           </Button>
           <Button variant="primary" onClick={handleSaveEdit} disabled={loading}>
             {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Delete Confirmation Modal with Code Protection */}
+      <Modal show={showDeleteModal} onHide={handleDeleteCancel} centered>
+        <Modal.Header closeButton className="bg-danger text-white">
+          <Modal.Title>
+            <i className="bi bi-exclamation-triangle me-2"></i>
+            Delete Truck Shipment
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deletingTruck && (
+            <div className="mb-3">
+              <Alert variant="warning">
+                <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Warning:</strong> You are about to delete truck shipment:
+                <div className="mt-2">
+                  <strong>Truck:</strong> {deletingTruck.truck_reg}<br />
+                  <strong>Driver:</strong> {deletingTruck.driver_name}<br />
+                  <strong>Date:</strong> {formatDate(deletingTruck.shipment_date)}<br />
+                  <strong>Cartons:</strong> {deletingTruck.total_cartons} | <strong>Units:</strong> {deletingTruck.total_units}
+                </div>
+                <div className="mt-2 text-danger">
+                  <strong>This action cannot be undone!</strong>
+                </div>
+              </Alert>
+            </div>
+          )}
+          
+          <Form.Group>
+            <Form.Label className="fw-bold">
+              <i className="bi bi-shield-lock me-1"></i>
+              Enter Admin Code to Confirm
+            </Form.Label>
+            <Form.Control
+              type="password"
+              value={deleteCode}
+              onChange={(e) => {
+                setDeleteCode(e.target.value);
+                setDeleteError(''); // Clear error when typing
+              }}
+              placeholder="Admin code required"
+              autoFocus
+              className={deleteError ? 'is-invalid' : ''}
+            />
+            {deleteError && (
+              <div className="invalid-feedback d-block">
+                <i className="bi bi-x-circle me-1"></i>
+                {deleteError}
+              </div>
+            )}
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleDeleteCancel}>
+            Cancel
+          </Button>
+          <Button 
+            variant="danger" 
+            onClick={handleDeleteConfirm} 
+            disabled={loading || !deleteCode.trim()}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Deleting...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-trash me-1"></i>
+                Delete Truck
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
