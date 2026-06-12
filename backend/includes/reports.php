@@ -562,6 +562,7 @@ function getComprehensiveReports($pdo, $period = 'all', $startDate = null, $endD
             SELECT
                 s.customer,
                 s.internal_po_number as ftm_po,
+                (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po,
                 COUNT(c.id) as carton_count,
                 COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as total_units,
                 COUNT(CASE WHEN c.status = 'pending' THEN 1 END) as cartons_pending,
@@ -627,6 +628,7 @@ function getWarehouseInventory($pdo) {
             SELECT
                 s.customer,
                 s.internal_po_number as ftm_po,
+                (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po,
                 s.file_name,
                 s.import_date,
                 COUNT(c.id) as total_cartons,
@@ -636,7 +638,8 @@ function getWarehouseInventory($pdo) {
                 COUNT(CASE WHEN c.status = 'entered' THEN 1 END) as cartons_entered,
                 COALESCE(SUM(CASE WHEN c.status = 'entered' THEN CAST(c.units AS UNSIGNED) ELSE 0 END), 0) as units_entered,
                 COUNT(CASE WHEN c.status = 'exited' THEN 1 END) as cartons_exited,
-                MAX(DATEDIFF(CURDATE(), DATE(s.import_date))) as oldest_carton_days
+                MAX(DATEDIFF(CURDATE(), DATE(s.import_date))) as oldest_carton_days,
+                'current' as stock_type
             FROM shipments s
             INNER JOIN cartons c ON c.shipment_id = s.id
             GROUP BY s.id, s.customer, s.internal_po_number, s.file_name, s.import_date
@@ -646,10 +649,41 @@ function getWarehouseInventory($pdo) {
         $stmt->execute();
         $inventory = $stmt->fetchAll();
 
-        // Totals only for cartons currently in warehouse
+        // Add legacy warehouse goods (prior-year stock)
+        $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'legacy_warehouse_goods'")->fetch();
+        if ($legacyTableExists) {
+            $stmt = $pdo->prepare("
+                SELECT
+                    l.customer,
+                    l.internal_po as ftm_po,
+                    l.customer_order_number as customer_po,
+                    'Legacy Stock' as file_name,
+                    l.created_at as import_date,
+                    COALESCE(l.cartons_count, 0) as total_cartons,
+                    COALESCE(l.quantity_inside, 0) as total_units,
+                    0 as cartons_pending,
+                    0 as units_pending,
+                    COALESCE(l.cartons_count, 0) as cartons_entered,
+                    COALESCE(l.quantity_inside, 0) as units_entered,
+                    0 as cartons_exited,
+                    DATEDIFF(CURDATE(), DATE(l.created_at)) as oldest_carton_days,
+                    'legacy' as stock_type
+                FROM legacy_warehouse_goods l
+                WHERE l.status = 'active'
+                ORDER BY l.customer ASC, l.created_at DESC
+            ");
+            $stmt->execute();
+            $legacyInventory = $stmt->fetchAll();
+            
+            // Merge legacy with current inventory
+            $inventory = array_merge($inventory, $legacyInventory);
+        }
+
+        // Totals for cartons currently in warehouse (current + legacy)
         $stmt = $pdo->prepare("
             SELECT
                 COUNT(*) as total_cartons,
+                COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as total_units,
                 DATEDIFF(CURDATE(), MIN(DATE(s.import_date))) as max_days_in_warehouse,
                 AVG(DATEDIFF(CURDATE(), DATE(s.import_date))) as avg_days_in_warehouse
             FROM cartons c
@@ -658,12 +692,34 @@ function getWarehouseInventory($pdo) {
         ");
         $stmt->execute();
         $totals = $stmt->fetch();
+        
+        $totalCartons = (int)$totals['total_cartons'];
+        $totalUnits = (int)$totals['total_units'];
+        $totalLegacyOrders = 0;
+        
+        // Add legacy cartons and order count to summary totals.
+        if ($legacyTableExists) {
+            $stmt = $pdo->query("
+                SELECT
+                    COUNT(*) as legacy_orders,
+                    COALESCE(SUM(cartons_count), 0) as legacy_cartons,
+                    COALESCE(SUM(quantity_inside), 0) as legacy_units
+                FROM legacy_warehouse_goods
+                WHERE status = 'active'
+            ");
+            $legacyTotals = $stmt->fetch();
+            $totalCartons += (int)$legacyTotals['legacy_cartons'];
+            $totalUnits += (int)$legacyTotals['legacy_units'];
+            $totalLegacyOrders = (int)$legacyTotals['legacy_orders'];
+        }
 
         return [
             'success' => true,
             'inventory' => $inventory,
-            'total_cartons' => (int)$totals['total_cartons'],
+            'total_cartons' => $totalCartons,
+            'total_units' => $totalUnits,
             'total_orders' => count($inventory),
+            'total_legacy_orders' => $totalLegacyOrders,
             'max_days_in_warehouse' => (int)$totals['max_days_in_warehouse'],
             'avg_days_in_warehouse' => round($totals['avg_days_in_warehouse'], 1),
             'generated_at' => date('Y-m-d H:i:s')
@@ -729,6 +785,7 @@ function getTimeBasedReports($pdo, $period = 'daily', $startDate = null, $endDat
                         DATE(s.import_date) as date,
                         s.customer,
                         s.internal_po_number as po_number,
+                        (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po,
                         COUNT(c.id) as cartons_received,
                         COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as units_received,
                         COUNT(CASE WHEN c.status = 'pending' THEN 1 END) as cartons_pending,
@@ -750,6 +807,7 @@ function getTimeBasedReports($pdo, $period = 'daily', $startDate = null, $endDat
                         MIN(DATE(s.import_date)) as week_start,
                         s.customer,
                         s.internal_po_number as po_number,
+                        (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po,
                         COUNT(c.id) as cartons_received,
                         COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as units_received,
                         COUNT(CASE WHEN c.status = 'pending' THEN 1 END) as cartons_pending,
@@ -770,6 +828,7 @@ function getTimeBasedReports($pdo, $period = 'daily', $startDate = null, $endDat
                         DATE_FORMAT(s.import_date, '%Y-%m') as month,
                         s.customer,
                         s.internal_po_number as po_number,
+                        (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po,
                         COUNT(c.id) as cartons_received,
                         COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as units_received,
                         COUNT(CASE WHEN c.status = 'pending' THEN 1 END) as cartons_pending,
@@ -790,6 +849,7 @@ function getTimeBasedReports($pdo, $period = 'daily', $startDate = null, $endDat
                         YEAR(s.import_date) as year,
                         s.customer,
                         s.internal_po_number as po_number,
+                        (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po,
                         COUNT(c.id) as cartons_received,
                         COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as units_received,
                         COUNT(CASE WHEN c.status = 'pending' THEN 1 END) as cartons_pending,
@@ -847,7 +907,7 @@ function generateComprehensiveCsvReport($pdo, $period = 'all', $startDate = null
         }
 
         $csvData = [];
-        $headers = ['Customer', 'FTM PO', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Cartons in Warehouse', 'Cartons Shipped'];
+        $headers = ['Customer', 'FTM PO', 'Customer PO', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Cartons in Warehouse', 'Cartons Shipped'];
         $colCount = count($headers);
 
         // Header row
@@ -858,6 +918,7 @@ function generateComprehensiveCsvReport($pdo, $period = 'all', $startDate = null
             $csvData[] = [
                 $order['customer'] ?? 'MRP',
                 formatInternalPoDisplay($order['customer'] ?? '', $order['ftm_po']),
+                formatCustomerPoForDisplay($order['customer'] ?? '', $order['customer_po'] ?? ''),
                 $order['carton_count'],
                 $order['total_units'],
                 $order['cartons_pending'],
@@ -873,29 +934,29 @@ function generateComprehensiveCsvReport($pdo, $period = 'all', $startDate = null
         // Summary section — label in col 0, value in col 1, rest empty
         $summary = $reportData['summary'];
         $summaryRows = [
-            ['SUMMARY STATISTICS', '', '', '', '', '', '', ''],
-            ['Total Cartons Expected',  $summary['total_cartons'],   '', '', '', '', '', ''],
-            ['Total Units Expected',    $summary['total_units'],     '', '', '', '', '', ''],
-            ['Pending Cartons',         $summary['cartons_pending'], '', '', '', '', '', ''],
-            ['Pending Units',           $summary['units_pending'],   '', '', '', '', '', ''],
-            ['Cartons Received',        $summary['cartons_entered'], '', '', '', '', '', ''],
-            ['Units Received',          $summary['units_entered'],   '', '', '', '', '', ''],
-            ['Orders Received',         $summary['orders_entered'],  '', '', '', '', '', ''],
-            ['Cartons Shipped',              $summary['cartons_shipped'],     '', '', '', '', '', ''],
-            ['Units Shipped',                $summary['units_shipped'],       '', '', '', '', '', ''],
-            ['Orders Shipped',               $summary['orders_shipped'],      '', '', '', '', '', ''],
-            ['Cartons in Warehouse',         $summary['cartons_in_warehouse'], '', '', '', '', '', ''],
-            ['Units in Warehouse',           $summary['units_in_warehouse'],  '', '', '', '', '', ''],
-            ['Orders in Warehouse',          $summary['orders_in_warehouse'], '', '', '', '', '', ''],
-            ['Total Orders',                 $summary['total_orders'],        '', '', '', '', '', ''],
+            ['SUMMARY STATISTICS', '', '', '', '', '', '', '', ''],
+            ['Total Cartons Expected',  $summary['total_cartons'],   '', '', '', '', '', '', ''],
+            ['Total Units Expected',    $summary['total_units'],     '', '', '', '', '', '', ''],
+            ['Pending Cartons',         $summary['cartons_pending'], '', '', '', '', '', '', ''],
+            ['Pending Units',           $summary['units_pending'],   '', '', '', '', '', '', ''],
+            ['Cartons Received',        $summary['cartons_entered'], '', '', '', '', '', '', ''],
+            ['Units Received',          $summary['units_entered'],   '', '', '', '', '', '', ''],
+            ['Orders Received',         $summary['orders_entered'],  '', '', '', '', '', '', ''],
+            ['Cartons Shipped',              $summary['cartons_shipped'],     '', '', '', '', '', '', ''],
+            ['Units Shipped',                $summary['units_shipped'],       '', '', '', '', '', '', ''],
+            ['Orders Shipped',               $summary['orders_shipped'],      '', '', '', '', '', '', ''],
+            ['Cartons in Warehouse',         $summary['cartons_in_warehouse'], '', '', '', '', '', '', ''],
+            ['Units in Warehouse',           $summary['units_in_warehouse'],  '', '', '', '', '', '', ''],
+            ['Orders in Warehouse',          $summary['orders_in_warehouse'], '', '', '', '', '', '', ''],
+            ['Total Orders',                 $summary['total_orders'],        '', '', '', '', '', '', ''],
             array_fill(0, $colCount, ''),
-            ['Report Period',                ucfirst($reportData['period']),  '', '', '', '', '', ''],
+            ['Report Period',                ucfirst($reportData['period']),  '', '', '', '', '', '', ''],
         ];
 
         if ($reportData['date_range']) {
-            $summaryRows[] = ['Date Range', $reportData['date_range']['start'] . ' to ' . $reportData['date_range']['end'], '', '', '', '', '', ''];
+            $summaryRows[] = ['Date Range', $reportData['date_range']['start'] . ' to ' . $reportData['date_range']['end'], '', '', '', '', '', '', ''];
         }
-        $summaryRows[] = ['Report Generated', $reportData['generated_at'], '', '', '', '', ''];
+        $summaryRows[] = ['Report Generated', $reportData['generated_at'], '', '', '', '', '', '', ''];
 
         foreach ($summaryRows as $row) {
             $csvData[] = $row;
@@ -1007,11 +1068,12 @@ function generateComprehensivePdfReport($pdo, $period = 'all', $startDate = null
         // Top Orders
         echo "<h2>Top Orders by Carton Count</h2>";
         echo "<table>";
-        echo "<tr><th>FTM PO</th><th>Total Cartons</th><th>Total Units</th><th>Pending Cartons</th><th>Pending Units</th><th>In Warehouse</th><th>Shipped</th></tr>";
+        echo "<tr><th>FTM PO</th><th>Customer PO</th><th>Total Cartons</th><th>Total Units</th><th>Pending Cartons</th><th>Pending Units</th><th>In Warehouse</th><th>Shipped</th></tr>";
 
         foreach ($reportData['top_orders'] as $order) {
             echo "<tr>";
             echo "<td>" . htmlspecialchars(formatInternalPoDisplay($order['customer'] ?? '', $order['ftm_po'])) . "</td>";
+            echo "<td>" . htmlspecialchars(formatCustomerPoForDisplay($order['customer'] ?? '', $order['customer_po'] ?? '')) . "</td>";
             echo "<td>{$order['carton_count']}</td>";
             echo "<td>{$order['total_units']}</td>";
             echo "<td>{$order['cartons_pending']}</td>";
@@ -1070,7 +1132,7 @@ function generateTimeBasedCsvReport($pdo, $period = 'daily', $startDate = null, 
             default   => 'Date',
         };
 
-        $headers = [$periodLabel, 'Customer', 'FTM PO', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Cartons Entered', 'Cartons Shipped'];
+        $headers = [$periodLabel, 'Customer', 'FTM PO', 'Customer PO', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Cartons Entered', 'Cartons Shipped'];
         $colCount = count($headers);
         $csvData = [$headers];
 
@@ -1086,6 +1148,7 @@ function generateTimeBasedCsvReport($pdo, $period = 'daily', $startDate = null, 
                 $periodValue,
                 $report['customer'] ?? 'MRP',
                 formatInternalPoDisplay($report['customer'] ?? '', $report['po_number']),
+                formatCustomerPoForDisplay($report['customer'] ?? '', $report['customer_po'] ?? ''),
                 $report['cartons_received'],
                 $report['units_received'],
                 $report['cartons_pending'] ?? 0,
@@ -1217,6 +1280,7 @@ function generateTimeBasedPdfReport($pdo, $period = 'daily', $startDate = null, 
         }
 
         echo "<th>PO Number</th>";
+        echo "<th>Customer PO</th>";
         echo "<th class='text-right'>Total Cartons</th>";
         echo "<th class='text-right'>Total Units</th>";
         echo "<th class='text-right'>Pending Cartons</th>";
@@ -1241,6 +1305,7 @@ function generateTimeBasedPdfReport($pdo, $period = 'daily', $startDate = null, 
             }
 
             echo "<td class='po-number'>{$report['po_number']}</td>";
+            echo "<td>" . htmlspecialchars(formatCustomerPoForDisplay($report['customer'] ?? '', $report['customer_po'] ?? '')) . "</td>";
             echo "<td class='text-right'>" . number_format($report['cartons_received']) . "</td>";
             echo "<td class='text-right'>" . number_format($report['units_received']) . "</td>";
             echo "<td class='text-right'>" . number_format($report['cartons_pending'] ?? 0) . "</td>";
@@ -1290,7 +1355,7 @@ function generateInventoryCsvReport($pdo) {
             return $inventoryData;
         }
 
-        $headers = ['Customer', 'FTM PO', 'File Name', 'Import Date', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Days in Warehouse (Oldest)', 'Days in Warehouse (Newest)', 'Avg Days in Warehouse'];
+        $headers = ['Customer', 'FTM PO', 'Customer PO', 'File Name', 'Import Date', 'Total Cartons', 'Total Units', 'Pending Cartons', 'Pending Units', 'Days in Warehouse (Oldest)', 'Days in Warehouse (Newest)', 'Avg Days in Warehouse'];
         $colCount = count($headers);
         $pad = array_fill(0, $colCount - 2, '');
         $csvData = [$headers];
@@ -1299,6 +1364,7 @@ function generateInventoryCsvReport($pdo) {
             $csvData[] = [
                 $item['customer'] ?? 'MRP',
                 formatInternalPoDisplay($item['customer'] ?? '', $item['ftm_po']),
+                formatCustomerPoForDisplay($item['customer'] ?? '', $item['customer_po'] ?? ''),
                 $item['file_name'],
                 date('Y-m-d', strtotime($item['import_date'])),
                 $item['total_cartons'],
@@ -1314,7 +1380,9 @@ function generateInventoryCsvReport($pdo) {
         $csvData[] = array_fill(0, $colCount, '');
         $csvData[] = array_merge(['SUMMARY', ''], $pad);
         $csvData[] = array_merge(['Total Cartons in Warehouse', $inventoryData['total_cartons']], $pad);
+        $csvData[] = array_merge(['Total Units in Warehouse',   $inventoryData['total_units']], $pad);
         $csvData[] = array_merge(['Total Active Orders',        $inventoryData['total_orders']], $pad);
+        $csvData[] = array_merge(['Total Legacy Orders',        $inventoryData['total_legacy_orders']], $pad);
         $csvData[] = array_merge(['Maximum Days in Warehouse',  $inventoryData['max_days_in_warehouse']], $pad);
         $csvData[] = array_merge(['Average Days in Warehouse',  $inventoryData['avg_days_in_warehouse']], $pad);
         $csvData[] = array_merge(['Report Generated',           $inventoryData['generated_at']], $pad);
@@ -1376,7 +1444,9 @@ function generateInventoryPdfReport($pdo) {
         echo "<div class='summary'>";
         echo "<h2>Summary Statistics</h2>";
         echo "<div class='summary-item'><strong>Total Cartons in Warehouse:</strong> " . number_format($inventoryData['total_cartons']) . "</div>";
+        echo "<div class='summary-item'><strong>Total Units in Warehouse:</strong> " . number_format($inventoryData['total_units']) . "</div>";
         echo "<div class='summary-item'><strong>Total Active Orders:</strong> " . number_format($inventoryData['total_orders']) . "</div>";
+        echo "<div class='summary-item'><strong>Total Legacy Orders:</strong> " . number_format($inventoryData['total_legacy_orders']) . "</div>";
         echo "<div class='summary-item'><strong>Maximum Days in Warehouse:</strong> " . $inventoryData['max_days_in_warehouse'] . " days</div>";
         echo "<div class='summary-item'><strong>Average Days in Warehouse:</strong> " . $inventoryData['avg_days_in_warehouse'] . " days</div>";
         echo "</div>";
@@ -1386,6 +1456,7 @@ function generateInventoryPdfReport($pdo) {
         echo "<table>";
         echo "<thead><tr>";
         echo "<th>FTM PO</th>";
+        echo "<th>Customer PO</th>";
         echo "<th>File Name</th>";
         echo "<th>Import Date</th>";
         echo "<th class='text-right'>Total Cartons</th>";
@@ -1399,6 +1470,7 @@ function generateInventoryPdfReport($pdo) {
         foreach ($inventoryData['inventory'] as $item) {
             echo "<tr>";
             echo "<td><strong>" . htmlspecialchars(formatInternalPoDisplay($item['customer'] ?? '', $item['ftm_po'])) . "</strong></td>";
+            echo "<td>" . htmlspecialchars(formatCustomerPoForDisplay($item['customer'] ?? '', $item['customer_po'] ?? '')) . "</td>";
             echo "<td>{$item['file_name']}</td>";
             echo "<td>" . date('M d, Y', strtotime($item['import_date'])) . "</td>";
             echo "<td class='text-right'>" . number_format($item['total_cartons']) . "</td>";

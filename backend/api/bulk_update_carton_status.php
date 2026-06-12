@@ -20,9 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Include database configuration
 require_once '../config/database.php';
+require_once '../includes/admin_auth.php';
 require_once '../includes/carton_timestamps.php';
 require_once '../includes/carton_status_helpers.php';
 require_once '../includes/sync_shipment_warehouse_status.php';
+require_once '../includes/truck_manual_assign.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -50,12 +52,6 @@ if (!isset($data['updates']) || !is_array($data['updates'])) {
 $allowedStatuses = ['pending', 'entered', 'exited'];
 
 try {
-    // Get database connection
-    $db = getDbConnection();
-    
-    // Start transaction for atomic updates
-    $db->beginTransaction();
-    
     $successCount = 0;
     $errorCount = 0;
     $errors = [];
@@ -65,6 +61,7 @@ try {
     
     // Group updates by status for batch processing
     $updatesByStatus = [];
+    $requiresAdminCode = false;
     foreach ($data['updates'] as $update) {
         // Validate each update
         if (!isset($update['carton_id']) || !isset($update['status'])) {
@@ -82,14 +79,78 @@ try {
         if (!isset($updatesByStatus[$status])) {
             $updatesByStatus[$status] = [];
         }
+
+        if ($status === 'exited') {
+            $truckReg = trim((string)($update['truck_reg'] ?? $data['truck_reg'] ?? ''));
+            $driverName = trim((string)($update['driver_name'] ?? $data['driver_name'] ?? ''));
+            if ($truckReg === '' || $driverName === '') {
+                $errorCount++;
+                $errors[] = "Truck registration and driver name are required to ship carton {$update['carton_id']}";
+                continue;
+            }
+        } else {
+            $requiresAdminCode = true;
+        }
+
         $updatesByStatus[$status][] = (int)$update['carton_id'];
     }
+
+    if ($requiresAdminCode) {
+        requireAdminCode($data);
+    }
+
+    // Get database connection
+    $db = getDbConnection();
+
+    $exitCartonIds = [];
+    foreach ($updatesByStatus['exited'] ?? [] as $cartonId) {
+        $exitCartonIds[] = (int)$cartonId;
+    }
+    if ($exitCartonIds !== []) {
+        assertCartonsAllowDirectShip($db, $exitCartonIds);
+    }
+    
+    // Start transaction for atomic updates
+    $db->beginTransaction();
     
     // Process each status group with a single query
     foreach ($updatesByStatus as $status => $cartonIds) {
         if (empty($cartonIds)) continue;
         
         try {
+            if ($status === 'exited') {
+                $lookupPlaceholders = str_repeat('?,', count($cartonIds) - 1) . '?';
+                $lookupStmt = $db->prepare("SELECT id, status FROM cartons WHERE id IN ($lookupPlaceholders)");
+                $lookupStmt->execute($cartonIds);
+
+                $statusById = [];
+                while ($row = $lookupStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $statusById[(int)$row['id']] = $row['status'];
+                }
+
+                $eligibleCartonIds = [];
+                foreach ($cartonIds as $cartonId) {
+                    if (!isset($statusById[$cartonId])) {
+                        $errorCount++;
+                        $errors[] = "Carton {$cartonId} not found for status 'exited'";
+                        continue;
+                    }
+
+                    if ($statusById[$cartonId] !== 'entered') {
+                        $errorCount++;
+                        $errors[] = "Carton {$cartonId} cannot be shipped because it is currently '{$statusById[$cartonId]}'";
+                        continue;
+                    }
+
+                    $eligibleCartonIds[] = $cartonId;
+                }
+
+                $cartonIds = $eligibleCartonIds;
+                if (empty($cartonIds)) {
+                    continue;
+                }
+            }
+
             // Create placeholders for IN clause
             $placeholders = str_repeat('?,', count($cartonIds) - 1) . '?';
             
@@ -159,14 +220,14 @@ try {
     
 } catch (PDOException $e) {
     // Rollback transaction on error
-    if ($db->inTransaction()) {
+    if (isset($db) && $db->inTransaction()) {
         $db->rollback();
     }
     
     http_response_code(500); // Internal Server Error
     echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
 } catch (Exception $e) {
-    http_response_code(500); // Internal Server Error
-    echo json_encode(['error' => 'Server error: ' . $e->getMessage()]);
+    http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
 }
 ?>

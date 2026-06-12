@@ -284,7 +284,6 @@ warehouse-tracking-system/
 │   ├── package.json
 │   └── server.js               # Development server
 ├── database_schema.sql         # Complete database schema
-├── DATABASE_SETUP.md           # Detailed setup instructions
 ├── start_all.bat               # Windows: Start both servers
 └── README.md                   # This file
 ```
@@ -425,9 +424,8 @@ Delete files in `backend/cache/` to clear API cache.
 
 For issues or questions:
 1. Check this README
-2. Review `DATABASE_SETUP.md` for detailed setup
-3. Check browser console and PHP error logs
-4. Verify all services are running
+2. Check browser console and PHP error logs
+3. Verify all services are running
 
 ## 📄 License
 

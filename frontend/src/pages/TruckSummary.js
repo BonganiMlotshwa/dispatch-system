@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Alert, Form, Table, Badge, Button, Modal } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -26,6 +26,9 @@ const TruckSummary = () => {
   const [deletingTruck, setDeletingTruck] = useState(null);
   const [deleteCode, setDeleteCode] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  
+  // Ref for delete code input
+  const deleteCodeInputRef = useRef(null);
   
   // Filters
   const [filters, setFilters] = useState({
@@ -156,6 +159,16 @@ const TruckSummary = () => {
     setDeleteError('');
     setShowDeleteModal(true);
   };
+
+  // Focus delete code input when modal opens
+  useEffect(() => {
+    if (showDeleteModal && deleteCodeInputRef.current) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        deleteCodeInputRef.current?.focus();
+      }, 100);
+    }
+  }, [showDeleteModal]);
 
   const handleDeleteConfirm = async () => {
     if (!deletingTruck) return;
@@ -571,6 +584,7 @@ const TruckSummary = () => {
               Enter Admin Code to Confirm
             </Form.Label>
             <Form.Control
+              ref={deleteCodeInputRef}
               type="password"
               value={deleteCode}
               onChange={(e) => {
@@ -578,7 +592,6 @@ const TruckSummary = () => {
                 setDeleteError(''); // Clear error when typing
               }}
               placeholder="Admin code required"
-              autoFocus
               className={deleteError ? 'is-invalid' : ''}
             />
             {deleteError && (

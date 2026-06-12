@@ -24,6 +24,7 @@ require_once '../includes/admin_auth.php';
 require_once '../includes/carton_timestamps.php';
 require_once '../includes/carton_status_helpers.php';
 require_once '../includes/sync_shipment_warehouse_status.php';
+require_once '../includes/truck_manual_assign.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -47,9 +48,6 @@ if (!isset($data['carton_id']) || !isset($data['status'])) {
     exit;
 }
 
-// Manual status changes require admin code (e.g. mark as shipped)
-requireAdminCode($data);
-
 $data['status'] = normalizeCartonScanStatus($data['status'] ?? '');
 
 // Validate status value
@@ -58,6 +56,20 @@ if (!in_array($data['status'], $allowedStatuses, true)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid status. Allowed: Pending, In Warehouse (entered), Shipped (exited)']);
     exit;
+}
+
+$truckReg = trim((string)($data['truck_reg'] ?? ''));
+$driverName = trim((string)($data['driver_name'] ?? ''));
+
+// Manual status changes require admin code unless shipping details are provided for a ship action.
+if ($data['status'] === 'exited') {
+    if ($truckReg === '' || $driverName === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Truck registration and driver name are required to mark a carton as shipped.']);
+        exit;
+    }
+} else {
+    requireAdminCode($data);
 }
 
 try {
@@ -73,10 +85,26 @@ try {
         exit;
     }
 
+    if ($data['status'] === 'exited') {
+        assertCartonsAllowDirectShip($db, [(int)$data['carton_id']]);
+    }
+
+    if ($data['status'] === 'exited' && $existing['status'] !== 'entered') {
+        http_response_code(400);
+        echo json_encode([
+            'error' => 'Only cartons that are in warehouse can be marked as shipped.'
+        ]);
+        exit;
+    }
+
     $hasTsCols = cartonTimestampColumnsExist($db);
     $tsUpdate = buildCartonStatusTimestampUpdate($data['status'], $existing['status'], $hasTsCols);
     $stmt = $db->prepare("UPDATE cartons SET {$tsUpdate['sql']} WHERE id = ?");
     $stmt->execute(array_merge($tsUpdate['params'], [$data['carton_id']]));
+    
+    // TODO: Store truck_reg and driver_name in truck_shipments table
+    // For now, we accept these parameters but don't store them
+    // Future enhancement: Create truck shipment entry with these details
     
     // Check if carton exists
     if ($stmt->rowCount() === 0) {
@@ -100,6 +128,9 @@ try {
         'carton' => array_merge($carton, ['status_label' => cartonStatusLabel($carton['status'])])
     ]);
     
+} catch (Exception $e) {
+    http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
 } catch (PDOException $e) {
     http_response_code(500); // Internal Server Error
     echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);

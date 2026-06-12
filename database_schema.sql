@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS `legacy_warehouse_goods` (
   `internal_po` varchar(50) NOT NULL COMMENT 'FTM PO e.g. FTM-15730',
   `customer_order_number` varchar(50) DEFAULT NULL,
   `customer` varchar(50) DEFAULT 'MRP',
+  `customer_other` varchar(100) DEFAULT NULL COMMENT 'Custom customer name when customer = Other',
   `style` varchar(200) DEFAULT NULL,
   `color` varchar(100) DEFAULT NULL,
   `order_qty` int(11) DEFAULT NULL,

@@ -461,6 +461,7 @@ const Reports = () => {
                           <tr>
                             <th>Customer</th>
                             <th>FTM PO</th>
+                            <th>Customer PO</th>
                             <th>Total Cartons</th>
                             <th>Total Units</th>
                             <th>Pending Cartons</th>
@@ -479,6 +480,9 @@ const Reports = () => {
                               </td>
                               <td>
                                 <span className="fw-medium">{order.ftm_po}</span>
+                              </td>
+                              <td>
+                                <span className="text-muted small">{order.customer_po || '—'}</span>
                               </td>
                               <td>
                                 <Badge bg="primary" className="badge-modern badge-modern-primary">
@@ -556,7 +560,7 @@ const Reports = () => {
                 <div>
                   {/* Inventory Summary */}
                   <Row className="g-3 mb-4">
-                    <Col md={3}>
+                    <Col md={2}>
                       <div className="modern-card text-center">
                         <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-primary">{warehouseInventory.total_cartons.toLocaleString()}</div>
@@ -564,7 +568,15 @@ const Reports = () => {
                         </div>
                       </div>
                     </Col>
-                    <Col md={3}>
+                    <Col md={2}>
+                      <div className="modern-card text-center">
+                        <div className="modern-card-body">
+                          <div className="fs-2 fw-bold text-info">{(warehouseInventory.total_units || 0).toLocaleString()}</div>
+                          <div className="text-muted">Total Units</div>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md={2}>
                       <div className="modern-card text-center">
                         <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-success">{warehouseInventory.total_orders.toLocaleString()}</div>
@@ -572,7 +584,15 @@ const Reports = () => {
                         </div>
                       </div>
                     </Col>
-                    <Col md={3}>
+                    <Col md={2}>
+                      <div className="modern-card text-center">
+                        <div className="modern-card-body">
+                          <div className="fs-2 fw-bold text-secondary">{(warehouseInventory.total_legacy_orders || 0).toLocaleString()}</div>
+                          <div className="text-muted">Total Legacy Orders</div>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md={2}>
                       <div className="modern-card text-center">
                         <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-danger">
@@ -582,7 +602,7 @@ const Reports = () => {
                         </div>
                       </div>
                     </Col>
-                    <Col md={3}>
+                    <Col md={2}>
                       <div className="modern-card text-center">
                         <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-warning">
@@ -601,6 +621,7 @@ const Reports = () => {
                         <tr>
                           <th>Customer</th>
                           <th>FTM PO</th>
+                          <th>Customer PO</th>
                           <th>File Name</th>
                           <th>Import Date</th>
                           <th>Cartons</th>
@@ -620,6 +641,9 @@ const Reports = () => {
                             </td>
                             <td>
                               <span className="fw-medium">{item.ftm_po}</span>
+                            </td>
+                            <td>
+                              <span className="text-muted small">{item.customer_po || '—'}</span>
                             </td>
                             <td>{item.file_name}</td>
                             <td>{new Date(item.import_date).toLocaleDateString()}</td>
@@ -747,6 +771,7 @@ const Reports = () => {
                           <tr>
                             <th>Period</th>
                             <th>PO Number</th>
+                            <th>Customer PO</th>
                             <th>Total Cartons</th>
                             <th>Total Units</th>
                             <th>Pending Cartons</th>
@@ -768,6 +793,9 @@ const Reports = () => {
                               </td>
                               <td>
                                 <span className="fw-medium">{report.po_number}</span>
+                              </td>
+                              <td>
+                                <span className="text-muted small">{report.customer_po || '—'}</span>
                               </td>
                               <td>
                                 <Badge bg="info" className="badge-modern badge-modern-info">

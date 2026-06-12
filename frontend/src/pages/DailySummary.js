@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
 import { downloadCsv } from '../utils/csvExport';
-import { formatInternalPoDisplay } from '../utils/poDisplay';
+import { formatInternalPoDisplay, formatCustomerPoForDisplay } from '../utils/poDisplay';
 
 const DailySummary = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -22,10 +22,11 @@ const DailySummary = () => {
     const rows = [
       ['Goods Received Today', selectedDate],
       [],
-      ['Customer', 'FTM PO', 'Ctns Expected', 'Units Expected', 'Ctns Entered Today', 'Units Entered Today', 'Ctns Pending', 'Units Pending'],
+      ['Customer', 'FTM PO', 'Customer PO', 'Ctns Expected', 'Units Expected', 'Ctns Entered Today', 'Units Entered Today', 'Ctns Pending', 'Units Pending'],
       ...data.pos.map(po => [
         po.customer || '',
         formatInternalPoDisplay(po.customer, po.internal_po_number),
+        formatCustomerPoForDisplay(po.customer, po.customer_po_number),
         po.cartons_expected || 0,
         po.units_expected || 0,
         po.cartons_entered_today || 0,
@@ -35,6 +36,7 @@ const DailySummary = () => {
       ]),
       [
         'Total',
+        '',
         '',
         data.totals?.cartons_expected || 0,
         data.totals?.units_expected || 0,
@@ -140,6 +142,7 @@ const DailySummary = () => {
             <tr>
               <th rowspan="2">Customer</th>
               <th rowspan="2">PO Number</th>
+              <th rowspan="2">Customer PO</th>
               <th colspan="2" style="text-align: center; border-bottom: 1px solid #ddd;">Expected</th>
               <th colspan="2" style="text-align: center; border-bottom: 1px solid #ddd;">Entered Today</th>
               <th colspan="2" style="text-align: center; border-bottom: 1px solid #ddd;">Pending</th>
@@ -158,6 +161,7 @@ const DailySummary = () => {
               <tr>
                 <td>${po.customer || ''}</td>
                 <td>${formatInternalPoDisplay(po.customer, po.internal_po_number)}</td>
+                <td>${formatCustomerPoForDisplay(po.customer, po.customer_po_number)}</td>
                 <td style="text-align: right;">${(po.cartons_expected || 0)}</td>
                 <td style="text-align: right;">${(po.units_expected || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(po.cartons_entered_today || 0)}</td>
@@ -167,7 +171,7 @@ const DailySummary = () => {
               </tr>
             `).join('')}
             <tr class="total-row">
-              <td colspan="2">Total</td>
+              <td colspan="3">Total</td>
               <td style="text-align: right;">${(data.totals?.cartons_expected || 0)}</td>
               <td style="text-align: right;">${(data.totals?.units_expected || 0).toLocaleString()}</td>
               <td style="text-align: right;">${(data.totals?.cartons_entered_today || 0)}</td>
@@ -252,6 +256,7 @@ const DailySummary = () => {
                   <tr>
                     <th rowSpan="2">Customer</th>
                     <th rowSpan="2">PO Number</th>
+                    <th rowSpan="2">Customer PO</th>
                     <th colSpan="2" className="text-center" style={{borderBottom: '1px solid #dee2e6'}}>Expected</th>
                     <th colSpan="2" className="text-center" style={{borderBottom: '1px solid #dee2e6'}}>Entered Today</th>
                     <th colSpan="2" className="text-center" style={{borderBottom: '1px solid #dee2e6'}}>Pending</th>
@@ -272,6 +277,7 @@ const DailySummary = () => {
                         <tr key={index}>
                           <td className="fw-medium">{po.customer}</td>
                           <td>{formatInternalPoDisplay(po.customer, po.internal_po_number)}</td>
+                          <td><span className="text-muted small">{formatCustomerPoForDisplay(po.customer, po.customer_po_number)}</span></td>
                           <td className="text-end">{po.cartons_expected}</td>
                           <td className="text-end">{po.units_expected.toLocaleString()}</td>
                           <td className="text-end">{po.cartons_entered_today}</td>
@@ -281,7 +287,7 @@ const DailySummary = () => {
                         </tr>
                       ))}
                       <tr className="table-active fw-bold">
-                        <td colSpan="2">Total</td>
+                        <td colSpan="3">Total</td>
                         <td className="text-end">{data.totals.cartons_expected}</td>
                         <td className="text-end">{data.totals.units_expected.toLocaleString()}</td>
                         <td className="text-end">{data.totals.cartons_entered_today}</td>
@@ -292,7 +298,7 @@ const DailySummary = () => {
                     </>
                   ) : (
                     <tr>
-                      <td colSpan="8" className="text-center py-4">
+                      <td colSpan="9" className="text-center py-4">
                         <p className="text-muted mb-0">No data for selected date</p>
                       </td>
                     </tr>

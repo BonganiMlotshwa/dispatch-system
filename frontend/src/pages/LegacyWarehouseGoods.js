@@ -86,6 +86,7 @@ const LegacyWarehouseGoods = () => {
       internal_po: (row.internal_po || '').replace(/^FTM-/i, ''),
       customer_order_number: row.customer_order_number || '',
       customer: row.customer || 'MRP',
+      customer_other: row.customer_other || '',
       style: row.style || '',
       color: row.color || '',
       order_qty: row.order_qty ?? '',
@@ -108,6 +109,10 @@ const LegacyWarehouseGoods = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (form.customer === 'Other' && !String(form.customer_other || '').trim()) {
+      setError('Please enter a customer name when Customer is Other');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -147,6 +152,7 @@ const LegacyWarehouseGoods = () => {
           internal_po: row.internal_po,
           customer_order_number: row.customer_order_number || '',
           customer: row.customer || 'MRP',
+          customer_other: row.customer_other || '',
           style: row.style || '',
           color: row.color || '',
           order_qty: row.order_qty ?? '',
@@ -402,7 +408,7 @@ const LegacyWarehouseGoods = () => {
                           <Badge bg="secondary" className="mt-1">Manual sheet</Badge>
                         )}
                       </td>
-                      <td>{row.customer || '—'}</td>
+                      <td>{row.customer || '—'}{row.customer === 'Other' && row.customer_other ? ` (${row.customer_other})` : ''}</td>
                       <td>
                         {formatCell(row.style) || formatCell(row.color) ? (
                           <>
@@ -515,6 +521,16 @@ const LegacyWarehouseGoods = () => {
                 <Form.Select name="customer" value={form.customer} onChange={handleFormChange}>
                   {CUSTOMERS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </Form.Select>
+                {form.customer === 'Other' && (
+                  <Form.Control
+                    className="mt-2"
+                    name="customer_other"
+                    value={form.customer_other || ''}
+                    onChange={handleFormChange}
+                    placeholder="Enter customer name"
+                    required
+                  />
+                )}
               </div>
               <div className="col-md-6">
                 <Form.Label>Style</Form.Label>

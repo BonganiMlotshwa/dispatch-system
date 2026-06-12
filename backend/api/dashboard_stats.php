@@ -100,7 +100,7 @@ try {
     $stats['totals'] = [
         'total_shipments' => (int)$combined['total_shipments'],
         'total_cartons' => (int)$combined['total_cartons'],
-        'total_units' => (int)$combined['total_units']
+        'total_units' => (int)$combined['total_units'] + $legacyStats['units']
     ];
     
     $stats['status_counts'] = [
@@ -112,9 +112,9 @@ try {
     
     $stats['unit_counts'] = [
         'pending_units' => (int)$combined['pending_units'],
-        'factory_units' => (int)$combined['factory_units'],
+        'factory_units' => (int)$combined['factory_units'] + $legacyStats['units'],
         'shipped_units' => (int)$combined['shipped_units'],
-        'total_units' => (int)$combined['total_units']
+        'total_units' => (int)$combined['total_units'] + $legacyStats['units']
     ];
     
     $stats['legacy_warehouse'] = $legacyStats;

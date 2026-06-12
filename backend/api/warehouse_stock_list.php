@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../config/database.php';
 require_once '../includes/warehouse_order_statuses.php';
 require_once '../includes/legacy_warehouse_statuses.php';
+require_once '../includes/po_helpers.php';
 
 try {
     $pdo = getDbConnection();
@@ -53,7 +54,7 @@ try {
             array_push($lp, $q, $q, $q, $q, $q, $q);
         }
 
-        $stmt = $pdo->prepare('SELECT l.* FROM legacy_warehouse_goods l WHERE ' . implode(' AND ', $lw) . ' ORDER BY l.internal_po');
+        $stmt = $pdo->prepare('SELECT l.* FROM legacy_warehouse_goods l WHERE ' . implode(' AND ', $lw));
         $stmt->execute($lp);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $st = normalizeLegacyWarehouseStatus($row['status']);
@@ -66,6 +67,9 @@ try {
                 'internal_po' => $row['internal_po'],
                 'customer_order_number' => $row['customer_order_number'],
                 'customer' => $row['customer'],
+                'customer_other' => $row['customer_other'] ?? null,
+                'cartons_label' => $row['cartons_label'] ?? null,
+                'cartons_count' => $row['cartons_count'] !== null ? (int)$row['cartons_count'] : null,
                 'style' => $row['style'],
                 'color' => $row['color'],
                 'order_qty' => $row['order_qty'] !== null ? (int)$row['order_qty'] : null,
@@ -125,7 +129,6 @@ try {
                 (SELECT NULLIF(TRIM(c.item), '') FROM cartons c WHERE c.shipment_id = s.id AND c.item IS NOT NULL LIMIT 1) AS style_from_carton
             FROM shipments s
             WHERE " . implode(' AND ', $sw) . "
-            ORDER BY s.internal_po_number
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($sp);
@@ -170,7 +173,7 @@ try {
     }
 
     usort($items, function ($a, $b) {
-        return strcmp($a['internal_po'], $b['internal_po']);
+        return comparePoNumbers($a['internal_po'] ?? '', $b['internal_po'] ?? '');
     });
 
     echo json_encode([

@@ -100,3 +100,11 @@ export function formatFtmInternalPo(internalPoNumber) {
   if (m) return `FTM-${m[1]}`;
   return `FTM-${po}`;
 }
+
+/** Direct "mark as shipped" — manual OTB/OBSW/etc. only; Mr Price must use exit scanner. */
+export function canDirectShipOrder(shipment) {
+  if (!shipment || shipment.entry_type !== 'manual') {
+    return false;
+  }
+  return String(shipment.customer || 'MRP').toUpperCase() !== 'MRP';
+}

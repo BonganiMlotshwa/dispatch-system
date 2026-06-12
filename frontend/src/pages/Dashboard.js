@@ -364,7 +364,7 @@ const Dashboard = () => {
       ) : dashboardData?.stats ? (
         <>
           {/* Summary Cards */}
-          <div className="row g-3 g-md-4 mb-4">
+          <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
                 <div className="dashboard-stat-label">Total Cartons Expected</div>
@@ -391,42 +391,8 @@ const Dashboard = () => {
             </div>
           </div>
           
-          {/* Legacy Warehouse Cards */}
-          <div className="row g-3 g-md-4 mb-4">
-            <div className="col-6 col-lg-3">
-              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #8b5cf6' }}>
-                <div className="dashboard-stat-label">
-                  <i className="bi bi-archive me-2"></i>Legacy Orders
-                </div>
-                <div className="dashboard-stat-number text-purple">{dashboardData.stats?.legacy_warehouse?.orders || 0}</div>
-              </div>
-            </div>
-            <div className="col-6 col-lg-3">
-              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #ec4899' }}>
-                <div className="dashboard-stat-label">
-                  <i className="bi bi-boxes me-2"></i>Legacy Cartons in Warehouse
-                </div>
-                <div className="dashboard-stat-number text-pink">{dashboardData.stats?.legacy_warehouse?.cartons || 0}</div>
-              </div>
-            </div>
-            <div className="col-6 col-lg-3">
-              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #f59e0b' }}>
-                <div className="dashboard-stat-label">
-                  <i className="bi bi-box-seam me-2"></i>Legacy Units in Warehouse
-                </div>
-                <div className="dashboard-stat-number text-warning">{dashboardData.stats?.legacy_warehouse?.units?.toLocaleString() || 0}</div>
-              </div>
-            </div>
-            <div className="col-6 col-lg-3">
-              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #10b981' }}>
-                <div className="dashboard-stat-label">Cartons Shipped</div>
-                <div className="dashboard-stat-number text-success">{dashboardData.stats?.status_counts?.exited || 0}</div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Unit Statistics */}
-          <div className="row g-3 g-md-4 mb-4">
+          {/* Row 2: unit stats (cols 1–3) + cartons shipped */}
+          <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #f59e0b' }}>
                 <div className="dashboard-stat-label">Units in Factory</div>
@@ -443,6 +409,40 @@ const Dashboard = () => {
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #6b7280' }}>
                 <div className="dashboard-stat-label">Units Pending</div>
                 <div className="dashboard-stat-number text-secondary">{dashboardData.stats?.unit_counts?.pending_units?.toLocaleString() || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #10b981' }}>
+                <div className="dashboard-stat-label">Cartons Shipped</div>
+                <div className="dashboard-stat-number text-success">{dashboardData.stats?.status_counts?.exited || 0}</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Row 3: legacy warehouse (cols 1–3) + total units */}
+          <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #8b5cf6' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-archive me-2"></i>Legacy Orders
+                </div>
+                <div className="dashboard-stat-number text-purple">{dashboardData.stats?.legacy_warehouse?.orders || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #ec4899' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-boxes me-2"></i>Legacy Cartons
+                </div>
+                <div className="dashboard-stat-number text-pink">{dashboardData.stats?.legacy_warehouse?.cartons || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #f59e0b' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-box-seam me-2"></i>Legacy Units
+                </div>
+                <div className="dashboard-stat-number text-warning">{dashboardData.stats?.legacy_warehouse?.units?.toLocaleString() || 0}</div>
               </div>
             </div>
             <div className="col-6 col-lg-3">

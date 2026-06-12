@@ -10,8 +10,7 @@ const TruckLoadChoiceModal = ({
   activeTrucks = [],
   loadingTrucks = false,
   onContinueTruck,
-  onNewTruck,
-  onExitWithoutTruck
+  onNewTruck
 }) => {
   const [selectedId, setSelectedId] = useState('');
 
@@ -54,8 +53,7 @@ const TruckLoadChoiceModal = ({
       </Modal.Header>
       <Modal.Body>
         <p className="text-muted small mb-3">
-          You can load onto an open truck, start a new truck, or exit cartons without assigning a truck
-          (useful when goods arrive later or multiple trucks load at once).
+          You can load onto an open truck or start a new truck before scanning cartons out.
         </p>
 
         {loadingTrucks ? (
@@ -141,7 +139,7 @@ const TruckLoadChoiceModal = ({
         ) : (
           <p className="text-muted small mb-3">
             <i className="bi bi-info-circle me-1"></i>
-            No open trucks right now. Start a new truck or exit without truck assignment.
+            No open trucks right now. Start a new truck before scanning cartons out.
           </p>
         )}
 
@@ -149,10 +147,6 @@ const TruckLoadChoiceModal = ({
           <Button variant="primary" onClick={onNewTruck}>
             <i className="bi bi-plus-circle me-2"></i>
             Load onto new truck
-          </Button>
-          <Button variant="outline-secondary" onClick={onExitWithoutTruck}>
-            <i className="bi bi-box-arrow-right me-2"></i>
-            Exit without truck (no load assignment)
           </Button>
         </div>
       </Modal.Body>

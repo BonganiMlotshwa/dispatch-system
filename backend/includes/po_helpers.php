@@ -170,6 +170,38 @@ function getPoLookupValues($po) {
     return array_values(array_unique($values));
 }
 
+/** Numeric part of internal PO for sorting (FTM-15730 → 15730). */
+function poNumericSortKey($internalPo) {
+    $po = trim((string)$internalPo);
+    if ($po === '') {
+        return 0;
+    }
+    if (preg_match('/(\d+)/', $po, $m)) {
+        return (int)$m[1];
+    }
+    return 0;
+}
+
+/** Ascending sort: FTM-9 before FTM-10 before FTM-10000. */
+function comparePoNumbers($a, $b) {
+    $ka = poNumericSortKey($a);
+    $kb = poNumericSortKey($b);
+    if ($ka !== $kb) {
+        return $ka <=> $kb;
+    }
+    return strcasecmp((string)$a, (string)$b);
+}
+
+/** Legacy/export customer label — use typed name when customer is Other. */
+function formatLegacyCustomerLabel($customer, $customerOther = null) {
+    $c = trim((string)$customer) ?: 'MRP';
+    if (strcasecmp($c, 'Other') === 0) {
+        $other = trim((string)$customerOther);
+        return $other !== '' ? $other : 'Other';
+    }
+    return $c;
+}
+
 function cartonMatchesExpectedPo(array $carton, $expectedPo) {
     foreach (getPoLookupValues($expectedPo) as $candidate) {
         if (isset($carton['po_number']) && strcasecmp((string)$carton['po_number'], $candidate) === 0) {

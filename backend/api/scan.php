@@ -61,6 +61,10 @@ try {
     
     // Optional truck shipment ID for exit scans
     $truckShipmentId = isset($data['truck_shipment_id']) ? intval($data['truck_shipment_id']) : null;
+
+    if ($action === 'exit' && !$truckShipmentId) {
+        throw new Exception('Truck assignment is required for exit scans.');
+    }
     
     // Optional notes
     $notes = isset($data['notes']) ? trim($data['notes']) : null;

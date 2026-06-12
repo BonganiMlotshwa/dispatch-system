@@ -22,6 +22,6 @@ powershell -Command "Start-Process powershell -ArgumentList '-ExecutionPolicy By
 echo.
 echo Setup process initiated. Please follow the prompts in the PowerShell window.
 echo.
-echo If you encounter any issues, please refer to the NETWORK_ACCESS.md file.
+echo If you encounter any issues, see the Network Access section in README.md.
 echo.
 pause

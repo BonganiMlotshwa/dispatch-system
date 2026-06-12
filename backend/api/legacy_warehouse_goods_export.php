@@ -3,6 +3,8 @@
  * Export legacy warehouse goods list to CSV (same columns as spreadsheet).
  */
 require_once '../config/database.php';
+require_once '../includes/csv_export.php';
+require_once '../includes/po_helpers.php';
 require_once '../includes/legacy_warehouse_statuses.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -17,7 +19,7 @@ try {
     $params = [];
     if (!empty($_GET['status'])) {
         $where[] = 'status = ?';
-        $params[] = $_GET['status'];
+        $params[] = normalizeLegacyWarehouseStatus($_GET['status']);
     }
     if (!empty($_GET['customer'])) {
         $where[] = 'customer = ?';
@@ -28,7 +30,6 @@ try {
         $params[] = (int)$_GET['source_year'];
     }
     if (!empty($_GET['in_warehouse_only']) && $_GET['in_warehouse_only'] !== '0') {
-        // Keep exports aligned with the screen filter: only rows still marked active.
         $where[] = "status = 'active'";
     }
     if (!empty($_GET['search'])) {
@@ -37,16 +38,19 @@ try {
         array_push($params, $q, $q, $q, $q, $q, $q);
     }
 
-    $sql = 'SELECT * FROM legacy_warehouse_goods WHERE ' . implode(' AND ', $where) . ' ORDER BY internal_po ASC';
+    $sql = 'SELECT * FROM legacy_warehouse_goods WHERE ' . implode(' AND ', $where);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="legacy_warehouse_goods_' . date('Y-m-d') . '.csv"');
+    usort($rows, function ($a, $b) {
+        return comparePoNumbers($a['internal_po'], $b['internal_po']);
+    });
 
-    $out = fopen('php://output', 'w');
-    fputcsv($out, [
+    $filename = 'legacy_warehouse_goods_' . date('Y-m-d') . '.csv';
+    $out = csvOutputStart($filename);
+
+    csvWriteRow($out, [
         'PO', 'Order Number', 'Style', 'Colour', 'Order Quantity',
         'Quantity Inside', 'No of Ctns', 'Status', 'Remarks',
         'New Developments', 'Shipped Qty', 'Customer', 'Source Year'
@@ -54,7 +58,7 @@ try {
 
     foreach ($rows as $r) {
         $ctns = $r['cartons_label'] ?: ($r['cartons_count'] ? $r['cartons_count'] . ' CTNS' : '');
-        fputcsv($out, [
+        csvWriteRow($out, [
             $r['internal_po'],
             $r['customer_order_number'],
             $r['style'],
@@ -66,11 +70,12 @@ try {
             $r['remarks'],
             $r['new_developments'],
             $r['shipped_qty'],
-            $r['customer'],
+            formatLegacyCustomerLabel($r['customer'], $r['customer_other'] ?? null),
             $r['source_year']
         ]);
     }
-    fclose($out);
+
+    csvOutputEnd($out);
 } catch (Exception $e) {
     http_response_code(400);
     header('Content-Type: application/json');

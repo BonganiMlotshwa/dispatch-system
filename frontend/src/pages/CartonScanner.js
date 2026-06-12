@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Button, Form, Alert, Badge, Table } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Quagga from 'quagga';
 import { API_BASE_URL } from '../config';
@@ -377,6 +377,7 @@ axios.interceptors.response.use(
  * Handles barcode scanning for carton entry and exit tracking
  */
 const CartonScanner = () => {
+  const [searchParams] = useSearchParams();
   const [barcode, setBarcode] = useState('');
   const [barcodes, setBarcodes] = useState(''); // For batch scanning
   const [batchMode, setBatchMode] = useState(false); // Toggle for batch mode
@@ -468,6 +469,34 @@ const CartonScanner = () => {
     console.log('Page accessed via:', window.location.hostname);
     console.log('User agent:', navigator.userAgent);
   }, []);
+  
+  // Handle URL parameters for pre-configuration (from PO Details "Scan to Ship" button)
+  useEffect(() => {
+    const urlPo = searchParams.get('po');
+    const urlAction = searchParams.get('action');
+    
+    if (urlPo && urlPo.trim()) {
+      const normalizedUrlPo = normalizeExpectedPo(urlPo);
+      const match = normalizedUrlPo.match(/^([A-Z]+)-(.+)$/);
+      if (match) {
+        setPoPrefix(match[1]);
+        setPoNumber(match[2]);
+      } else {
+        setPoNumber(normalizedUrlPo);
+      }
+      console.log('Pre-filled PO from URL:', urlPo);
+    }
+    
+    if (urlAction === 'enter') {
+      setAction('enter');
+      setExitWithoutTruck(false);
+      console.log('Pre-selected action: enter');
+    } else if (urlAction === 'exit') {
+      // Open truck selection modal for exit mode
+      setShowTruckChoiceModal(true);
+      console.log('Pre-selected action: exit - opening truck selection');
+    }
+  }, [searchParams]);
   
   // Auto-clear success messages after 5 seconds
   useEffect(() => {
@@ -2199,16 +2228,6 @@ const CartonScanner = () => {
           onNewTruck={() => {
             setShowTruckChoiceModal(false);
             setShowExitModal(true);
-          }}
-          onExitWithoutTruck={() => {
-            setActiveTruck(null);
-            setExitWithoutTruck(true);
-            setAction('exit');
-            setShowTruckChoiceModal(false);
-            setScanResult({
-              success: true,
-              message: 'Exit mode: cartons will leave warehouse without truck assignment.'
-            });
           }}
         />
 

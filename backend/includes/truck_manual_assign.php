@@ -11,6 +11,42 @@ function isNonMrpCustomer($customer) {
     return strtoupper(trim((string)$customer)) !== 'MRP';
 }
 
+/** Manual OTB/OBSW/etc. — not MRP (Mr Price must use exit scanner). */
+function canDirectShipShipment($entryType, $customer) {
+    return strtolower(trim((string)$entryType)) === 'manual' && isNonMrpCustomer($customer);
+}
+
+/**
+ * Block direct "mark as shipped" for MRP and non-manual orders.
+ *
+ * @param int[] $cartonIds
+ */
+function assertCartonsAllowDirectShip(PDO $pdo, array $cartonIds) {
+    $cartonIds = array_values(array_unique(array_map('intval', $cartonIds)));
+    if ($cartonIds === []) {
+        return;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($cartonIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT c.id, s.entry_type, s.customer, s.internal_po_number
+        FROM cartons c
+        INNER JOIN shipments s ON s.id = c.shipment_id
+        WHERE c.id IN ($placeholders)
+    ");
+    $stmt->execute($cartonIds);
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (!canDirectShipShipment($row['entry_type'] ?? '', $row['customer'] ?? 'MRP')) {
+            $po = $row['internal_po_number'] ?? ('carton #' . $row['id']);
+            if (!isNonMrpCustomer($row['customer'] ?? 'MRP')) {
+                throw new Exception("PO {$po} is Mr Price — use the exit scanner to ship cartons.");
+            }
+            throw new Exception("PO {$po} must be shipped using the exit scanner.");
+        }
+    }
+}
+
 /**
  * @param PDO $pdo
  * @param int $truckShipmentId

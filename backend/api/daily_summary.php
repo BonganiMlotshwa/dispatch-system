@@ -50,6 +50,8 @@ try {
 
             s.internal_po_number,
 
+            (SELECT po_number FROM cartons WHERE shipment_id = s.id LIMIT 1) as customer_po_number,
+
             COUNT(c.id) as cartons_expected,
 
             COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as units_expected,

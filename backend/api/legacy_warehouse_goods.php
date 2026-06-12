@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../config/database.php';
 require_once '../includes/admin_auth.php';
 require_once '../includes/legacy_warehouse_statuses.php';
+require_once '../includes/po_helpers.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -59,10 +60,12 @@ try {
             SELECT l.*
             FROM legacy_warehouse_goods l
             WHERE {$whereSql}
-            ORDER BY l.updated_at DESC, l.id DESC
         ");
         $stmt->execute($params);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        usort($items, function ($a, $b) {
+            return comparePoNumbers($a['internal_po'] ?? '', $b['internal_po'] ?? '');
+        });
         foreach ($items as &$item) {
             $item['status'] = normalizeLegacyWarehouseStatus($item['status']);
         }
@@ -93,15 +96,16 @@ try {
         $row = validateLegacyRow($input);
         $stmt = $pdo->prepare("
             INSERT INTO legacy_warehouse_goods (
-                internal_po, customer_order_number, customer, style, color,
+                internal_po, customer_order_number, customer, customer_other, style, color,
                 order_qty, quantity_inside, cartons_label, cartons_count,
                 status, remarks, new_developments, shipped_qty, source_year
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ");
         $stmt->execute([
             $row['internal_po'],
             $row['customer_order_number'],
             $row['customer'],
+            $row['customer_other'],
             $row['style'],
             $row['color'],
             $row['order_qty'],
@@ -131,7 +135,7 @@ try {
         $row = validateLegacyRow($input);
         $stmt = $pdo->prepare("
             UPDATE legacy_warehouse_goods SET
-                internal_po = ?, customer_order_number = ?, customer = ?, style = ?, color = ?,
+                internal_po = ?, customer_order_number = ?, customer = ?, customer_other = ?, style = ?, color = ?,
                 order_qty = ?, quantity_inside = ?, cartons_label = ?, cartons_count = ?,
                 status = ?, remarks = ?, new_developments = ?, shipped_qty = ?, source_year = ?
             WHERE id = ?
@@ -140,6 +144,7 @@ try {
             $row['internal_po'],
             $row['customer_order_number'],
             $row['customer'],
+            $row['customer_other'],
             $row['style'],
             $row['color'],
             $row['order_qty'],
@@ -196,10 +201,17 @@ function validateLegacyRow(array $input) {
         $cartonsCount = (int)$m[1];
     }
 
+    $customer = trim($input['customer'] ?? 'MRP') ?: 'MRP';
+    $customerOther = trim($input['customer_other'] ?? '') ?: null;
+    if (strcasecmp($customer, 'Other') === 0 && $customerOther === null) {
+        throw new Exception('Please enter a customer name when Customer is Other');
+    }
+
     return [
         'internal_po' => $po,
         'customer_order_number' => trim($input['customer_order_number'] ?? '') ?: null,
-        'customer' => trim($input['customer'] ?? 'MRP') ?: 'MRP',
+        'customer' => $customer,
+        'customer_other' => $customerOther,
         'style' => trim($input['style'] ?? '') ?: null,
         'color' => trim($input['color'] ?? '') ?: null,
         'order_qty' => intOrNull($input['order_qty'] ?? null),

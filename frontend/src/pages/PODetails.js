@@ -22,7 +22,7 @@ import { useApi } from '../hooks/useApi';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
-import { isOtbCustomer, formatInternalPoDisplay, formatCustomerPoForDisplay, formatCartonDateTime, getCartonEntryTime, getCartonExitTime } from '../utils/poDisplay';
+import { isOtbCustomer, formatInternalPoDisplay, formatCustomerPoForDisplay, formatCartonDateTime, getCartonEntryTime, getCartonExitTime, canDirectShipOrder } from '../utils/poDisplay';
 import { formatCartonStatus } from '../utils/formatters';
 import {
   WAREHOUSE_ORDER_STATUS_OPTIONS,
@@ -123,6 +123,9 @@ const PODetails = React.memo(() => {
   const { data: poData, loading, error, refetch: refetchAnalytics } = useApi(analyticsUrl, { 
     debounceMs: 200 // Debounce rapid changes
   });
+  const shipment = poData?.shipment;
+  const isManualEntry = shipment?.entry_type === 'manual';
+  const canDirectShip = canDirectShipOrder(shipment);
 
   useEffect(() => {
     const s = poData?.shipment;
@@ -378,42 +381,153 @@ const PODetails = React.memo(() => {
     }
   }, [navigate, withAdminAuth]);
 
-  const handleMarkAsShipped = useCallback(async (carton) => {
-    try {
-      await withAdminAuth('mark as shipped', async (adminCode) => {
-      await axios.post(`${API_BASE_URL}/update_carton_status.php`, {
-        carton_id: carton.id,
-        status: 'exited',
-        admin_code: adminCode
-      }, {
-        timeout: 5000 // 5 second timeout
-      });
-      
-      setNotifications(prev => [...prev, {
-        id: Date.now(),
-        type: 'success',
-        message: `✅ Carton ${carton.barcode_2d} marked as shipped`,
-        timestamp: new Date()
-      }]);
-      
-      // Refresh only table and stats data
-      await refreshTableAndStats();
-      });
-    } catch (error) {
-      if (error?.message === 'Admin verification cancelled') return;
-      console.error('Error updating carton status:', error);
-      const errorMessage = error.code === 'ECONNABORTED' 
-        ? 'Request timed out. Please try again.' 
-        : (error.response?.data?.error || error.response?.data?.message || 'Failed to update carton status');
-        
+  const openExitScannerForPo = useCallback(() => {
+    const po = shipment?.internal_po_number;
+    if (!po) {
       setNotifications(prev => [...prev, {
         id: Date.now(),
         type: 'error',
-        message: `❌ ${errorMessage}`,
+        message: 'Cannot open exit scanner because this PO number is missing.',
         timestamp: new Date()
       }]);
+      return;
     }
-  }, [refreshTableAndStats, withAdminAuth]);
+
+    navigate(`/scanner?po=${encodeURIComponent(po)}&action=exit`);
+  }, [navigate, shipment?.internal_po_number]);
+
+  const [showShipModal, setShowShipModal] = useState(false);
+  const [cartonToShip, setCartonToShip] = useState(null);
+  const [cartonsToShipBulk, setCartonsToShipBulk] = useState(null);
+  const [shipFormData, setShipFormData] = useState({
+    truck_reg: '',
+    driver_name: ''
+  });
+  const [shippingSubmitting, setShippingSubmitting] = useState(false);
+
+  const closeShipModal = useCallback(() => {
+    setShowShipModal(false);
+    setCartonToShip(null);
+    setCartonsToShipBulk(null);
+    setShipFormData({ truck_reg: '', driver_name: '' });
+    setShippingSubmitting(false);
+  }, []);
+
+  const shipModalCartonCount = cartonsToShipBulk?.length || (cartonToShip ? 1 : 0);
+
+  const openManualShipModal = useCallback((cartons) => {
+    const cartonList = Array.isArray(cartons) ? cartons : [cartons];
+    const validCartons = cartonList.filter((carton) => carton?.status === 'entered');
+
+    if (validCartons.length === 0) {
+      setNotifications(prev => [...prev, {
+        id: Date.now(),
+        type: 'warning',
+        message: 'No selected cartons are in warehouse (entered) status.',
+        timestamp: new Date()
+      }]);
+      return;
+    }
+
+    setCartonToShip(validCartons.length === 1 ? validCartons[0] : null);
+    setCartonsToShipBulk(validCartons.length > 1 ? validCartons : null);
+    setShipFormData({ truck_reg: '', driver_name: '' });
+    setShowShipModal(true);
+  }, []);
+
+  const handleMarkAsShipped = useCallback((carton) => {
+    // Check if carton is in warehouse before allowing shipping
+    if (carton.status !== 'entered') {
+      setNotifications(prev => [...prev, {
+        id: Date.now(),
+        type: 'error',
+        message: '❌ Only cartons in warehouse (entered status) can be shipped. This carton is currently: ' + carton.status,
+        timestamp: new Date()
+      }]);
+      return;
+    }
+    
+    if (canDirectShip) {
+      openManualShipModal(carton);
+    } else {
+      openExitScannerForPo();
+    }
+  }, [canDirectShip, openExitScannerForPo, openManualShipModal]);
+
+  const handleShipModalSubmit = useCallback(async () => {
+    const truckReg = shipFormData.truck_reg.trim();
+    const driverName = shipFormData.driver_name.trim();
+
+    if (!truckReg || !driverName) {
+      setNotifications(prev => [...prev, {
+        id: Date.now(),
+        type: 'error',
+        message: 'Please enter both truck registration and driver name.',
+        timestamp: new Date()
+      }]);
+      return;
+    }
+
+    setShippingSubmitting(true);
+    try {
+      if (cartonToShip) {
+        await axios.post(`${API_BASE_URL}/update_carton_status.php`, {
+          carton_id: cartonToShip.id,
+          status: 'exited',
+          truck_reg: truckReg,
+          driver_name: driverName
+        }, {
+          timeout: 5000
+        });
+      }
+
+      if (cartonsToShipBulk?.length > 0) {
+        const updates = cartonsToShipBulk.map(carton => ({
+          carton_id: carton.id,
+          status: 'exited',
+          truck_reg: truckReg,
+          driver_name: driverName
+        }));
+
+        await axios.post(`${API_BASE_URL}/bulk_update_carton_status.php`, {
+          updates
+        }, {
+          timeout: 30000
+        });
+
+        setSelectedCartonIds([]);
+      }
+
+      setNotifications(prev => [...prev, {
+        id: Date.now(),
+        type: 'success',
+        message: cartonsToShipBulk?.length > 0
+          ? `Successfully marked ${cartonsToShipBulk.length} cartons as shipped.`
+          : `Carton ${cartonToShip?.barcode_2d || ''} marked as shipped.`,
+        timestamp: new Date()
+      }]);
+
+      setShowShipModal(false);
+      setCartonToShip(null);
+      setCartonsToShipBulk(null);
+      setShipFormData({ truck_reg: '', driver_name: '' });
+      await refreshTableAndStats();
+    } catch (error) {
+      console.error('Error updating carton status:', error);
+      const errorMessage = error.code === 'ECONNABORTED'
+        ? 'Request timed out. Please try again.'
+        : (error.response?.data?.error || error.response?.data?.message || 'Failed to update carton status');
+
+      setNotifications(prev => [...prev, {
+        id: Date.now(),
+        type: 'error',
+        message: errorMessage,
+        timestamp: new Date()
+      }]);
+    } finally {
+      setShippingSubmitting(false);
+    }
+  }, [cartonToShip, cartonsToShipBulk, shipFormData, refreshTableAndStats]);
 
   const printCartonLabel = useCallback((carton) => {
     // Create a print window with enhanced carton label including barcode and QR code
@@ -868,9 +982,12 @@ const PODetails = React.memo(() => {
 
   const handleBulkExitWarehouse = useCallback(async () => {
     if (!bulkActionAnalysis?.warehouseCartons.length) return;
-    await processBulkUpdate(bulkActionAnalysis.warehouseCartons, 'exited', 'Ship Cartons');
-    setSelectedCartonIds([]);
-  }, [bulkActionAnalysis, processBulkUpdate]);
+    if (canDirectShip) {
+      openManualShipModal(bulkActionAnalysis.warehouseCartons);
+    } else {
+      openExitScannerForPo();
+    }
+  }, [bulkActionAnalysis, canDirectShip, openExitScannerForPo, openManualShipModal]);
 
   const handleBulkShipSelected = useCallback(async () => {
     if (!cartonData?.cartons || selectedCartonIds.length === 0) return;
@@ -889,9 +1006,12 @@ const PODetails = React.memo(() => {
       ]);
       return;
     }
-    await processBulkUpdate(toShip, 'exited', 'Ship Selected Cartons');
-    setSelectedCartonIds([]);
-  }, [cartonData, selectedCartonIds, processBulkUpdate]);
+    if (canDirectShip) {
+      openManualShipModal(toShip);
+    } else {
+      openExitScannerForPo();
+    }
+  }, [cartonData, selectedCartonIds, canDirectShip, openExitScannerForPo, openManualShipModal]);
 
   const handleBulkPrintLabels = useCallback(async () => {
     if (!cartonData?.cartons) return;
@@ -956,8 +1076,6 @@ const PODetails = React.memo(() => {
     );
   }
 
-  const shipment = poData?.shipment;
-  const isManualEntry = shipment?.entry_type === 'manual';
   const hideSizeColumn = isOtbCustomer(shipment?.customer);
   
   return (
@@ -1421,6 +1539,19 @@ const PODetails = React.memo(() => {
                     <i className="bi bi-arrow-clockwise me-1"></i> Reset
                   </Button>
                 </Col>
+                
+                {/* Continue Receiving for Partial Receipts */}
+                {bulkActionAnalysis?.canEnterWarehouse && bulkActionAnalysis?.pendingCartons?.length > 0 && (
+                  <Col md={3}>
+                    <Link to={`/scanner?po=${shipment?.internal_po_number}&action=enter`}>
+                      <Button variant="info" size="sm" className="w-100">
+                        <i className="bi bi-upc-scan me-1"></i>
+                        Continue Receiving ({bulkActionAnalysis.pendingCartons.length})
+                      </Button>
+                    </Link>
+                  </Col>
+                )}
+                
                 <Col md={2} className="text-end">
                   <Dropdown>
                     <Dropdown.Toggle 
@@ -1457,8 +1588,10 @@ const PODetails = React.memo(() => {
                           onClick={handleBulkShipSelected}
                           disabled={isBulkProcessing}
                         >
-                          <i className="bi bi-check2-square me-2 text-success"></i>
-                          Ship Selected ({selectedCartonIds.length})
+                          <i className={`bi ${canDirectShip ? 'bi-truck' : 'bi-upc-scan'} me-2 text-success`}></i>
+                          {canDirectShip
+                            ? `Mark Selected as Shipped (${selectedCartonIds.length})`
+                            : `Scan Selected Out (${selectedCartonIds.length})`}
                         </Dropdown.Item>
                       )}
                       {bulkActionAnalysis?.canExitWarehouse && (
@@ -1467,7 +1600,9 @@ const PODetails = React.memo(() => {
                           disabled={isBulkProcessing}
                         >
                           <i className="bi bi-truck me-2 text-success"></i>
-                          Ship All ({bulkActionAnalysis.statusCounts.entered} in warehouse)
+                          {canDirectShip
+                            ? `Ship All In Warehouse (${bulkActionAnalysis.statusCounts.entered})`
+                            : `Scan All Out (${bulkActionAnalysis.statusCounts.entered} in warehouse)`}
                           {isBulkProcessing && <Spinner animation="border" size="sm" className="ms-2" />}
                         </Dropdown.Item>
                       )}
@@ -1524,10 +1659,12 @@ const PODetails = React.memo(() => {
                         variant="success"
                         onClick={handleBulkShipSelected}
                         disabled={isBulkProcessing}
+                        title={canDirectShip ? 'Mark selected cartons as shipped' : 'Open exit scanner for this PO'}
                       >
-                        <i className="bi bi-truck me-1"></i>
-                        Ship Selected
+                        <i className={`bi ${canDirectShip ? 'bi-truck' : 'bi-upc-scan'} me-1`}></i>
+                        {canDirectShip ? 'Mark as Shipped' : 'Scan to Ship'}
                       </Button>
+                      
                       <Button
                         size="sm"
                         variant="outline-secondary"
@@ -1680,17 +1817,21 @@ const PODetails = React.memo(() => {
                                   </Button>
                                 </OverlayTrigger>
 
-                                {carton.status !== 'exited' && (
+                                {carton.status === 'entered' && (
                                   <OverlayTrigger
                                     placement="top"
-                                    overlay={<Tooltip>Mark as Shipped</Tooltip>}
+                                    overlay={
+                                      <Tooltip>
+                                        {canDirectShip ? 'Mark as Shipped' : 'Scan to Ship'}
+                                      </Tooltip>
+                                    }
                                   >
                                     <Button 
                                       variant="outline-success" 
                                       size="sm"
                                       onClick={() => handleMarkAsShipped(carton)}
                                     >
-                                      <i className="bi bi-truck"></i>
+                                      <i className={`bi ${canDirectShip ? 'bi-truck' : 'bi-upc-scan'}`}></i>
                                     </Button>
                                   </OverlayTrigger>
                                 )}
@@ -2015,7 +2156,7 @@ const PODetails = React.memo(() => {
               >
                 <i className="bi bi-printer me-1"></i> Print Label
               </Button>
-              {selectedCarton?.status !== 'exited' && (
+              {selectedCarton?.status === 'entered' && (
                 <Button 
                   variant="outline-success" 
                   size="sm"
@@ -2024,7 +2165,8 @@ const PODetails = React.memo(() => {
                     setShowCartonModal(false);
                   }}
                 >
-                  <i className="bi bi-truck me-1"></i> Mark as Shipped
+                  <i className={`bi ${canDirectShip ? 'bi-truck' : 'bi-upc-scan'} me-1`}></i>
+                  {canDirectShip ? 'Mark as Shipped' : 'Scan to Ship'}
                 </Button>
               )}
             </div>
@@ -2032,6 +2174,93 @@ const PODetails = React.memo(() => {
               Close
             </Button>
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Manual entry: driver / truck info before marking shipped */}
+      <Modal show={showShipModal} onHide={closeShipModal} centered backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="bi bi-truck me-2"></i>
+            Mark as Shipped
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info" className="mb-3 py-2">
+            <small>
+              Manual-entry order — enter truck and driver details, then mark{' '}
+              <strong>{shipModalCartonCount}</strong> carton{shipModalCartonCount !== 1 ? 's' : ''} as shipped.
+              No barcode scanning required.
+            </small>
+          </Alert>
+
+          {cartonToShip && (
+            <p className="small text-muted mb-3">
+              Carton: <code>{cartonToShip.barcode_2d}</code>
+            </p>
+          )}
+          {cartonsToShipBulk?.length > 0 && (
+            <p className="small text-muted mb-3">
+              {cartonsToShipBulk.length} cartons selected from this PO
+            </p>
+          )}
+
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleShipModalSubmit();
+            }}
+          >
+            <Form.Group className="mb-3">
+              <Form.Label>Truck Registration *</Form.Label>
+              <Form.Control
+                type="text"
+                name="truck_reg"
+                value={shipFormData.truck_reg}
+                onChange={(e) => setShipFormData((prev) => ({ ...prev, truck_reg: e.target.value }))}
+                placeholder="e.g., ABC 123 GP"
+                required
+                autoFocus
+                style={{ textTransform: 'uppercase' }}
+                disabled={shippingSubmitting}
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-0">
+              <Form.Label>Driver Name *</Form.Label>
+              <Form.Control
+                type="text"
+                name="driver_name"
+                value={shipFormData.driver_name}
+                onChange={(e) => setShipFormData((prev) => ({ ...prev, driver_name: e.target.value }))}
+                placeholder="First and surname"
+                required
+                disabled={shippingSubmitting}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={closeShipModal} disabled={shippingSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleShipModalSubmit}
+            disabled={shippingSubmitting || !shipFormData.truck_reg.trim() || !shipFormData.driver_name.trim()}
+          >
+            {shippingSubmitting ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                Shipping…
+              </>
+            ) : (
+              <>
+                <i className="bi bi-check-circle me-1"></i>
+                Confirm Shipped
+              </>
+            )}
+          </Button>
         </Modal.Footer>
       </Modal>
     </Container>

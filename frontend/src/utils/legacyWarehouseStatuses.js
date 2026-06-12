@@ -10,6 +10,7 @@ export const emptyLegacyForm = () => ({
   internal_po: '',
   customer_order_number: '',
   customer: 'MRP',
+  customer_other: '',
   style: '',
   color: '',
   order_qty: '',
