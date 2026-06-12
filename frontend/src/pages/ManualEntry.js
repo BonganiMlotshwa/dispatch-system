@@ -11,6 +11,7 @@ const ManualEntry = () => {
   
   const [formData, setFormData] = useState({
     customer: 'OTB',
+    customer_other: '',
     order_no: '',
     customer_po: '',
     style: '',
@@ -31,6 +32,7 @@ const ManualEntry = () => {
       setFormData({
         ...formData,
         customer: value,
+        customer_other: '',
         customer_po: ''
       });
     } else {
@@ -49,7 +51,22 @@ const ManualEntry = () => {
     setSuccess('');
 
     try {
-      const response = await apiService.post('/manual_entry.php', formData);
+      const customerName = formData.customer === 'Other'
+        ? formData.customer_other.trim()
+        : formData.customer;
+
+      if (!customerName) {
+        setError('Please enter a customer name when Customer is Other');
+        setLoading(false);
+        return;
+      }
+
+      const payload = {
+        ...formData,
+        customer: customerName
+      };
+
+      const response = await apiService.post('/manual_entry.php', payload);
       
       if (response.data && response.data.success) {
         setSuccess('Entry created successfully!');
@@ -66,7 +83,10 @@ const ManualEntry = () => {
     }
   };
 
-  const customerPrefix = getCustomerPoPrefix(formData.customer);
+  const selectedCustomer = formData.customer === 'Other'
+    ? formData.customer_other.trim()
+    : formData.customer;
+  const customerPrefix = selectedCustomer ? getCustomerPoPrefix(selectedCustomer) : '';
   const internalPrefix = 'FTM-';
   const orderDigits = formData.order_no ? formData.order_no.replace(/^[A-Za-z]+-/i, '') : '';
   const orderPreview = orderDigits ? `${internalPrefix}${orderDigits}` : `${internalPrefix}___`;
@@ -116,6 +136,17 @@ const ManualEntry = () => {
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
+                    {formData.customer === 'Other' && (
+                      <input
+                        type="text"
+                        className="form-control mt-2"
+                        name="customer_other"
+                        value={formData.customer_other}
+                        onChange={handleChange}
+                        placeholder="Enter customer name"
+                        required
+                      />
+                    )}
                   </div>
 
                   <div className="col-md-6">
