@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Include required files
 require_once '../config/database.php';
 require_once '../includes/xml_parser.php';
+require_once '../includes/schedule_lookup.php';
 
 // Debug logging
 file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Request: ' . print_r($_REQUEST, true) . "\n", FILE_APPEND);
@@ -58,17 +59,13 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     throw new Exception('Upload error: ' . $errorMessage);
 }
     
-    // Get FTM PO number if provided, otherwise use default
-    $internalPoNumber = !empty($_POST['internalPoNumber']) ? trim($_POST['internalPoNumber']) : 'AUTO-' . date('YmdHis');
-    
-    // Get additional fields
+    $importMode = strtolower(trim($_POST['importMode'] ?? 'linked'));
+    $internalPoNumber = !empty($_POST['internalPoNumber']) ? trim($_POST['internalPoNumber']) : '';
     $style = !empty($_POST['style']) ? trim($_POST['style']) : '';
     $color = !empty($_POST['color']) ? trim($_POST['color']) : '';
     $quantity = !empty($_POST['quantity']) ? trim($_POST['quantity']) : '';
-    
-    // Debug logging
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - FTM PO Number: ' . $internalPoNumber . "\n", FILE_APPEND);
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Style: ' . $style . ', Color: ' . $color . ', Quantity: ' . $quantity . "\n", FILE_APPEND);
+    $scheduleId = !empty($_POST['scheduleId']) ? (int) $_POST['scheduleId'] : null;
+    $customerOrderNo = trim($_POST['customerOrderNo'] ?? '');
     $uploadedFile = $_FILES['xmlFile'];
     
     // Validate file type (should be .mrpg)
@@ -90,6 +87,52 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     if (!move_uploaded_file($uploadedFile['tmp_name'], $targetFilePath)) {
         throw new Exception('Failed to move uploaded file');
     }
+
+    $metadata = extractMrpgMetadata($targetFilePath);
+    if (!$metadata['success']) {
+        unlink($targetFilePath);
+        throw new Exception($metadata['message']);
+    }
+
+    if ($customerOrderNo === '') {
+        $customerOrderNo = (string) $metadata['customer_order_no'];
+    }
+
+    $scheduleStatus = 'manual';
+    $scheduleWeekLabel = null;
+    $lookup = null;
+
+    if ($importMode === 'unlinked') {
+        if ($customerOrderNo === '') {
+            unlink($targetFilePath);
+            throw new Exception('Could not determine customer order number from file.');
+        }
+        $internalPoNumber = 'PENDING-' . $customerOrderNo;
+        $style = $style !== '' ? $style : 'Pending schedule';
+        $color = $color !== '' ? $color : 'Pending schedule';
+        $quantity = $quantity !== '' ? $quantity : '';
+        $scheduleStatus = 'unlinked';
+    } else {
+        if ($internalPoNumber === '') {
+            unlink($targetFilePath);
+            throw new Exception('FTM PO number is required for linked import.');
+        }
+        if ($style === '' || $color === '' || $quantity === '') {
+            unlink($targetFilePath);
+            throw new Exception('Style, color, and quantity are required for linked import.');
+        }
+
+        $lookup = scheduleLookupOrderInLibrary($pdo, $customerOrderNo, $scheduleId);
+        if (!empty($lookup['match'])) {
+            $scheduleStatus = 'linked';
+            $scheduleId = $lookup['match']['schedule_id'];
+            $scheduleWeekLabel = $lookup['match']['week_label'];
+        } else {
+            $scheduleStatus = 'manual';
+        }
+    }
+
+    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Import mode: ' . $importMode . ', PO: ' . $internalPoNumber . "\n", FILE_APPEND);
     
     // Parse the XML file
     $parseResult = parseXmlFile($targetFilePath, $internalPoNumber);
@@ -104,6 +147,11 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     $parseResult['style'] = $style;
     $parseResult['color'] = $color;
     $parseResult['quantity'] = $quantity;
+    $parseResult['import_mode'] = $importMode;
+    $parseResult['schedule_status'] = $scheduleStatus;
+    $parseResult['customer_order_no'] = $customerOrderNo;
+    $parseResult['schedule_id'] = $scheduleId;
+    $parseResult['schedule_week_label'] = $scheduleWeekLabel;
     
     // Save the imported data to database
     $saveResult = saveImportedData($parseResult, $pdo);
@@ -117,10 +165,14 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     // Return success response
     $response = [
         'success' => true,
-        'message' => 'File uploaded and processed successfully',
+        'message' => $importMode === 'unlinked'
+            ? 'File imported without schedule. Link when schedule is available.'
+            : 'File uploaded and processed successfully',
         'shipment_id' => $saveResult['shipment_id'],
         'cartons_imported' => $saveResult['cartons_imported'],
-        'po_number' => $internalPoNumber
+        'po_number' => $internalPoNumber,
+        'schedule_status' => $saveResult['schedule_status'] ?? $scheduleStatus,
+        'customer_order_no' => $customerOrderNo,
     ];
     
     // Log success response

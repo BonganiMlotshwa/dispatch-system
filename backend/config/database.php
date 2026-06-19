@@ -49,10 +49,17 @@ class DatabasePool {
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
                 PDO::ATTR_PERSISTENT => true, // Use persistent connections
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
-                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
                 PDO::ATTR_TIMEOUT => 10, // Connection timeout
             ];
+
+            if (PHP_VERSION_ID >= 80500) {
+                $options[\Pdo\Mysql::ATTR_INIT_COMMAND] = 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci';
+                $options[\Pdo\Mysql::ATTR_USE_BUFFERED_QUERY] = true;
+            } else {
+                $options[PDO::MYSQL_ATTR_INIT_COMMAND] = 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci';
+                $options[PDO::MYSQL_ATTR_USE_BUFFERED_QUERY] = true;
+            }
+
             $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
             error_log("Database Connection Error: " . $e->getMessage());
