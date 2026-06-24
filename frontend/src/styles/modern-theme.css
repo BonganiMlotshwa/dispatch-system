@@ -2341,14 +2341,14 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
 }
 
 [data-theme="dark"] .btn-secondary {
-  background-color: var(--gray-700) !important;
+  background-color: var(--bg-tertiary) !important;
   border-color: var(--gray-600) !important;
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .btn-secondary:hover {
-  background-color: var(--gray-600) !important;
-  border-color: var(--gray-500) !important;
+  background-color: var(--gray-200) !important;
+  border-color: var(--gray-300) !important;
   color: var(--text-primary) !important;
 }
 
@@ -2358,20 +2358,20 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
 }
 
 [data-theme="dark"] .btn-outline-secondary:hover {
-  background-color: var(--gray-700) !important;
-  border-color: var(--gray-600) !important;
+  background-color: var(--gray-200) !important;
+  border-color: var(--gray-300) !important;
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .btn-light {
-  background-color: var(--gray-700) !important;
-  border-color: var(--gray-600) !important;
+  background-color: var(--bg-tertiary) !important;
+  border-color: var(--gray-300) !important;
   color: var(--text-primary) !important;
 }
 
 [data-theme="dark"] .btn-light:hover {
-  background-color: var(--gray-600) !important;
-  border-color: var(--gray-500) !important;
+  background-color: var(--gray-100) !important;
+  border-color: var(--gray-200) !important;
   color: var(--text-primary) !important;
 }
 
@@ -2767,7 +2767,14 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
 }
 
 [data-theme="dark"] .bg-secondary {
-  background-color: var(--gray-700) !important;
+  background-color: var(--gray-200) !important;
+}
+
+[data-theme="dark"] .table-secondary,
+[data-theme="dark"] .table-secondary > td,
+[data-theme="dark"] .table-secondary > th {
+  background-color: var(--gray-100) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Border Colors */

@@ -265,7 +265,7 @@ const StickerGenerator = () => {
 
             body {
               font-family: 'Arial', 'Helvetica', sans-serif;
-              background: white;
+              background: var(--bg-primary);
               padding: 10mm;
             }
 
@@ -305,12 +305,12 @@ const StickerGenerator = () => {
               font-size: 18px;
               font-weight: bold;
               margin-bottom: 2px;
-              color: #000;
+              color: var(--text-primary);
             }
 
             .sticker-subtitle {
               font-size: 11px;
-              color: #6c757d;
+              color: var(--text-muted);
             }
 
             .qr-section-side {
@@ -322,16 +322,16 @@ const StickerGenerator = () => {
 
             .qr-label {
               font-size: 8px;
-              color: #6c757d;
+              color: var(--text-muted);
               margin-bottom: 2px;
               font-weight: 500;
             }
 
             .qr-container {
-              border: 1px solid #dee2e6;
+              border: 1px solid var(--gray-300);
               border-radius: 2px;
               padding: 2px;
-              background: white;
+              background: var(--bg-primary);
               width: 70px;
               height: 70px;
               display: flex;
@@ -347,7 +347,7 @@ const StickerGenerator = () => {
 
             .sticker-details {
               margin-bottom: 8px;
-              border-top: 1px solid #dee2e6;
+              border-top: 1px solid var(--gray-300);
               padding-top: 6px;
             }
 
@@ -361,11 +361,11 @@ const StickerGenerator = () => {
 
             .detail-label {
               font-weight: 600;
-              color: #000;
+              color: var(--text-primary);
             }
 
             .detail-value {
-              color: #495057;
+              color: var(--text-secondary);
             }
 
             .barcode-section {
@@ -375,7 +375,7 @@ const StickerGenerator = () => {
 
             .barcode-label {
               font-size: 9px;
-              color: #6c757d;
+              color: var(--text-muted);
               margin-bottom: 2px;
               font-weight: 500;
             }
@@ -532,12 +532,12 @@ const StickerGenerator = () => {
           font-size: 20px;
           font-weight: bold;
           margin-bottom: 4px;
-          color: #000;
+          color: var(--text-primary);
         }
 
         .sticker-subtitle {
           font-size: 12px;
-          color: #6c757d;
+          color: var(--text-muted);
         }
 
         .qr-section-side {
@@ -549,21 +549,21 @@ const StickerGenerator = () => {
 
         .qr-label {
           font-size: 9px;
-          color: #6c757d;
+          color: var(--text-muted);
           margin-bottom: 4px;
           font-weight: 500;
         }
 
         .qr-code {
-          border: 1px solid #dee2e6;
+          border: 1px solid var(--gray-300);
           border-radius: 2px;
           padding: 4px;
-          background: white;
+          background: var(--bg-primary);
         }
 
         .sticker-details {
           margin-bottom: 12px;
-          border-top: 1px solid #dee2e6;
+          border-top: 1px solid var(--gray-300);
           padding-top: 8px;
         }
 
@@ -577,11 +577,11 @@ const StickerGenerator = () => {
 
         .detail-label {
           font-weight: 600;
-          color: #000;
+          color: var(--text-primary);
         }
 
         .detail-value {
-          color: #495057;
+          color: var(--text-secondary);
         }
 
         .barcode-section {
@@ -591,7 +591,7 @@ const StickerGenerator = () => {
 
         .barcode-label {
           font-size: 10px;
-          color: #6c757d;
+          color: var(--text-muted);
           margin-bottom: 4px;
           font-weight: 500;
         }
@@ -625,6 +625,8 @@ const StickerGenerator = () => {
             border: 2px solid #000 !important;
             page-break-inside: avoid;
             break-inside: avoid;
+            background: white !important;
+            color: #000 !important;
           }
 
           @page {
