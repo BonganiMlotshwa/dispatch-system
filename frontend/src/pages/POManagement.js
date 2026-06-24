@@ -27,10 +27,10 @@ const POManagement = () => {
 
   // State management
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('import_date');
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [statusFilter, setStatusFilter] = useState('active');
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'list'
+  const [sortBy, setSortBy] = useState('internal_po_number');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('list'); // 'cards' or 'list'
   const [selectedPOs, setSelectedPOs] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
