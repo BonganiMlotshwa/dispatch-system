@@ -10,7 +10,10 @@ function cartonTimestampColumnsExist(PDO $pdo) {
     }
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM cartons LIKE " . $pdo->quote('entry_timestamp'));
-        $exists = (bool)$stmt->fetch();
+        $entryExists = (bool)$stmt->fetch();
+        $stmt = $pdo->query("SHOW COLUMNS FROM cartons LIKE " . $pdo->quote('exit_timestamp'));
+        $exitExists = (bool)$stmt->fetch();
+        $exists = $entryExists && $exitExists;
     } catch (Exception $e) {
         $exists = false;
     }

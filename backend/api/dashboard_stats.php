@@ -167,6 +167,44 @@ try {
     $dailyActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $stats['daily_activity'] = $dailyActivity;
+
+    $scheduleTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'delivery_schedules'")->fetch();
+    $stats['weekly_analysis'] = [];
+    if ($scheduleTableExists) {
+        $stmt = $pdo->query("SELECT
+            ds.id,
+            ds.week_label,
+            ds.file_name,
+            ds.order_count,
+            ds.is_active,
+            ds.imported_at,
+            COUNT(DISTINCT s.id) as shipment_count,
+            COALESCE(COUNT(c.id), 0) as expected_cartons,
+            COALESCE(SUM(CASE WHEN c.status IN ('entered', 'exited') THEN 1 ELSE 0 END), 0) as received,
+            COALESCE(SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END), 0) as in_warehouse,
+            COALESCE(SUM(CASE WHEN c.status = 'pending' THEN 1 ELSE 0 END), 0) as pending_to_enter,
+            COALESCE(SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END), 0) as shipped
+            FROM delivery_schedules ds
+            LEFT JOIN shipments s ON s.schedule_id = ds.id
+            LEFT JOIN cartons c ON c.shipment_id = s.id
+            GROUP BY ds.id, ds.week_label, ds.file_name, ds.order_count, ds.is_active, ds.imported_at
+            ORDER BY ds.imported_at DESC, ds.id DESC
+            LIMIT 12");
+        $weeklyAnalysis = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($weeklyAnalysis as &$week) {
+            $week['id'] = (int)$week['id'];
+            $week['order_count'] = (int)$week['order_count'];
+            $week['is_active'] = (int)$week['is_active'];
+            $week['shipment_count'] = (int)$week['shipment_count'];
+            $week['expected_cartons'] = (int)$week['expected_cartons'];
+            $week['received'] = (int)$week['received'];
+            $week['in_warehouse'] = (int)$week['in_warehouse'];
+            $week['pending_to_enter'] = (int)$week['pending_to_enter'];
+            $week['shipped'] = (int)$week['shipped'];
+        }
+        unset($week);
+        $stats['weekly_analysis'] = $weeklyAnalysis;
+    }
     
     // Prepare response
     $response = json_encode([

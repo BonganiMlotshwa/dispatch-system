@@ -452,7 +452,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Charts Row - Quick Stats + Carton Status/Data Completeness */}
           <div className="row g-3 g-md-4 mb-4">
             {/* Left Half - Quick Stats */}

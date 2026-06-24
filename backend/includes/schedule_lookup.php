@@ -35,11 +35,69 @@ function scheduleGetActive(PDO $pdo): ?array
 function scheduleListAll(PDO $pdo): array
 {
     $stmt = $pdo->query(
-        'SELECT id, week_label, file_name, order_count, is_active, imported_at
-         FROM delivery_schedules
-         ORDER BY imported_at DESC'
+        'SELECT s.id, s.week_label, s.file_name, s.order_count, s.is_active, s.imported_at,
+                COUNT(DISTINCT sh.id) AS linked_shipment_count
+         FROM delivery_schedules s
+         LEFT JOIN shipments sh ON sh.schedule_id = s.id
+         GROUP BY s.id, s.week_label, s.file_name, s.order_count, s.is_active, s.imported_at
+         ORDER BY s.imported_at DESC'
     );
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function scheduleDelete(PDO $pdo, int $scheduleId): array
+{
+    $stmt = $pdo->prepare('SELECT id, week_label, file_name, is_active FROM delivery_schedules WHERE id = ? LIMIT 1');
+    $stmt->execute([$scheduleId]);
+    $schedule = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$schedule) {
+        return ['success' => false, 'message' => 'Schedule not found'];
+    }
+
+    $linkedStmt = $pdo->prepare('SELECT COUNT(*) FROM shipments WHERE schedule_id = ?');
+    $linkedStmt->execute([$scheduleId]);
+    $linkedShipmentCount = (int) $linkedStmt->fetchColumn();
+
+    $pdo->beginTransaction();
+    try {
+        $unlink = $pdo->prepare(
+            "UPDATE shipments
+             SET schedule_id = NULL,
+                 schedule_week_label = NULL,
+                 schedule_status = CASE WHEN schedule_status = 'linked' THEN 'unlinked' ELSE schedule_status END
+             WHERE schedule_id = ?"
+        );
+        $unlink->execute([$scheduleId]);
+
+        $delete = $pdo->prepare('DELETE FROM delivery_schedules WHERE id = ?');
+        $delete->execute([$scheduleId]);
+
+        if ((int) $schedule['is_active'] === 1) {
+            $next = $pdo->query('SELECT id FROM delivery_schedules ORDER BY imported_at DESC, id DESC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+            if ($next) {
+                scheduleActivate($pdo, (int) $next['id']);
+            }
+        }
+
+        $pdo->commit();
+
+        $scheduleFile = __DIR__ . '/../uploads/schedules/' . basename((string) ($schedule['file_name'] ?? ''));
+        if (is_file($scheduleFile)) {
+            @unlink($scheduleFile);
+        }
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    return [
+        'success' => true,
+        'message' => 'Schedule deleted',
+        'week_label' => (string) $schedule['week_label'],
+        'linked_shipment_count' => $linkedShipmentCount,
+    ];
 }
 
 function scheduleSaveParsed(PDO $pdo, array $parsed, bool $setActive = true): array

@@ -56,7 +56,9 @@ try {
             COUNT(DISTINCT c.id) as total_cartons,
             COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as total_units,
             COUNT(DISTINCT c.shipment_id) as total_pos,
-            GROUP_CONCAT(DISTINCT s.customer ORDER BY s.customer SEPARATOR ', ') as customers
+            GROUP_CONCAT(DISTINCT s.customer ORDER BY s.customer SEPARATOR ', ') as customers,
+            MIN(c.exit_timestamp) as first_scan_out_time,
+            MAX(c.exit_timestamp) as last_scan_out_time
         FROM truck_shipments ts
         LEFT JOIN cartons c ON c.truck_shipment_id = ts.id
         LEFT JOIN shipments s ON c.shipment_id = s.id
@@ -103,6 +105,8 @@ try {
             'Total POs',
             'Total Cartons',
             'Total Units',
+            'First Scan Out Time',
+            'Last Scan Out Time',
             'Remarks'
         ];
 
@@ -116,12 +120,14 @@ try {
                 $truck['total_pos'],
                 $truck['total_cartons'],
                 $truck['total_units'],
+                $truck['first_scan_out_time'] ?? '',
+                $truck['last_scan_out_time'] ?? '',
                 $truck['remarks'] ?? ''
             ];
         }
 
         $rows[] = [];
-        $rows[] = ['Summary', '', '', '', '', '', $totalTrucks . ' trucks', $totalCartons, $totalUnits, ''];
+        $rows[] = ['Summary', '', '', '', '', '', $totalTrucks . ' trucks', $totalCartons, $totalUnits, '', '', ''];
 
         csvOutputRows('truck_summary_' . date('Y-m-d') . '.csv', $rows);
     }
@@ -139,6 +145,8 @@ try {
             <td class="num">' . (int)$truck['total_pos'] . '</td>
             <td class="num">' . number_format((int)$truck['total_cartons']) . '</td>
             <td class="num">' . number_format((int)$truck['total_units']) . '</td>
+            <td>' . htmlspecialchars($truck['first_scan_out_time'] ?? '-') . '</td>
+            <td>' . htmlspecialchars($truck['last_scan_out_time'] ?? '-') . '</td>
             <td>' . htmlspecialchars($truck['remarks'] ?? '') . '</td>
         </tr>';
     }
@@ -187,6 +195,8 @@ try {
                 <th class="num">POs</th>
                 <th class="num">Cartons</th>
                 <th class="num">Units</th>
+                <th>First Scan Out</th>
+                <th>Last Scan Out</th>
                 <th>Remarks</th>
             </tr>
         </thead>
@@ -195,6 +205,8 @@ try {
                 <td colspan="6">Totals</td>
                 <td class="num">' . number_format($totalCartons) . '</td>
                 <td class="num">' . number_format($totalUnits) . '</td>
+                <td></td>
+                <td></td>
                 <td></td>
             </tr>
         </tbody>

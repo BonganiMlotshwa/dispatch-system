@@ -44,7 +44,9 @@ try {
             s.color,
             s.order_qty,
             COUNT(c.id) as cartons_shipped,
-            SUM(CAST(c.units AS UNSIGNED)) as units_shipped
+            SUM(CAST(c.units AS UNSIGNED)) as units_shipped,
+            MIN(c.exit_timestamp) as first_scan_out_time,
+            MAX(c.exit_timestamp) as last_scan_out_time
         FROM cartons c
         INNER JOIN shipments s ON c.shipment_id = s.id
         WHERE c.truck_shipment_id = ?
@@ -65,7 +67,7 @@ try {
             ['Truck Shipment Summary'],
             ['Date', $shipment['shipment_date'], 'Shipment Week', $shipment['shipment_week'] ?? '', 'Truck Registration', $shipment['truck_reg'], 'Driver', $shipment['driver_name'] ?? '', 'Remarks', $shipment['remarks'] ?? ''],
             [],
-            ['Customer', 'FTM PO', 'Style', 'Color', 'Order Qty', 'Units Shipped', 'Cartons Shipped']
+            ['Customer', 'FTM PO', 'Style', 'Color', 'Order Qty', 'Units Shipped', 'Cartons Shipped', 'First Scan Out Time', 'Last Scan Out Time']
         ];
         
         $totalCartons = 0;
@@ -78,14 +80,16 @@ try {
                 $item['color'] ?? '',
                 $item['order_qty'] ?? 0,
                 $item['units_shipped'],
-                $item['cartons_shipped']
+                $item['cartons_shipped'],
+                $item['first_scan_out_time'] ?? '',
+                $item['last_scan_out_time'] ?? ''
             ];
             $totalCartons += (int)$item['cartons_shipped'];
             $totalUnits += (int)$item['units_shipped'];
         }
         
         $rows[] = [];
-        $rows[] = ['Total', '', '', '', '', $totalUnits, $totalCartons];
+        $rows[] = ['Total', '', '', '', '', $totalUnits, $totalCartons, '', ''];
         
         csvOutputRows($filename, $rows);
     }
@@ -136,6 +140,8 @@ try {
                         <th>Order Qty</th>
                         <th>Units Shipped</th>
                         <th>Cartons Shipped</th>
+                        <th>First Scan Out Time</th>
+                        <th>Last Scan Out Time</th>
                     </tr>
                 </thead>
                 <tbody>';
@@ -151,6 +157,8 @@ try {
                 <td>' . number_format($item['order_qty'] ?? 0) . '</td>
                 <td>' . number_format($item['units_shipped']) . '</td>
                 <td>' . number_format($item['cartons_shipped']) . '</td>
+                <td>' . htmlspecialchars($item['first_scan_out_time'] ?? '-') . '</td>
+                <td>' . htmlspecialchars($item['last_scan_out_time'] ?? '-') . '</td>
             </tr>';
             $totalCartons += $item['cartons_shipped'];
             $totalUnits += $item['units_shipped'];
@@ -160,6 +168,8 @@ try {
                 <td colspan="5">Total</td>
                 <td>' . number_format($totalUnits) . '</td>
                 <td>' . number_format($totalCartons) . '</td>
+                <td></td>
+                <td></td>
             </tr>
                 </tbody>
             </table>

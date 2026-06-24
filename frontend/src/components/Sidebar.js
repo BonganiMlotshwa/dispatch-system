@@ -76,6 +76,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     { path: '/daily-summary', icon: 'bi-calendar-check', label: 'Daily Summary', badge: null },
 
+    { path: '/weekly-analysis', icon: 'bi-calendar-week', label: 'Weekly Analysis', badge: null },
+
     { path: '/reports', icon: 'bi-file-earmark-text', label: 'Reports', badge: null },
 
   ];

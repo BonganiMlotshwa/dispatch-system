@@ -7,6 +7,7 @@
  * GET  ?action=lookup&order_no=1234567
  * POST ?action=upload   (multipart: scheduleFile)
  * POST ?action=activate (JSON: schedule_id)
+ * POST ?action=delete   (JSON: schedule_id)
  */
 
 header('Content-Type: application/json');
@@ -108,6 +109,20 @@ try {
         ]);
     }
 
+    if ($action === 'delete') {
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $scheduleId = (int) ($input['schedule_id'] ?? $_POST['schedule_id'] ?? 0);
+        if ($scheduleId <= 0) {
+            scheduleJsonResponse(['success' => false, 'message' => 'schedule_id is required'], 400);
+        }
+
+        $result = scheduleDelete($pdo, $scheduleId);
+        if (!$result['success']) {
+            scheduleJsonResponse($result, 404);
+        }
+
+        scheduleJsonResponse($result);
+    }
     if ($action === 'backfill_apply') {
         $input = json_decode(file_get_contents('php://input'), true) ?: [];
         $items = $input['items'] ?? [];

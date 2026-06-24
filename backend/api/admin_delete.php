@@ -38,8 +38,20 @@ try {
     switch ($deleteType) {
         case 'shipment':
             // Delete shipment (cascades to cartons)
+            $fileStmt = $pdo->prepare("SELECT file_name FROM shipments WHERE id = ? LIMIT 1");
+            $fileStmt->execute([$id]);
+            $shipmentFile = $fileStmt->fetchColumn();
+
             $stmt = $pdo->prepare("DELETE FROM shipments WHERE id = ?");
             $stmt->execute([$id]);
+
+            if ($shipmentFile) {
+                $uploadPath = __DIR__ . '/../uploads/' . basename((string)$shipmentFile);
+                if (is_file($uploadPath)) {
+                    @unlink($uploadPath);
+                }
+            }
+
             $message = 'Shipment deleted successfully';
             break;
             

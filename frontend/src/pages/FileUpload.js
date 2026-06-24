@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { useAdminAuth } from '../contexts/AdminAuthContext';
 
 const styleStorageKey = 'fileUpload:lastStyle';
 const colorStorageKey = 'fileUpload:lastColor';
@@ -91,6 +92,11 @@ const FileUpload = () => {
   const [backfillCandidates, setBackfillCandidates] = useState([]);
   const [backfillSelected, setBackfillSelected] = useState({});
   const [backfillApplying, setBackfillApplying] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [deletingScheduleId, setDeletingScheduleId] = useState(null);
+  const [deletingShipmentId, setDeletingShipmentId] = useState(null);
+  const { withAdminAuth } = useAdminAuth();
 
   const isBulkMode = bulkItems.length > 1;
 
@@ -106,6 +112,19 @@ const FileUpload = () => {
       console.error('Failed to load schedule status', err);
     }
   }, []);
+  const loadUploadedFiles = useCallback(async () => {
+    try {
+      setFilesLoading(true);
+      const res = await axios.get(`${API_BASE_URL}/shipments.php?refresh=true`);
+      if (res.data?.success) {
+        setUploadedFiles((res.data.shipments || []).filter((shipment) => shipment.entry_type !== 'manual'));
+      }
+    } catch (err) {
+      console.error('Failed to load uploaded files', err);
+    } finally {
+      setFilesLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const savedStyle = localStorage.getItem(styleStorageKey);
@@ -115,7 +134,8 @@ const FileUpload = () => {
     setStyleHistory(loadHistory(styleHistoryKey));
     setColorHistory(loadHistory(colorHistoryKey));
     loadScheduleStatus();
-  }, [loadScheduleStatus]);
+    loadUploadedFiles();
+  }, [loadScheduleStatus, loadUploadedFiles]);
 
   useEffect(() => {
     if (style.trim()) localStorage.setItem(styleStorageKey, style);
@@ -433,6 +453,7 @@ const FileUpload = () => {
           unlinked: importMode === 'unlinked',
         });
         clearForm();
+        loadUploadedFiles();
       } else {
         throw new Error(response.data.message || 'Upload failed');
       }
@@ -539,6 +560,7 @@ const FileUpload = () => {
 
     setUploading(false);
     if (successCount > 0) {
+      loadUploadedFiles();
       const failPart = failCount ? `, ${failCount} failed` : '';
       const skipPart = skippedCount ? ` (${skippedCount} already imported)` : '';
       setUploadResult({
@@ -583,6 +605,7 @@ const FileUpload = () => {
       const input = document.getElementById('scheduleUpload');
       if (input) input.value = '';
       await loadScheduleStatus();
+      await loadUploadedFiles();
 
       if (res.data.backfill?.count > 0) {
         const candidates = res.data.backfill.candidates || [];
@@ -658,6 +681,7 @@ const FileUpload = () => {
     try {
       await axios.post(`${API_BASE_URL}/schedule.php?action=activate`, { schedule_id: scheduleId });
       await loadScheduleStatus();
+      await loadUploadedFiles();
       if (file) previewMrpgFiles([file]);
       else if (bulkItems.length > 0) previewMrpgFiles(bulkItems.map((item) => item.file));
     } catch (err) {
@@ -665,6 +689,59 @@ const FileUpload = () => {
         type: 'danger',
         text: err.response?.data?.message || 'Failed to activate schedule',
       });
+    }
+  };
+  const handleDeleteSchedule = async (schedule) => {
+    const linkedCount = Number(schedule.linked_shipment_count || 0);
+    const linkedText = linkedCount > 0 ? ` This will unlink ${linkedCount} imported file(s) from this week.` : '';
+    if (!window.confirm(`Delete schedule ${schedule.week_label}?${linkedText}`)) return;
+
+    try {
+      setDeletingScheduleId(schedule.id);
+      const res = await axios.post(`${API_BASE_URL}/schedule.php?action=delete`, { schedule_id: schedule.id });
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to delete schedule');
+      setScheduleMessage({
+        type: 'success',
+        text: `${schedule.week_label} deleted.${linkedCount > 0 ? ` ${linkedCount} imported file(s) were unlinked.` : ''}`,
+      });
+      await loadScheduleStatus();
+      await loadUploadedFiles();
+      if (file) previewMrpgFiles([file]);
+      else if (bulkItems.length > 0) previewMrpgFiles(bulkItems.map((item) => item.file));
+    } catch (err) {
+      setScheduleMessage({
+        type: 'danger',
+        text: err.response?.data?.message || err.message || 'Failed to delete schedule',
+      });
+    } finally {
+      setDeletingScheduleId(null);
+    }
+  };
+
+  const handleDeleteUploadedFile = async (shipment) => {
+    if (!window.confirm(`Delete uploaded file ${shipment.file_name}? This removes the shipment and its cartons.`)) return;
+
+    try {
+      setDeletingShipmentId(shipment.id);
+      await withAdminAuth('delete uploaded file', async (adminCode) => {
+        const res = await axios.post(`${API_BASE_URL}/admin_delete.php`, {
+          delete_type: 'shipment',
+          id: shipment.id,
+          admin_code: adminCode,
+        });
+        if (!res.data?.success) throw new Error(res.data?.message || 'Failed to delete uploaded file');
+      });
+      setScheduleMessage({ type: 'success', text: `${shipment.file_name} deleted.` });
+      await loadUploadedFiles();
+      await loadScheduleStatus();
+    } catch (err) {
+      if (err.message === 'Admin verification cancelled') return;
+      setScheduleMessage({
+        type: 'danger',
+        text: err.response?.data?.message || err.message || 'Failed to delete uploaded file',
+      });
+    } finally {
+      setDeletingShipmentId(null);
     }
   };
 
@@ -894,20 +971,62 @@ const FileUpload = () => {
                 </div>
               )}
 
-              {schedules.length > 1 && (
+              {schedules.length > 0 && (
                 <div className="mt-3">
-                  <label className="form-label-modern small">Switch active schedule</label>
-                  <div className="d-flex flex-wrap gap-2">
-                    {schedules.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className={`btn btn-sm ${s.is_active === '1' || s.is_active === 1 ? 'btn-primary' : 'btn-outline-secondary'}`}
-                        onClick={() => handleActivateSchedule(s.id)}
-                      >
-                        {s.week_label} ({s.order_count})
-                      </button>
-                    ))}
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <label className="form-label-modern small mb-0">Uploaded schedules</label>
+                    <span className="text-muted small">{schedules.length} week(s)</span>
+                  </div>
+                  <div className="table-responsive">
+                    <table className="table table-sm align-middle mb-0">
+                      <thead>
+                        <tr>
+                          <th>Week</th>
+                          <th>File</th>
+                          <th>Orders</th>
+                          <th>Files</th>
+                          <th className="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {schedules.map((s) => {
+                          const active = s.is_active === '1' || s.is_active === 1;
+                          return (
+                            <tr key={s.id}>
+                              <td>
+                                <span className="fw-medium">{s.week_label}</span>
+                                {active && <span className="badge bg-primary ms-2">Active</span>}
+                              </td>
+                              <td className="small text-muted">{s.file_name}</td>
+                              <td>{s.order_count}</td>
+                              <td>{s.linked_shipment_count || 0}</td>
+                              <td className="text-end">
+                                <div className="d-flex justify-content-end gap-1">
+                                  {!active && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={() => handleActivateSchedule(s.id)}
+                                      disabled={deletingScheduleId === s.id}
+                                    >
+                                      Activate
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => handleDeleteSchedule(s)}
+                                    disabled={deletingScheduleId === s.id}
+                                  >
+                                    {deletingScheduleId === s.id ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -940,6 +1059,73 @@ const FileUpload = () => {
             </div>
           </div>
 
+          <div className="modern-card mb-4">
+            <div className="modern-card-header">
+              <h5 className="mb-0"><i className="bi bi-files me-2"></i>Uploaded Files</h5>
+            </div>
+            <div className="modern-card-body">
+              <div className="mt-0">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="form-label-modern small mb-0">Uploaded files</label>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={loadUploadedFiles}
+                    disabled={filesLoading}
+                  >
+                    {filesLoading ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
+                <div className="table-responsive">
+                  <table className="table table-sm align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>FTM PO</th>
+                        <th>File</th>
+                        <th>Week</th>
+                        <th>Cartons</th>
+                        <th className="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {uploadedFiles.length > 0 ? uploadedFiles.slice(0, 12).map((shipment) => (
+                        <tr key={shipment.id}>
+                          <td className="fw-medium">{shipment.internal_po_number}</td>
+                          <td className="small text-muted">{shipment.file_name}</td>
+                          <td>{shipment.schedule_week_label || <span className="text-muted">Unlinked</span>}</td>
+                          <td>{shipment.carton_count || 0}</td>
+                          <td className="text-end">
+                            <div className="d-flex justify-content-end gap-1">
+                              <Link to={`/shipment/${shipment.id}`} className="btn btn-sm btn-outline-primary">
+                                View
+                              </Link>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteUploadedFile(shipment)}
+                                disabled={deletingShipmentId === shipment.id}
+                              >
+                                {deletingShipmentId === shipment.id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan="5" className="text-center text-muted py-3">
+                            {filesLoading ? 'Loading uploaded files...' : 'No uploaded files yet'}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {uploadedFiles.length > 12 && (
+                  <div className="text-muted small mt-2">Showing latest 12 of {uploadedFiles.length} uploaded files.</div>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="modern-card mb-4">
             <div className="modern-card-header">
               <h5 className="mb-0"><i className="bi bi-upload me-2"></i>Upload Shipment XML</h5>

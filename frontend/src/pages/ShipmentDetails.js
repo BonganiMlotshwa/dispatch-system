@@ -569,29 +569,18 @@ const ShipmentDetails = () => {
                   sortable: true,
                   cell: row => shipment?.customer || row.division || 'N/A'
                 },
-                ...(shipment?.entry_type === 'manual'
-                  ? [
-                      {
-                        name: 'Entry Time',
-                        selector: row => getCartonEntryTime(row),
-                        sortable: true,
-                        cell: row => formatCartonDateTime(getCartonEntryTime(row))
-                      },
-                      {
-                        name: 'Exit Time',
-                        selector: row => getCartonExitTime(row),
-                        sortable: true,
-                        cell: row => formatCartonDateTime(getCartonExitTime(row))
-                      }
-                    ]
-                  : [
-                      {
-                        name: 'Scan Time',
-                        selector: row => row.scan_timestamp,
-                        sortable: true,
-                        cell: row => formatCartonDateTime(row.scan_timestamp)
-                      }
-                    ])
+                {
+                  name: 'Scan In Time',
+                  selector: row => getCartonEntryTime(row),
+                  sortable: true,
+                  cell: row => formatCartonDateTime(getCartonEntryTime(row))
+                },
+                {
+                  name: 'Scan Out Time',
+                  selector: row => getCartonExitTime(row),
+                  sortable: true,
+                  cell: row => formatCartonDateTime(getCartonExitTime(row))
+                }
               ]}
               data={cartons}
               pagination

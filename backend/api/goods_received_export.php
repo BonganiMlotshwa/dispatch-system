@@ -74,7 +74,7 @@ try {
 
         [],
 
-        ['Barcode', 'FTM PO', 'Customer PO', 'Customer', 'Size', 'Units', 'Entry Time', 'Current Status', 'Scanned By']
+        ['Barcode', 'FTM PO', 'Customer PO', 'Customer', 'Size', 'Units', 'Scan In Time', 'Current Status', 'Scanned By']
 
     ];
 

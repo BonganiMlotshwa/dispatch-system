@@ -14,6 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../config/database.php';
+require_once '../includes/carton_timestamps.php';
+require_once '../includes/sync_shipment_warehouse_status.php';
 
 try {
     $pdo = getDbConnection();
@@ -65,17 +67,18 @@ try {
     $previousStatus = $carton['status'];
     $newStatus = ($action === 'entry') ? 'entered' : 'exited';
     
-    // Update carton
+    // Update carton while keeping separate scan-in and scan-out timestamps.
+    $hasTsCols = cartonTimestampColumnsExist($pdo);
+    $tsUpdate = buildCartonStatusTimestampUpdate($newStatus, $previousStatus, $hasTsCols);
     $stmt = $pdo->prepare("
         UPDATE cartons 
-        SET status = ?, 
-            scan_timestamp = NOW(), 
+        SET {$tsUpdate['sql']},
             scanned_by = ?,
             scan_type = ?,
             truck_shipment_id = ?
         WHERE id = ?
     ");
-    $stmt->execute([$newStatus, $scannedBy, $action, $truckShipmentId, $carton['id']]);
+    $stmt->execute(array_merge($tsUpdate['params'], [$scannedBy, $action, $truckShipmentId, $carton['id']]));
     
     // Log to audit trail
     $stmt = $pdo->prepare("
@@ -106,6 +109,10 @@ try {
     $stmt = $pdo->prepare("SELECT * FROM shipments WHERE id = ?");
     $stmt->execute([$carton['shipment_id']]);
     $shipment = $stmt->fetch();
+
+    if (!empty($carton['shipment_id'])) {
+        syncShipmentWarehouseStatus($pdo, (int)$carton['shipment_id']);
+    }
     
     $pdo->commit();
     

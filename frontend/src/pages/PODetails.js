@@ -124,7 +124,6 @@ const PODetails = React.memo(() => {
     debounceMs: 200 // Debounce rapid changes
   });
   const shipment = poData?.shipment;
-  const isManualEntry = shipment?.entry_type === 'manual';
   const canDirectShip = canDirectShipOrder(shipment);
 
   useEffect(() => {
@@ -363,7 +362,6 @@ const PODetails = React.memo(() => {
       ...carton,
       formattedEntryTime: formatCartonDateTime(getCartonEntryTime(carton)),
       formattedExitTime: formatCartonDateTime(getCartonExitTime(carton)),
-      formattedScanTime: carton.scan_timestamp ? new Date(carton.scan_timestamp).toLocaleString() : 'Never scanned',
       formattedCreatedAt: new Date(carton.created_at).toLocaleString(),
       formattedUpdatedAt: new Date(carton.updated_at).toLocaleString()
     };
@@ -1738,14 +1736,8 @@ const PODetails = React.memo(() => {
                         {!hideSizeColumn && <th>Size</th>}
                         <th>Units</th>
                         <th>Status</th>
-                        {isManualEntry ? (
-                          <>
-                            <th>Entry Time</th>
-                            <th>Exit Time</th>
-                          </>
-                        ) : (
-                          <th>Last Scan</th>
-                        )}
+                        <th>Scan In Time</th>
+                        <th>Scan Out Time</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -1775,20 +1767,12 @@ const PODetails = React.memo(() => {
                                 {formatCartonStatus(carton.status)}
                               </Badge>
                             </td>
-                            {isManualEntry ? (
-                              <>
-                                <td className="small text-muted">
-                                  {formatCartonDateTime(getCartonEntryTime(carton))}
-                                </td>
-                                <td className="small text-muted">
-                                  {formatCartonDateTime(getCartonExitTime(carton))}
-                                </td>
-                              </>
-                            ) : (
-                              <td className="small text-muted">
-                                {carton.scan_timestamp ? new Date(carton.scan_timestamp).toLocaleDateString() : 'Never'}
-                              </td>
-                            )}
+                            <td className="small text-muted">
+                              {formatCartonDateTime(getCartonEntryTime(carton))}
+                            </td>
+                            <td className="small text-muted">
+                              {formatCartonDateTime(getCartonExitTime(carton))}
+                            </td>
                             <td>
                               <div className="d-flex gap-1">
                                 <OverlayTrigger
@@ -2093,23 +2077,14 @@ const PODetails = React.memo(() => {
                   <h6 className="text-muted mb-3 fw-semibold">Timestamps</h6>
                   <div className="row">
                     <div className="col-md-6">
-                      {isManualEntry ? (
-                        <>
-                          <div className="mb-2">
-                            <strong>Entry Time:</strong><br />
-                            <small className="text-muted">{selectedCarton.formattedEntryTime}</small>
-                          </div>
-                          <div className="mb-2">
-                            <strong>Exit Time:</strong><br />
-                            <small className="text-muted">{selectedCarton.formattedExitTime}</small>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="mb-2">
-                          <strong>Last Scan:</strong><br />
-                          <small className="text-muted">{selectedCarton.formattedScanTime}</small>
-                        </div>
-                      )}
+                      <div className="mb-2">
+                        <strong>Scan In Time:</strong><br />
+                        <small className="text-muted">{selectedCarton.formattedEntryTime}</small>
+                      </div>
+                      <div className="mb-2">
+                        <strong>Scan Out Time:</strong><br />
+                        <small className="text-muted">{selectedCarton.formattedExitTime}</small>
+                      </div>
                       <div className="mb-2">
                         <strong>Created:</strong><br />
                         <small className="text-muted">{selectedCarton.formattedCreatedAt}</small>

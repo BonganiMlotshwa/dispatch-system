@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS cartons (
     finishing_number VARCHAR(50) COMMENT 'Manually entered finishing number',
     status ENUM('pending', 'entered', 'exited') NOT NULL DEFAULT 'pending' COMMENT 'Current status of carton',
     scan_timestamp DATETIME COMMENT 'Timestamp of last scan',
+    entry_timestamp DATETIME DEFAULT NULL COMMENT 'When carton entered warehouse',
+    exit_timestamp DATETIME DEFAULT NULL COMMENT 'When carton exited warehouse',
     notes TEXT COMMENT 'Additional notes or comments',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

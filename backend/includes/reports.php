@@ -13,6 +13,16 @@ require_once __DIR__ . '/carton_timestamps.php';
 define('PDF_MARGIN', 10);
 define('PDF_LINE_HEIGHT', 6);
 
+function cartonEntryReportTime($carton) {
+    return $carton['entry_timestamp']
+        ?? (($carton['status'] === 'entered' || $carton['status'] === 'exited') ? ($carton['scan_timestamp'] ?? '') : '');
+}
+
+function cartonExitReportTime($carton) {
+    return $carton['exit_timestamp']
+        ?? ($carton['status'] === 'exited' ? ($carton['scan_timestamp'] ?? '') : '');
+}
+
 /**
  * Get dashboard summary data
  * 
@@ -208,12 +218,7 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
         if (!$hideSize) {
             $header[] = 'Size';
         }
-        $isManual = ($shipment['entry_type'] ?? '') === 'manual';
-        if ($isManual) {
-            $header = array_merge($header, ['Units', 'Item', 'Status', 'Entry Time', 'Exit Time', 'Notes']);
-        } else {
-            $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan Timestamp', 'Notes']);
-        }
+        $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan In Time', 'Scan Out Time', 'Notes']);
         $csvData[] = $header;
         
         foreach ($cartons as $carton) {
@@ -233,12 +238,8 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
                 $carton['item'],
                 $carton['status'],
             ]);
-            if ($isManual) {
-                $row[] = $carton['entry_timestamp'] ?? '';
-                $row[] = $carton['exit_timestamp'] ?? '';
-            } else {
-                $row[] = $carton['scan_timestamp'] ?? '';
-            }
+            $row[] = cartonEntryReportTime($carton);
+            $row[] = cartonExitReportTime($carton);
             $row[] = $carton['notes'] ?? '';
             $csvData[] = $row;
         }
@@ -362,14 +363,10 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         }
         echo "<th>Units</th>";
         echo "<th>Status</th>";
-        $isManual = ($shipment['entry_type'] ?? '') === 'manual';
-        if ($isManual) {
-            echo "<th>Entry Time</th><th>Exit Time</th>";
-        } else {
-            echo "<th>Scan Timestamp</th>";
-        }
+        echo "<th>Scan In Time</th><th>Scan Out Time</th>";
         echo "</tr>";
 
+        $isManual = true;
         foreach ($cartons as $carton) {
             $poDisplay = htmlspecialchars(formatCustomerPoForDisplay($shipment['customer'] ?? '', $carton['po_number']));
             echo "<tr>";
