@@ -54,7 +54,7 @@ export function formatCustomerPoNumberOnly(poNumber) {
   return match ? match[1] : po;
 }
 
-/** PO number in lists/reports — internal PO always normalizes to FTM-. */
+/** PO number in lists/reports - internal PO always normalizes to FTM-. */
 export function formatInternalPoDisplay(customer, internalPoNumber) {
   if (internalPoNumber === null || internalPoNumber === undefined || internalPoNumber === '') {
     return 'N/A';
@@ -68,7 +68,6 @@ export function isOtbCustomer(customer) {
   return c === 'OTB' || c === 'OTTO';
 }
 
-/** FTM PO = internal_po_number, always shown as FTM-##### */
 /** Format datetime for carton entry/exit display */
 export function formatCartonDateTime(value) {
   if (value === null || value === undefined || value === '') {
@@ -101,7 +100,26 @@ export function formatFtmInternalPo(internalPoNumber) {
   return `FTM-${po}`;
 }
 
-/** Direct "mark as shipped" — manual OTB/OBSW/etc. only; Mr Price must use exit scanner. */
+export function getInternalPoSortValue(internalPoNumber) {
+  if (internalPoNumber === null || internalPoNumber === undefined || internalPoNumber === '') {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const po = String(internalPoNumber).trim();
+  const match = po.match(/^FTM-(\d+)$/i);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+
+  const digits = po.match(/(\d+)/);
+  if (digits) {
+    return parseInt(digits[1], 10);
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+/** Direct "mark as shipped" - manual OTB/OBSW/etc. only; Mr Price must use exit scanner. */
 export function canDirectShipOrder(shipment) {
   if (!shipment || shipment.entry_type !== 'manual') {
     return false;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { getInternalPoSortValue } from '../utils/poDisplay';
 
 const TruckShipment = () => {
   const [shipments, setShipments] = useState([]);
@@ -38,7 +39,15 @@ const TruckShipment = () => {
       // Get shipments with entered cartons
       const response = await axios.get(`${API_BASE_URL}/shipments.php`);
       if (response.data.success) {
-        setAvailableOrders(response.data.shipments);
+        const sorted = [...(response.data.shipments || [])].sort((a, b) => {
+          const aVal = getInternalPoSortValue(a.internal_po_number);
+          const bVal = getInternalPoSortValue(b.internal_po_number);
+          if (aVal === bVal) {
+            return String(a.internal_po_number || '').localeCompare(String(b.internal_po_number || ''));
+          }
+          return aVal - bVal;
+        });
+        setAvailableOrders(sorted);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);

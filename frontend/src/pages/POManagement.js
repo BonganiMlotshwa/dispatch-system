@@ -10,7 +10,7 @@ import apiService from '../services/apiService';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
-import { formatInternalPoDisplay, formatCustomerPoForDisplay } from '../utils/poDisplay';
+import { formatInternalPoDisplay, formatCustomerPoForDisplay, getInternalPoSortValue } from '../utils/poDisplay';
 import {
   WAREHOUSE_ORDER_STATUS_OPTIONS,
   getWarehouseOrderStatusBadge,
@@ -59,6 +59,14 @@ const POManagement = () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, sortBy, sortOrder]);
 
+  // When viewing all statuses, default to smallest FTM number first.
+  useEffect(() => {
+    if (statusFilter === 'all') {
+      setSortBy('internal_po_number');
+      setSortOrder('asc');
+    }
+  }, [statusFilter]);
+
   // API calls - no caching, always fresh data
   const { data: posData, loading, error, refetch } = useApi('/shipments.php');
 
@@ -90,7 +98,7 @@ const POManagement = () => {
   const filteredPOs = useMemo(() => {
     if (!posData?.shipments) return [];
     
-    let filtered = posData.shipments;
+    let filtered = [...posData.shipments];
     
     // Apply search filter
     if (searchTerm) {
@@ -111,19 +119,28 @@ const POManagement = () => {
     
     // Apply sorting
     filtered.sort((a, b) => {
+      if (sortBy === 'internal_po_number') {
+        const aVal = getInternalPoSortValue(a.internal_po_number);
+        const bVal = getInternalPoSortValue(b.internal_po_number);
+        if (aVal === bVal) {
+          return String(a.internal_po_number || '').localeCompare(String(b.internal_po_number || ''));
+        }
+        return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+
       let aVal = a[sortBy];
       let bVal = b[sortBy];
-      
+
       if (sortBy === 'import_date') {
         aVal = new Date(aVal);
         bVal = new Date(bVal);
       }
-      
+
+      if (aVal === bVal) return 0;
       if (sortOrder === 'asc') {
         return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
       }
+      return aVal < bVal ? 1 : -1;
     });
     
     return filtered;
@@ -511,7 +528,7 @@ const POManagement = () => {
               <Form.Label className="small fw-medium text-muted">SORT BY</Form.Label>
               <Form.Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                 <option value="import_date">Import Date</option>
-                <option value="internal_po_number">PO Number</option>
+                <option value="internal_po_number">FTM PO Number</option>
                 <option value="carton_count">Carton Count</option>
                 <option value="shipped_count">Shipped Count</option>
               </Form.Select>
