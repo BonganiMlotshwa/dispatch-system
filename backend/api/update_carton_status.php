@@ -25,6 +25,7 @@ require_once '../includes/carton_timestamps.php';
 require_once '../includes/carton_status_helpers.php';
 require_once '../includes/sync_shipment_warehouse_status.php';
 require_once '../includes/truck_manual_assign.php';
+require_once '../includes/truck_shipment_helpers.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -101,16 +102,26 @@ try {
     $tsUpdate = buildCartonStatusTimestampUpdate($data['status'], $existing['status'], $hasTsCols);
     $stmt = $db->prepare("UPDATE cartons SET {$tsUpdate['sql']} WHERE id = ?");
     $stmt->execute(array_merge($tsUpdate['params'], [$data['carton_id']]));
-    
-    // TODO: Store truck_reg and driver_name in truck_shipments table
-    // For now, we accept these parameters but don't store them
-    // Future enhancement: Create truck shipment entry with these details
-    
-    // Check if carton exists
+
     if ($stmt->rowCount() === 0) {
-        http_response_code(404); // Not Found
+        http_response_code(404);
         echo json_encode(['error' => 'Carton not found with ID: ' . $data['carton_id']]);
         exit;
+    }
+
+    $truckShipmentId = null;
+    $shipmentWeek = null;
+    if ($data['status'] === 'exited') {
+        $shipMeta = recordOutboundShipForCartons(
+            $db,
+            [(int)$data['carton_id']],
+            $truckReg,
+            $driverName,
+            $data['shipment_date'] ?? null,
+            !empty($data['shipment_week']) ? trim((string)$data['shipment_week']) : null
+        );
+        $truckShipmentId = $shipMeta['truck_shipment_id'];
+        $shipmentWeek = $shipMeta['shipment_week'];
     }
     
     // Get updated carton data
@@ -125,7 +136,9 @@ try {
     echo json_encode([
         'success' => true,
         'message' => cartonScanSuccessMessage($carton['status']),
-        'carton' => array_merge($carton, ['status_label' => cartonStatusLabel($carton['status'])])
+        'carton' => array_merge($carton, ['status_label' => cartonStatusLabel($carton['status'])]),
+        'truck_shipment_id' => $truckShipmentId,
+        'shipment_week' => $shipmentWeek,
     ]);
     
 } catch (Exception $e) {

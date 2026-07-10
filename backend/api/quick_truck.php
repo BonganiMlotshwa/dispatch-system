@@ -15,6 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../config/database.php';
 require_once '../includes/truck_manual_assign.php';
+require_once '../includes/truck_shipment_helpers.php';
 
 try {
     $pdo = getDbConnection();
@@ -27,7 +28,7 @@ try {
     
     // Get shipment date and week (use defaults if not provided)
     $shipmentDate = isset($input['shipment_date']) ? $input['shipment_date'] : date('Y-m-d');
-    $shipmentWeek = isset($input['shipment_week']) ? $input['shipment_week'] : null;
+    $shipmentWeek = !empty($input['shipment_week']) ? trim((string)$input['shipment_week']) : formatShipmentWeek($shipmentDate);
     
     $pdo->beginTransaction();
     

@@ -281,6 +281,20 @@ ADD COLUMN IF NOT EXISTS `truck_shipment_id` int(11) DEFAULT NULL COMMENT 'Link 
 ADD KEY IF NOT EXISTS `idx_truck_shipment_id` (`truck_shipment_id`);
 
 -- ============================================
+-- SCHEMA MIGRATIONS TRACKING TABLE
+-- Tracks which migrations have been applied
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
+    `id` int(11) NOT NULL AUTO_INCREMENT,
+    `migration` varchar(255) NOT NULL COMMENT 'Migration filename',
+    `batch` int(11) NOT NULL DEFAULT 1 COMMENT 'Batch number for grouped migrations',
+    `applied_at` datetime NOT NULL DEFAULT current_timestamp() COMMENT 'When the migration was applied',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_schema_migrations_migration` (`migration`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- SAMPLE DATA
 -- ============================================
 

@@ -15,6 +15,7 @@ require_once '../config/database.php';
 require_once '../includes/admin_auth.php';
 require_once '../includes/legacy_warehouse_statuses.php';
 require_once '../includes/po_helpers.php';
+require_once '../includes/truck_shipment_helpers.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -132,6 +133,15 @@ try {
         if ($id <= 0) {
             throw new Exception('id is required');
         }
+
+        $prevStmt = $pdo->prepare('SELECT status FROM legacy_warehouse_goods WHERE id = ?');
+        $prevStmt->execute([$id]);
+        $prevRow = $prevStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$prevRow) {
+            throw new Exception('Entry not found');
+        }
+        $prevStatus = normalizeLegacyWarehouseStatus($prevRow['status']);
+
         $row = validateLegacyRow($input);
         $stmt = $pdo->prepare("
             UPDATE legacy_warehouse_goods SET
@@ -159,7 +169,24 @@ try {
             $id
         ]);
 
-        echo json_encode(['success' => true, 'message' => 'Entry updated']);
+        $shipMeta = null;
+        if ($row['status'] === 'shipped' && $prevStatus !== 'shipped') {
+            $shipMeta = recordLegacyOutboundShip(
+                $pdo,
+                $id,
+                $input['truck_reg'] ?? null,
+                $input['driver_name'] ?? null,
+                $input['shipment_date'] ?? null,
+                !empty($input['shipment_week']) ? trim((string)$input['shipment_week']) : null
+            );
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Entry updated',
+            'shipment_week' => $shipMeta['shipment_week'] ?? null,
+            'truck_shipment_id' => $shipMeta['truck_shipment_id'] ?? null,
+        ]);
         exit;
     }
 

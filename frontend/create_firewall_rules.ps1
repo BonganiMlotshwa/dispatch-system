@@ -1,4 +1,4 @@
-# PowerShell script to create firewall rules for React application
+on the import # PowerShell script to create firewall rules for React application
 
 # Define the ports used by our application
 $ports = @(3000, 4000, 61637)

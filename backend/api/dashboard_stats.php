@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 // Include required files
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/truck_shipment_helpers.php';
 
 // Short cache time for dashboard stats
 $cacheDir = __DIR__ . '/../cache';
@@ -204,6 +205,72 @@ try {
         }
         unset($week);
         $stats['weekly_analysis'] = $weeklyAnalysis;
+    }
+
+    $stats['weekly_outbound'] = [];
+    $truckTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipments'")->fetch();
+    if ($truckTableExists) {
+        $legacyJoin = truckShipmentLegacyItemsTableExists($pdo);
+        $legacySub = $legacyJoin ? "
+            LEFT JOIN (
+                SELECT YEAR(ts.shipment_date) AS ship_year, ts.shipment_week,
+                    COUNT(DISTINCT tli.legacy_goods_id) AS legacy_orders,
+                    COALESCE(SUM(tli.cartons_shipped), 0) AS legacy_cartons,
+                    COALESCE(SUM(tli.units_shipped), 0) AS legacy_units
+                FROM truck_shipments ts
+                INNER JOIN truck_shipment_legacy_items tli ON tli.truck_shipment_id = ts.id
+                WHERE ts.shipment_week IS NOT NULL AND ts.shipment_week != ''
+                GROUP BY YEAR(ts.shipment_date), ts.shipment_week
+            ) lg ON lg.ship_year = w.ship_year AND lg.shipment_week = w.shipment_week
+        " : '';
+        $legacyCols = $legacyJoin
+            ? ', COALESCE(lg.legacy_orders, 0) AS legacy_orders, COALESCE(lg.legacy_cartons, 0) AS legacy_cartons, COALESCE(lg.legacy_units, 0) AS legacy_units'
+            : ', 0 AS legacy_orders, 0 AS legacy_cartons, 0 AS legacy_units';
+
+        $stmt = $pdo->query("
+            SELECT
+                w.ship_year,
+                w.shipment_week,
+                w.week_start,
+                w.truck_loads,
+                COALESCE(sc.cartons_shipped, 0) AS cartons_shipped,
+                COALESCE(sc.units_shipped, 0) AS units_shipped
+                {$legacyCols}
+            FROM (
+                SELECT YEAR(shipment_date) AS ship_year, shipment_week,
+                    MIN(shipment_date) AS week_start, COUNT(*) AS truck_loads
+                FROM truck_shipments
+                WHERE shipment_week IS NOT NULL AND shipment_week != ''
+                GROUP BY YEAR(shipment_date), shipment_week
+            ) w
+            LEFT JOIN (
+                SELECT YEAR(ts.shipment_date) AS ship_year, ts.shipment_week,
+                    COUNT(c.id) AS cartons_shipped,
+                    COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) AS units_shipped
+                FROM truck_shipments ts
+                INNER JOIN cartons c ON c.truck_shipment_id = ts.id
+                WHERE ts.shipment_week IS NOT NULL AND ts.shipment_week != ''
+                GROUP BY YEAR(ts.shipment_date), ts.shipment_week
+            ) sc ON sc.ship_year = w.ship_year AND sc.shipment_week = w.shipment_week
+            {$legacySub}
+            ORDER BY w.week_start DESC
+            LIMIT 12
+        ");
+        $weeklyOutbound = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($weeklyOutbound as &$week) {
+            $week['ship_year'] = (int)$week['ship_year'];
+            $week['truck_loads'] = (int)$week['truck_loads'];
+            $week['cartons_shipped'] = (int)$week['cartons_shipped'];
+            $week['units_shipped'] = (int)$week['units_shipped'];
+            $week['legacy_orders'] = (int)($week['legacy_orders'] ?? 0);
+            $week['legacy_cartons'] = (int)($week['legacy_cartons'] ?? 0);
+            $week['legacy_units'] = (int)($week['legacy_units'] ?? 0);
+            $week['total_cartons'] = $week['cartons_shipped'] + $week['legacy_cartons'];
+            $week['total_units'] = $week['units_shipped'] + $week['legacy_units'];
+            $week['week_label'] = $week['shipment_week'] . ' ' . $week['ship_year'];
+        }
+        unset($week);
+        $stats['weekly_outbound'] = $weeklyOutbound;
     }
     
     // Prepare response

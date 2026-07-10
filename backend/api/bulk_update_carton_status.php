@@ -25,6 +25,7 @@ require_once '../includes/carton_timestamps.php';
 require_once '../includes/carton_status_helpers.php';
 require_once '../includes/sync_shipment_warehouse_status.php';
 require_once '../includes/truck_manual_assign.php';
+require_once '../includes/truck_shipment_helpers.php';
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -149,6 +150,21 @@ try {
                 if (empty($cartonIds)) {
                     continue;
                 }
+
+                $bulkTruckReg = trim((string)($data['truck_reg'] ?? ''));
+                $bulkDriverName = trim((string)($data['driver_name'] ?? ''));
+                if ($bulkTruckReg === '' || $bulkDriverName === '') {
+                    foreach ($data['updates'] as $upd) {
+                        if (normalizeCartonScanStatus($upd['status'] ?? '') !== 'exited') {
+                            continue;
+                        }
+                        $bulkTruckReg = trim((string)($upd['truck_reg'] ?? $bulkTruckReg));
+                        $bulkDriverName = trim((string)($upd['driver_name'] ?? $bulkDriverName));
+                        if ($bulkTruckReg !== '' && $bulkDriverName !== '') {
+                            break;
+                        }
+                    }
+                }
             }
 
             // Create placeholders for IN clause
@@ -172,6 +188,17 @@ try {
             $rowsAffected = $stmt->rowCount();
             $successCount += $rowsAffected;
             $updatedCartons = array_merge($updatedCartons, array_slice($cartonIds, 0, $rowsAffected));
+
+            if ($status === 'exited' && !empty($cartonIds) && $bulkTruckReg !== '' && $bulkDriverName !== '') {
+                recordOutboundShipForCartons(
+                    $db,
+                    $cartonIds,
+                    $bulkTruckReg,
+                    $bulkDriverName,
+                    $data['shipment_date'] ?? null,
+                    !empty($data['shipment_week']) ? trim((string)$data['shipment_week']) : null
+                );
+            }
             
             // Check for cartons that weren't found
             $notFoundCount = count($cartonIds) - $rowsAffected;

@@ -96,6 +96,9 @@ const FileUpload = () => {
   const [filesLoading, setFilesLoading] = useState(false);
   const [deletingScheduleId, setDeletingScheduleId] = useState(null);
   const [deletingShipmentId, setDeletingShipmentId] = useState(null);
+  const [linkingShipment, setLinkingShipment] = useState(null);
+  const [linkForm, setLinkForm] = useState({ internalPoNumber: '', style: '', color: '', quantity: '' });
+  const [linkSaving, setLinkSaving] = useState(false);
   const { withAdminAuth } = useAdminAuth();
 
   const isBulkMode = bulkItems.length > 1;
@@ -745,6 +748,31 @@ const FileUpload = () => {
     }
   };
 
+  const handleLinkShipment = async () => {
+    if (!linkingShipment) return;
+    if (!linkForm.internalPoNumber.trim() || !linkForm.style.trim() || !linkForm.color.trim() || !linkForm.quantity.trim()) {
+      return;
+    }
+    setLinkSaving(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/update_shipment_details.php`, {
+        shipment_id: linkingShipment.id,
+        internal_po_number: 'FTM-' + linkForm.internalPoNumber.trim(),
+        style: linkForm.style.trim(),
+        color: linkForm.color.trim(),
+        quantity: linkForm.quantity.trim(),
+      });
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to link shipment');
+      setScheduleMessage({ type: 'success', text: `${linkingShipment.file_name} linked to FTM-${linkForm.internalPoNumber}.` });
+      setLinkingShipment(null);
+      await loadUploadedFiles();
+    } catch (err) {
+      setScheduleMessage({ type: 'danger', text: err.response?.data?.message || err.message || 'Failed to link shipment' });
+    } finally {
+      setLinkSaving(false);
+    }
+  };
+
   const updateBulkItem = (id, field, value) => {
     setBulkItems((items) =>
       items.map((item) => {
@@ -790,6 +818,11 @@ const FileUpload = () => {
       await handleBulkImport();
     } else if (singleMatched) {
       await uploadSingleFile('linked');
+    } else if (unlinkedHasManualData) {
+      // User manually entered PO/style/color for an unmatched file — treat as linked
+      setSingleMatched(true);
+      await uploadSingleFile('linked');
+      setSingleMatched(false);
     } else {
       await uploadSingleFile('unlinked');
     }
@@ -807,6 +840,8 @@ const FileUpload = () => {
 
   const canSubmitSingle = file && singleMatched && internalPoNumber.trim() && style.trim() && color.trim() && quantity.trim() && !uploading && !previewing && !importBlocked && validationErrors.length === 0;
   const canSubmitUnlinked = file && !singleMatched && customerOrderNo && !uploading && !previewing && !importBlocked && validationErrors.length === 0;
+  // If user filled manual fields on unlinked, treat as linked
+  const unlinkedHasManualData = !singleMatched && internalPoNumber.trim() && style.trim() && color.trim() && quantity.trim();
   const canSubmitBulk = bulkItems.some(bulkItemReady) && !uploading && !previewing;
 
   const bulkRowClass = (item) => {
@@ -1081,6 +1116,7 @@ const FileUpload = () => {
                     <thead>
                       <tr>
                         <th>FTM PO</th>
+                        <th>Style / Color</th>
                         <th>File</th>
                         <th>Week</th>
                         <th>Cartons</th>
@@ -1090,15 +1126,46 @@ const FileUpload = () => {
                     <tbody>
                       {uploadedFiles.length > 0 ? uploadedFiles.slice(0, 12).map((shipment) => (
                         <tr key={shipment.id}>
-                          <td className="fw-medium">{shipment.internal_po_number}</td>
+                          <td className="fw-medium">
+                            {String(shipment.internal_po_number || '').startsWith('PENDING-')
+                              ? <span className="text-muted fst-italic">{shipment.internal_po_number}</span>
+                              : shipment.internal_po_number
+                            }
+                          </td>
+                          <td className="small">
+                            <div>{shipment.style || <span className="text-muted">—</span>}</div>
+                            <div className="text-muted">{shipment.color || ''}</div>
+                          </td>
                           <td className="small text-muted">{shipment.file_name}</td>
-                          <td>{shipment.schedule_week_label || <span className="text-muted">Unlinked</span>}</td>
+                          <td>
+                            {shipment.schedule_week_label
+                              ? shipment.schedule_week_label
+                              : <span className="badge bg-warning text-dark">Unlinked</span>
+                            }
+                          </td>
                           <td>{shipment.carton_count || 0}</td>
                           <td className="text-end">
                             <div className="d-flex justify-content-end gap-1">
-                              <Link to={`/shipment/${shipment.id}`} className="btn btn-sm btn-outline-primary">
+                              <Link to={`/po/${shipment.id}`} className="btn btn-sm btn-outline-primary">
                                 View
                               </Link>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary"
+                                title="Edit PO, style, color, quantity"
+                                onClick={() => {
+                                  setLinkingShipment(shipment);
+                                  const po = String(shipment.internal_po_number || '');
+                                  setLinkForm({
+                                    internalPoNumber: po.replace(/^FTM-/i, '').replace(/^PENDING-/i, ''),
+                                    style: shipment.style || '',
+                                    color: shipment.color || '',
+                                    quantity: shipment.order_qty || ''
+                                  });
+                                }}
+                              >
+                                <i className="bi bi-pencil me-1"></i>Edit
+                              </button>
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-danger"
@@ -1112,7 +1179,7 @@ const FileUpload = () => {
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan="5" className="text-center text-muted py-3">
+                          <td colSpan="6" className="text-center text-muted py-3">
                             {filesLoading ? 'Loading uploaded files...' : 'No uploaded files yet'}
                           </td>
                         </tr>
@@ -1454,17 +1521,91 @@ const FileUpload = () => {
                         </div>
                       </>
                     ) : (
-                      <div className="alert-modern alert-modern-info mb-4">
-                        <i className="bi bi-clock-history"></i>
-                        <div>
-                          <strong>Import without schedule</strong>
-                          <p className="mb-0 small mt-1">
-                            Order <strong>{customerOrderNo || '—'}</strong> will be saved as{' '}
-                            <code>PENDING-{customerOrderNo || '…'}</code>. Cartons import now; FTM indent, style, and color
-                            link automatically when you upload the matching schedule.
-                          </p>
+                      <>
+                        <div className="alert-modern alert-modern-warning mb-4">
+                          <i className="bi bi-info-circle"></i>
+                          <div>
+                            <strong>No schedule match</strong> — Order <strong>{customerOrderNo || '—'}</strong> not found in schedule library.
+                            You can enter the details manually below, or import now and link later when you upload the schedule.
+                          </div>
                         </div>
-                      </div>
+
+                        <div className="mb-4">
+                          <label className="form-label-modern">
+                            <i className="bi bi-tag me-1"></i>FTM PO Number <span className="text-muted small">(optional — fills in automatically if schedule is available)</span>
+                          </label>
+                          <div className="input-group">
+                            <span className="input-group-text bg-light">FTM-</span>
+                            <input
+                              type="text"
+                              className="form-control-modern"
+                              value={internalPoNumber}
+                              onChange={(e) => setInternalPoNumber(e.target.value.replace(/[^0-9]/g, ''))}
+                              disabled={uploading}
+                              placeholder="12554"
+                            />
+                          </div>
+                          {customerOrderNo && (
+                            <div className="text-muted small mt-1">Customer order number in file: {customerOrderNo}</div>
+                          )}
+                        </div>
+
+                        <div className="row g-3 mb-4">
+                          <div className="col-md-4">
+                            <label className="form-label-modern">
+                              <i className="bi bi-palette me-1"></i>Style <span className="text-muted small">(optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control-modern w-100"
+                              list="import-style-suggestions"
+                              value={style}
+                              onChange={(e) => setStyle(e.target.value)}
+                              onBlur={() => saveToHistory(styleHistoryKey, style, setStyleHistory)}
+                              disabled={uploading}
+                              placeholder="Enter style"
+                            />
+                            <datalist id="import-style-suggestions">
+                              {styleHistory.map((s) => (
+                                <option key={s} value={s} />
+                              ))}
+                            </datalist>
+                          </div>
+                          <div className="col-md-4">
+                            <label className="form-label-modern">
+                              <i className="bi bi-droplet me-1"></i>Color <span className="text-muted small">(optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control-modern w-100"
+                              list="import-color-suggestions"
+                              value={color}
+                              onChange={(e) => setColor(e.target.value)}
+                              onBlur={() => saveToHistory(colorHistoryKey, color, setColorHistory)}
+                              disabled={uploading}
+                              placeholder="Enter color"
+                            />
+                            <datalist id="import-color-suggestions">
+                              {colorHistory.map((c) => (
+                                <option key={c} value={c} />
+                              ))}
+                            </datalist>
+                          </div>
+                          <div className="col-md-4">
+                            <label className="form-label-modern">
+                              <i className="bi bi-123 me-1"></i>Quantity <span className="text-muted small">(optional)</span>
+                            </label>
+                            <input
+                              type="text"
+                              className="form-control-modern w-100"
+                              value={quantity}
+                              onChange={(e) => setQuantity(e.target.value)}
+                              disabled={uploading}
+                              placeholder="Enter quantity"
+                            />
+                          </div>
+                        </div>
+                      </>
                     )}
                   </>
                 )}
@@ -1513,6 +1654,10 @@ const FileUpload = () => {
                         <>
                           <div className="loading-spinner-modern me-2"></div>
                           Importing...
+                        </>
+                      ) : unlinkedHasManualData ? (
+                        <>
+                          <i className="bi bi-upload"></i> Upload File (Manual Link)
                         </>
                       ) : (
                         <>
@@ -1663,6 +1808,88 @@ const FileUpload = () => {
           </div>
         </div>
       </div>
+
+      {/* Link Shipment Modal */}
+      {linkingShipment && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil me-2"></i>
+                  Edit Shipment Details — {linkingShipment.file_name}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setLinkingShipment(null)} />
+              </div>
+              <div className="modal-body">
+                <p className="text-muted small mb-3">
+                  Customer order: <strong>{linkingShipment.customer_po_number || linkingShipment.internal_po_number}</strong>
+                  {' · '}{linkingShipment.carton_count || 0} cartons
+                </p>
+                <div className="mb-3">
+                  <label className="form-label">FTM PO Number *</label>
+                  <div className="input-group">
+                    <span className="input-group-text">FTM-</span>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="12554"
+                      value={linkForm.internalPoNumber}
+                      onChange={(e) => setLinkForm(prev => ({ ...prev, internalPoNumber: e.target.value.replace(/[^0-9]/g, '') }))}
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="row g-2">
+                  <div className="col-md-4">
+                    <label className="form-label">Style *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. DENIM SHORTS"
+                      value={linkForm.style}
+                      onChange={(e) => setLinkForm(prev => ({ ...prev, style: e.target.value }))}
+                    />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">Color *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. NAVY"
+                      value={linkForm.color}
+                      onChange={(e) => setLinkForm(prev => ({ ...prev, color: e.target.value }))}
+                    />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label">Quantity *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. 2000"
+                      value={linkForm.quantity}
+                      onChange={(e) => setLinkForm(prev => ({ ...prev, quantity: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setLinkingShipment(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  disabled={!linkForm.internalPoNumber.trim() || !linkForm.style.trim() || !linkForm.color.trim() || !linkForm.quantity.trim() || linkSaving}
+                  onClick={handleLinkShipment}
+                >
+                  {linkSaving ? 'Saving...' : <><i className="bi bi-check2 me-1"></i>Save & Link</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,6 +14,7 @@ const Reports = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('comprehensive');
+  const [timeBasedView, setTimeBasedView] = useState('list'); // 'list' or 'grid'
 
   // Report filters
   const [reportFilters, setReportFilters] = useState({
@@ -762,68 +763,138 @@ const Reports = () => {
                     </Col>
                   </Row>
 
-                  {/* PO Details Table */}
+                  {/* PO Details — view toggle */}
                   <div className="mb-4">
-                    <h5>PO Details by {reportFilters.timePeriod.charAt(0).toUpperCase() + reportFilters.timePeriod.slice(1)} Period</h5>
-                    <div className="table-responsive">
-                      <Table className="table-modern">
-                        <thead>
-                          <tr>
-                            <th>Period</th>
-                            <th>PO Number</th>
-                            <th>Customer PO</th>
-                            <th>Total Cartons</th>
-                            <th>Total Units</th>
-                            <th>Pending Cartons</th>
-                            <th>Pending Units</th>
-                            <th>Cartons Entered</th>
-                            <th>Cartons Shipped</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {timeBasedReports.map((report, index) => (
-                            <tr key={index}>
-                              <td>
-                                <span className="fw-medium">
-                                  {reportFilters.timePeriod === 'daily' && report.date}
-                                  {reportFilters.timePeriod === 'weekly' && `Week of ${report.week_start}`}
-                                  {reportFilters.timePeriod === 'monthly' && report.month}
-                                  {reportFilters.timePeriod === 'yearly' && report.year}
-                                </span>
-                              </td>
-                              <td>
-                                <span className="fw-medium">{report.po_number}</span>
-                              </td>
-                              <td>
-                                <span className="text-muted small">{report.customer_po || '—'}</span>
-                              </td>
-                              <td>
-                                <Badge bg="info" className="badge-modern badge-modern-info">
-                                  {report.cartons_received}
-                                </Badge>
-                              </td>
-                              <td>{report.units_received.toLocaleString()}</td>
-                              <td>
-                                <Badge bg="warning" className="badge-modern badge-modern-warning">
-                                  {report.cartons_pending || 0}
-                                </Badge>
-                              </td>
-                              <td>{(report.units_pending || 0).toLocaleString()}</td>
-                              <td>
-                                <Badge bg="primary" className="badge-modern badge-modern-primary">
-                                  {report.cartons_entered}
-                                </Badge>
-                              </td>
-                              <td>
-                                <Badge bg="success" className="badge-modern badge-modern-success">
-                                  {report.cartons_shipped}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h5 className="mb-0">PO Details by {reportFilters.timePeriod.charAt(0).toUpperCase() + reportFilters.timePeriod.slice(1)} Period</h5>
+                      <div className="btn-group btn-group-sm">
+                        <Button
+                          variant={timeBasedView === 'list' ? 'primary' : 'outline-secondary'}
+                          size="sm"
+                          onClick={() => setTimeBasedView('list')}
+                          title="List view"
+                        >
+                          <i className="bi bi-list-ul"></i>
+                        </Button>
+                        <Button
+                          variant={timeBasedView === 'grid' ? 'primary' : 'outline-secondary'}
+                          size="sm"
+                          onClick={() => setTimeBasedView('grid')}
+                          title="Grid view"
+                        >
+                          <i className="bi bi-grid-3x3-gap"></i>
+                        </Button>
+                      </div>
                     </div>
+
+                    {/* LIST VIEW */}
+                    {timeBasedView === 'list' && (
+                      <div className="table-responsive">
+                        <Table className="table-modern">
+                          <thead>
+                            <tr>
+                              <th>Period</th>
+                              <th>PO Number</th>
+                              <th>Customer PO</th>
+                              <th>Total Cartons</th>
+                              <th>Total Units</th>
+                              <th>Pending Cartons</th>
+                              <th>Pending Units</th>
+                              <th>Cartons Entered</th>
+                              <th>Cartons Shipped</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {timeBasedReports.map((report, index) => (
+                              <tr key={index}>
+                                <td>
+                                  <span className="fw-medium">
+                                    {reportFilters.timePeriod === 'daily' && report.date}
+                                    {reportFilters.timePeriod === 'weekly' && `Week of ${report.week_start}`}
+                                    {reportFilters.timePeriod === 'monthly' && report.month}
+                                    {reportFilters.timePeriod === 'yearly' && report.year}
+                                  </span>
+                                </td>
+                                <td><span className="fw-medium">{report.po_number}</span></td>
+                                <td><span className="text-muted small">{report.customer_po || '—'}</span></td>
+                                <td>
+                                  <Badge bg="info" className="badge-modern badge-modern-info">{report.cartons_received}</Badge>
+                                </td>
+                                <td>{report.units_received.toLocaleString()}</td>
+                                <td>
+                                  <Badge bg="warning" className="badge-modern badge-modern-warning">{report.cartons_pending || 0}</Badge>
+                                </td>
+                                <td>{(report.units_pending || 0).toLocaleString()}</td>
+                                <td>
+                                  <Badge bg="primary" className="badge-modern badge-modern-primary">{report.cartons_entered}</Badge>
+                                </td>
+                                <td>
+                                  <Badge bg="success" className="badge-modern badge-modern-success">{report.cartons_shipped}</Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </div>
+                    )}
+
+                    {/* GRID VIEW */}
+                    {timeBasedView === 'grid' && (
+                      <Row className="g-3">
+                        {timeBasedReports.map((report, index) => {
+                          const period =
+                            reportFilters.timePeriod === 'daily' ? report.date :
+                            reportFilters.timePeriod === 'weekly' ? `Wk ${report.week_start}` :
+                            reportFilters.timePeriod === 'monthly' ? report.month :
+                            String(report.year);
+                          const shipped = parseInt(report.cartons_shipped || 0);
+                          const total = parseInt(report.cartons_received || 0);
+                          const pct = total > 0 ? Math.round((shipped / total) * 100) : 0;
+                          return (
+                            <Col key={index} xs={12} sm={6} md={4} lg={3}>
+                              <div className="modern-card h-100">
+                                <div className="modern-card-body">
+                                  <div className="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                      <div className="fw-bold small">{report.po_number}</div>
+                                      {report.customer_po && report.customer_po !== 'N/A' && (
+                                        <div className="text-muted" style={{ fontSize: '0.75rem' }}>{report.customer_po}</div>
+                                      )}
+                                    </div>
+                                    <Badge bg="light" text="dark" className="small">{period}</Badge>
+                                  </div>
+                                  <div className="row g-1 text-center mb-2">
+                                    <div className="col-6">
+                                      <div className="fw-bold text-info">{report.cartons_received}</div>
+                                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>Cartons</div>
+                                    </div>
+                                    <div className="col-6">
+                                      <div className="fw-bold text-primary">{parseInt(report.units_received || 0).toLocaleString()}</div>
+                                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>Units</div>
+                                    </div>
+                                    <div className="col-6">
+                                      <div className="fw-bold text-warning">{report.cartons_pending || 0}</div>
+                                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>Pending</div>
+                                    </div>
+                                    <div className="col-6">
+                                      <div className="fw-bold text-success">{shipped}</div>
+                                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>Shipped</div>
+                                    </div>
+                                  </div>
+                                  <div className="progress" style={{ height: 6 }}>
+                                    <div
+                                      className={`progress-bar bg-${pct === 100 ? 'success' : pct > 0 ? 'primary' : 'secondary'}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <div className="text-end text-muted mt-1" style={{ fontSize: '0.7rem' }}>{pct}% shipped</div>
+                                </div>
+                              </div>
+                            </Col>
+                          );
+                        })}
+                      </Row>
+                    )}
                   </div>
                 </div>
               ) : (
