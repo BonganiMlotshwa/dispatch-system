@@ -907,6 +907,60 @@ const Reports = () => {
           </div>
         </Tab>
       </Tabs>
+
+      {/* Signature Section */}
+      <div className="modern-card mt-5" style={{ borderTop: '3px solid #dee2e6' }}>
+        <div className="modern-card-body">
+          <Row className="g-4 text-center">
+            <Col md={4}>
+              <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+              <div className="fw-bold">1. PREPARED BY:</div>
+              <div className="small text-muted">NAME AND SIGNATURE</div>
+            </Col>
+            <Col md={4}>
+              <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+              <div className="fw-bold">2. NOTED BY:</div>
+              <div className="small text-muted">DEPARTMENT MANAGER</div>
+            </Col>
+            <Col md={4}>
+              <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+              <div className="fw-bold">3. NOTED BY:</div>
+              <div className="small text-muted">VICE FACTORY MANAGER</div>
+            </Col>
+          </Row>
+          <Row className="g-4 text-center mt-3">
+            <Col md={4}>
+              <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+              <div className="fw-bold">4. APPROVED BY:</div>
+              <div className="small text-muted">VICE FACTORY ADMINISTRATION DIRECTOR</div>
+            </Col>
+            <Col md={4}>
+              <div style={{ minHeight: '60px' }}></div>
+            </Col>
+            <Col md={4}>
+              <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+              <div className="fw-bold">5. NOTED BY:</div>
+              <div className="small text-muted">MANAGING DIRECTOR</div>
+            </Col>
+          </Row>
+          <div className="text-muted small mt-3" style={{ fontSize: '0.75rem' }}>
+            Note: Please Print (Name, Signature, Date & Time)
+          </div>
+          
+          {/* Company Logos Section */}
+          <div className="row g-4 mt-4 pt-3" style={{ borderTop: '1px solid #dee2e6' }}>
+            <Col md={4} className="text-start">
+              <img src={process.env.PUBLIC_URL + '/sabs_iso.png'} alt="SABS ISO 9001" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+            </Col>
+            <Col md={4} className="text-center">
+              <img src={process.env.PUBLIC_URL + '/ftm.png'} alt="FTM" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+            </Col>
+            <Col md={4} className="text-end">
+              <img src={process.env.PUBLIC_URL + '/sabs.png'} alt="SABS Approved" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+            </Col>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

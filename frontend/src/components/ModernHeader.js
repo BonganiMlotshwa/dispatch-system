@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { logout } from '../services/authService';
-import { useNavigate } from 'react-router-dom';
 
 const ModernHeader = ({ toggleSidebar }) => {
   const navigate = useNavigate();
@@ -15,6 +14,7 @@ const ModernHeader = ({ toggleSidebar }) => {
       case '/': return { title: 'Dashboard', subtitle: 'System overview and key metrics' };
       case '/pos': return { title: 'Purchase Orders', subtitle: 'Manage and track PO status' };
       case '/upload': return { title: 'Import Data', subtitle: 'Upload and process shipment files' };
+      case '/settings': return { title: 'Settings', subtitle: 'User management and system configuration' };
       case '/legacy-warehouse': return { title: 'Legacy Warehouse Stock', subtitle: 'Spec 1.5 — manual entry, status filter (Active, Shipped, Cancelled, …)' };
       case '/manual-entry': return { title: 'Manual Entry', subtitle: 'Enter customer orders manually' };
       case '/scanner': return { title: 'Barcode Scanner', subtitle: 'Scan cartons and update status' };
@@ -80,6 +80,7 @@ const ModernHeader = ({ toggleSidebar }) => {
           <button 
             className="header-action-btn"
             title="Settings"
+            onClick={() => navigate('/settings')}
           >
             <i className="bi bi-gear"></i>
           </button>

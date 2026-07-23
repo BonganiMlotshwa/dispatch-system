@@ -183,8 +183,68 @@ const DailySummary = () => {
         </table>
         
         <div class="footer">
-          <p>Generated on ${new Date().toLocaleString()}</p>
-          <p>&copy; ${new Date().getFullYear()} FTM Garments Warehouse - All Rights Reserved</p>
+          <p style="margin-top: 40px; margin-bottom: 10px; border-top: 1px solid #ddd; padding-top: 20px;">
+            <strong>Signature Section</strong>
+          </p>
+          <table style="width: 100%; border: none; margin-top: 30px;">
+            <tr style="border: none;">
+              <td style="border: none; text-align: center; padding: 20px; height: 80px; border-bottom: 2px solid #000;">
+                <strong style="display: block; margin-bottom: 40px;">1. PREPARED BY:</strong>
+              </td>
+              <td style="border: none; text-align: center; padding: 20px; height: 80px; border-bottom: 2px solid #000;">
+                <strong style="display: block; margin-bottom: 40px;">2. NOTED BY:</strong>
+              </td>
+              <td style="border: none; text-align: center; padding: 20px; height: 80px; border-bottom: 2px solid #000;">
+                <strong style="display: block; margin-bottom: 40px;">3. NOTED BY:</strong>
+              </td>
+            </tr>
+            <tr style="border: none;">
+              <td style="border: none; text-align: center; padding: 5px; font-size: 10px;">NAME AND SIGNATURE</td>
+              <td style="border: none; text-align: center; padding: 5px; font-size: 10px;">DEPARTMENT MANAGER</td>
+              <td style="border: none; text-align: center; padding: 5px; font-size: 10px;">VICE FACTORY MANAGER</td>
+            </tr>
+          </table>
+          
+          <table style="width: 100%; border: none; margin-top: 30px;">
+            <tr style="border: none;">
+              <td style="border: none; text-align: center; padding: 20px; height: 80px; border-bottom: 2px solid #000;">
+                <strong style="display: block; margin-bottom: 40px;">4. APPROVED BY:</strong>
+              </td>
+              <td style="border: none; text-align: center; padding: 20px; height: 60px;"></td>
+              <td style="border: none; text-align: center; padding: 20px; height: 80px; border-bottom: 2px solid #000;">
+                <strong style="display: block; margin-bottom: 40px;">5. NOTED BY:</strong>
+              </td>
+            </tr>
+            <tr style="border: none;">
+              <td style="border: none; text-align: center; padding: 5px; font-size: 10px;">VICE FACTORY ADMINISTRATION DIRECTOR</td>
+              <td style="border: none; text-align: center; padding: 5px; font-size: 10px;"></td>
+              <td style="border: none; text-align: center; padding: 5px; font-size: 10px;">MANAGING DIRECTOR</td>
+            </tr>
+          </table>
+          
+          <p style="text-align: center; font-size: 10px; margin-top: 15px; color: #999;">Note: Please Print (Name, Signature, Date & Time)</p>
+          
+          <table style="width: 100%; border: none; margin-top: 30px;">
+            <tr style="border: none;">
+              <td style="border: none; text-align: center; padding: 10px;">
+                <img src="Screenshot%202026-07-20%20103152.png" alt="SABS ISO 9001" style="max-height: 50px; max-width: 100px;" />
+                <div style="font-size: 10px; margin-top: 5px;">SABS ISO 9001</div>
+              </td>
+              <td style="border: none; text-align: center; padding: 10px;">
+                <img src="Screenshot%202026-07-20%20103247.png" alt="Ford Motors" style="max-height: 50px; max-width: 100px;" />
+                <div style="font-size: 10px; margin-top: 5px;">Ford Motors</div>
+              </td>
+              <td style="border: none; text-align: center; padding: 10px;">
+                <img src="Screenshot%202026-07-20%20103255.png" alt="SABS Approved" style="max-height: 50px; max-width: 100px;" />
+                <div style="font-size: 10px; margin-top: 5px;">SABS Approved</div>
+              </td>
+            </tr>
+          </table>
+          
+          <p style="text-align: center; margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+            Generated on ${new Date().toLocaleString()}<br>
+            &copy; ${new Date().getFullYear()} FTM Garments Warehouse - All Rights Reserved
+          </p>
         </div>
       </body>
       </html>
@@ -305,6 +365,60 @@ const DailySummary = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Signature Section */}
+          <div className="modern-card mt-5" style={{ borderTop: '3px solid #dee2e6' }}>
+            <div className="modern-card-body">
+              <div className="row g-4 text-center">
+                <div className="col-md-4">
+                  <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+                  <div className="fw-bold">1. PREPARED BY:</div>
+                  <div className="small text-muted">NAME AND SIGNATURE</div>
+                </div>
+                <div className="col-md-4">
+                  <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+                  <div className="fw-bold">2. NOTED BY:</div>
+                  <div className="small text-muted">DEPARTMENT MANAGER</div>
+                </div>
+                <div className="col-md-4">
+                  <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+                  <div className="fw-bold">3. NOTED BY:</div>
+                  <div className="small text-muted">VICE FACTORY MANAGER</div>
+                </div>
+              </div>
+              <div className="row g-4 text-center mt-3">
+                <div className="col-md-4">
+                  <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+                  <div className="fw-bold">4. APPROVED BY:</div>
+                  <div className="small text-muted">VICE FACTORY ADMINISTRATION DIRECTOR</div>
+                </div>
+                <div className="col-md-4">
+                  <div style={{ minHeight: '60px' }}></div>
+                </div>
+                <div className="col-md-4">
+                  <div style={{ minHeight: '80px', borderBottom: '2px solid #000', marginBottom: '8px' }}></div>
+                  <div className="fw-bold">5. NOTED BY:</div>
+                  <div className="small text-muted">MANAGING DIRECTOR</div>
+                </div>
+              </div>
+              <div className="text-muted small mt-3" style={{ fontSize: '0.75rem' }}>
+                Note: Please Print (Name, Signature, Date & Time)
+              </div>
+              
+              {/* Company Logos Section */}
+              <div className="row g-4 mt-4 pt-3" style={{ borderTop: '1px solid #dee2e6' }}>
+                <div className="col-md-4 text-start">
+                  <img src={process.env.PUBLIC_URL + '/sabs_iso.png'} alt="SABS ISO 9001" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+                </div>
+                <div className="col-md-4 text-center">
+                  <img src={process.env.PUBLIC_URL + '/ftm.png'} alt="FTM" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+                </div>
+                <div className="col-md-4 text-end">
+                  <img src={process.env.PUBLIC_URL + '/sabs.png'} alt="SABS Approved" style={{ maxHeight: '80px', maxWidth: '100%' }} />
+                </div>
+              </div>
             </div>
           </div>
         </div>

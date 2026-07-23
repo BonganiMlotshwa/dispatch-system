@@ -26,6 +26,8 @@ import TruckSummary from './pages/TruckSummary';
 import EmployeeLogin from './pages/EmployeeLogin';
 import Reports from './pages/Reports';
 import WeeklyAnalysis from './pages/WeeklyAnalysis';
+import ScheduleDiagnostic from './pages/ScheduleDiagnostic';
+import UserManagement from './pages/UserManagement';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Enable React Router v7 future flags
@@ -76,6 +78,8 @@ function App() {
                       <Route path="/truck-summary" element={<TruckSummary />} />
                       <Route path="/employee-login" element={<EmployeeLogin />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/schedule-diagnostic" element={<ScheduleDiagnostic />} />
+                      <Route path="/settings" element={<UserManagement />} />
                       <Route path="/login" element={<Dashboard />} />
                     </Routes>
                   </ErrorBoundary>
