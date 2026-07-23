@@ -5,9 +5,18 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+
+// CORS headers with credentials support
+$origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '*';
+if ($origin !== '*') {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+} else {
+    header('Access-Control-Allow-Origin: *');
+}
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -15,23 +24,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../config/database.php';
 
-session_start();
+// Start session BEFORE any output
+if (session_status() === PHP_SESSION_NONE) {
+    session_start([
+        'cookie_httponly' => true,
+        'cookie_samesite' => 'Lax',
+    ]);
+}
 
 // Helper function to check if user is authenticated and is admin
 function requireAdmin(PDO $pdo): array {
-    if (!isset($_SESSION['user_id']) || !isset($_SESSION['username'])) {
+    // Check if user is logged in using the auth system
+    if (!isset($_SESSION['user']) || !is_array($_SESSION['user'])) {
         http_response_code(401);
-        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        echo json_encode(['success' => false, 'message' => 'Not authenticated. Please log in.']);
         exit;
     }
     
-    $stmt = $pdo->prepare('SELECT id, username, role FROM users WHERE id = ? AND is_active = 1');
-    $stmt->execute([$_SESSION['user_id']]);
+    $sessionUser = $_SESSION['user'];
+    
+    // Verify user still exists and is active
+    $stmt = $pdo->prepare('SELECT id, username, role, is_active FROM users WHERE id = ?');
+    $stmt->execute([$sessionUser['id']]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$user || $user['role'] !== 'admin') {
+    if (!$user || $user['is_active'] != 1) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'User account not found or inactive']);
+        exit;
+    }
+    
+    if ($user['role'] !== 'admin') {
         http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Admin access required']);
+        echo json_encode(['success' => false, 'message' => 'Admin access required. Your role: ' . $user['role']]);
         exit;
     }
     

@@ -56,7 +56,7 @@ try {
         exit;
     }
 
-    $valid = password_verify($password, $user['password_hash']);
+    $valid = password_verify($password, $user['password']);
     if (!$valid) {
         // Increment failed attempts and optionally lock
         $failed = (int)$user['failed_login_attempts'] + 1;

@@ -32,7 +32,9 @@ const UserManagement = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/user_management.php?action=list`);
+      const res = await axios.get(`${API_BASE_URL}/user_management.php?action=list`, {
+        withCredentials: true
+      });
       if (res.data.success) {
         setUsers(res.data.users);
         setCurrentUserId(res.data.current_user_id);
@@ -48,7 +50,9 @@ const UserManagement = () => {
 
   const loadAuditLog = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/user_management.php?action=audit_log&limit=50`);
+      const res = await axios.get(`${API_BASE_URL}/user_management.php?action=audit_log&limit=50`, {
+        withCredentials: true
+      });
       if (res.data.success) {
         setAuditLog(res.data.audit_log);
         setShowAuditLog(true);
@@ -74,6 +78,8 @@ const UserManagement = () => {
         email: formData.email,
         role: formData.role,
         is_active: formData.is_active
+      }, {
+        withCredentials: true
       });
       
       if (res.data.success) {
@@ -99,6 +105,8 @@ const UserManagement = () => {
         email: formData.email,
         role: formData.role,
         is_active: formData.is_active
+      }, {
+        withCredentials: true
       });
       
       if (res.data.success) {
@@ -127,6 +135,8 @@ const UserManagement = () => {
       const res = await axios.put(`${API_BASE_URL}/user_management.php?action=reset_password`, {
         user_id: editingUser.id,
         new_password: formData.password
+      }, {
+        withCredentials: true
       });
       
       if (res.data.success) {
@@ -148,7 +158,9 @@ const UserManagement = () => {
     }
     
     try {
-      const res = await axios.delete(`${API_BASE_URL}/user_management.php?action=delete&user_id=${user.id}`);
+      const res = await axios.delete(`${API_BASE_URL}/user_management.php?action=delete&user_id=${user.id}`, {
+        withCredentials: true
+      });
       if (res.data.success) {
         setSuccess(res.data.message);
         loadUsers();
@@ -172,6 +184,8 @@ const UserManagement = () => {
       const res = await axios.put(`${API_BASE_URL}/user_management.php?action=update`, {
         user_id: user.id,
         is_active: newStatus
+      }, {
+        withCredentials: true
       });
       
       if (res.data.success) {
