@@ -82,12 +82,12 @@ try {
     $legacyStats = ['orders' => 0, 'cartons' => 0, 'units' => 0];
     $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'legacy_warehouse_goods'")->fetch();
     if ($legacyTableExists) {
+        // Query counts all legacy orders regardless of status for complete historical tracking
         $stmt = $pdo->query("SELECT 
             COUNT(*) as orders_count,
             COALESCE(SUM(cartons_count), 0) as total_cartons,
             COALESCE(SUM(quantity_inside), 0) as total_units
             FROM legacy_warehouse_goods");
-            -- Removed WHERE status = 'active' to count ALL statuses
         $legacy = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($legacy) {
             $legacyStats = [
