@@ -97,14 +97,38 @@ function processCartonScan($barcode, $action, $pdo, $expectedPo = null, $truckSh
         $hasTsCols = cartonTimestampColumnsExist($pdo);
         $tsUpdate = buildCartonStatusTimestampUpdate($newStatus, $carton['status'], $hasTsCols);
 
+        // Optimistic locking: include the expected current status in the WHERE clause so
+        // that if a concurrent scanner already changed this carton between our SELECT and
+        // this UPDATE, rowCount() returns 0 instead of silently double-counting.
         if ($action === 'exit' && $truckShipmentId) {
-            $stmt = $pdo->prepare("UPDATE cartons SET {$tsUpdate['sql']}, truck_shipment_id = ? WHERE id = ?");
-            $stmt->execute(array_merge($tsUpdate['params'], [$truckShipmentId, $carton['id']]));
+            $stmt = $pdo->prepare("UPDATE cartons SET {$tsUpdate['sql']}, truck_shipment_id = ? WHERE id = ? AND status = ?");
+            $stmt->execute(array_merge($tsUpdate['params'], [$truckShipmentId, $carton['id'], $carton['status']]));
         } else {
-            $stmt = $pdo->prepare("UPDATE cartons SET {$tsUpdate['sql']} WHERE id = ?");
-            $stmt->execute(array_merge($tsUpdate['params'], [$carton['id']]));
+            $stmt = $pdo->prepare("UPDATE cartons SET {$tsUpdate['sql']} WHERE id = ? AND status = ?");
+            $stmt->execute(array_merge($tsUpdate['params'], [$carton['id'], $carton['status']]));
         }
-        
+
+        if ($stmt->rowCount() === 0) {
+            // Another scanner changed this carton's status between our read and this write.
+            $freshStmt = $pdo->prepare('SELECT status FROM cartons WHERE id = ? LIMIT 1');
+            $freshStmt->execute([$carton['id']]);
+            $freshRow = $freshStmt->fetch(PDO::FETCH_ASSOC);
+            $currentStatus = $freshRow['status'] ?? 'unknown';
+
+            if ($currentStatus === $newStatus) {
+                return [
+                    'success' => false,
+                    'message' => 'Another scanner just scanned this carton.',
+                    'error_code' => 'DUPLICATE',
+                ];
+            }
+            return [
+                'success' => false,
+                'message' => 'Carton status changed by another scanner — please try again.',
+                'error_code' => 'RACE_CONDITION',
+            ];
+        }
+
         if (!empty($carton['shipment_id'])) {
             syncShipmentWarehouseStatus($pdo, (int)$carton['shipment_id']);
         }

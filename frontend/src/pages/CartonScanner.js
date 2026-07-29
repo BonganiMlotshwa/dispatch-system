@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Modal, Button, Form, Alert, Badge, Table } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Badge, Table, ProgressBar } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Quagga from 'quagga';
@@ -418,9 +418,10 @@ const CartonScanner = () => {
   const [activeTrucks, setActiveTrucks] = useState([]);
   const [activeTruck, setActiveTruck] = useState(null);
   const [exitWithoutTruck, setExitWithoutTruck] = useState(false);
-  const [sessionScanCount, setSessionScanCount] = useState(0); // Count scans in current session
-  const [sessionUnitCount, setSessionUnitCount] = useState(0); // Count units in current session
-  const [counterPulse, setCounterPulse] = useState(false); // Trigger pulse animation
+  const [sessionScanCount, setSessionScanCount] = useState(0);
+  const [sessionUnitCount, setSessionUnitCount] = useState(0);
+  const [counterPulse, setCounterPulse] = useState(false);
+  const [poProgress, setPoProgress] = useState(null); // live counts across all scanners
   const expectedPo = normalizeExpectedPo(poNumber ? `${poPrefix}-${poNumber}` : '');
   const normalizedPo = expectedPo;
 
@@ -545,6 +546,33 @@ const CartonScanner = () => {
     if (!showTruckChoiceModal) return;
     refreshOpenTrucks();
   }, [showTruckChoiceModal, refreshOpenTrucks]);
+
+  // Fetch live carton counts for the selected PO — shared across all scanners.
+  const fetchPoProgress = useCallback(async () => {
+    if (!expectedPo || !poValidation.exists) return;
+    try {
+      const res = await axios.get(`${API_BASE_URL}/po_scan_progress.php`, {
+        params: { po: expectedPo },
+        timeout: 4000
+      });
+      if (res.data.success && res.data.found) {
+        setPoProgress(res.data);
+      }
+    } catch (_) {
+      // Best-effort — don't surface errors for the progress poll
+    }
+  }, [expectedPo, poValidation.exists]);
+
+  // Poll every 3 seconds while a valid PO is selected.
+  useEffect(() => {
+    if (!poValidation.exists || !expectedPo) {
+      setPoProgress(null);
+      return;
+    }
+    fetchPoProgress();
+    const interval = setInterval(fetchPoProgress, 3000);
+    return () => clearInterval(interval);
+  }, [expectedPo, poValidation.exists, fetchPoProgress]);
 
   const handleFinishLoading = async () => {
     if (!activeTruck) return;
@@ -1098,6 +1126,9 @@ const CartonScanner = () => {
         console.error('Failed to save scan history:', e);
       }
       
+      // Immediately refresh shared PO progress so this scanner shows the updated count.
+      fetchPoProgress();
+
       return { success: true, message: response.data.message };
     } catch (err) {
       console.error('Scan error:', err);
@@ -1506,6 +1537,45 @@ const CartonScanner = () => {
                         <span className="text-muted">Choose a prefix, then type the number. Example: FTM-1234.</span>
                       )}
                     </div>
+
+                  {/* Shared multi-scanner progress — visible to all scanners on this PO */}
+                  {poProgress && poProgress.total > 0 && (
+                    <div className="mt-2 mb-1">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <small className="text-muted fw-semibold">
+                          <i className="bi bi-people me-1"></i>All scanners — {poProgress.po}
+                        </small>
+                        <small className="text-muted">
+                          {poProgress.exited} / {poProgress.total} exited
+                        </small>
+                      </div>
+                      <ProgressBar style={{ height: '10px' }}>
+                        <ProgressBar
+                          variant="success"
+                          now={Math.round((poProgress.exited / poProgress.total) * 100)}
+                          key="exited"
+                          title={`${poProgress.exited} exited`}
+                        />
+                        <ProgressBar
+                          variant="primary"
+                          now={Math.round((poProgress.entered / poProgress.total) * 100)}
+                          key="entered"
+                          title={`${poProgress.entered} entered`}
+                        />
+                        <ProgressBar
+                          variant="secondary"
+                          now={Math.round((poProgress.pending / poProgress.total) * 100)}
+                          key="pending"
+                          title={`${poProgress.pending} pending`}
+                        />
+                      </ProgressBar>
+                      <div className="d-flex gap-3 mt-1">
+                        <small className="text-success"><span className="fw-bold">{poProgress.exited}</span> exited</small>
+                        <small className="text-primary"><span className="fw-bold">{poProgress.entered}</span> in warehouse</small>
+                        <small className="text-muted"><span className="fw-bold">{poProgress.pending}</span> pending</small>
+                      </div>
+                    </div>
+                  )}
                   </div>
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <label className="form-label-modern">

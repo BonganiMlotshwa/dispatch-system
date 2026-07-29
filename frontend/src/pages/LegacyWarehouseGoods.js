@@ -158,6 +158,7 @@ const LegacyWarehouseGoods = () => {
           order_qty: row.order_qty ?? '',
           quantity_inside: row.quantity_inside ?? '',
           cartons_label: row.cartons_label || '',
+          cartons_count: row.cartons_count ?? '',
           status: newStatus,
           remarks: row.remarks || '',
           new_developments: row.new_developments || '',
@@ -548,11 +549,22 @@ const LegacyWarehouseGoods = () => {
                 <Form.Label>Quantity inside</Form.Label>
                 <Form.Control type="number" name="quantity_inside" value={form.quantity_inside} onChange={handleFormChange} min="0" />
               </div>
-              <div className="col-md-3">
-                <Form.Label>No. of ctns (label)</Form.Label>
+              <div className="col-md-2">
+                <Form.Label>Ctns label</Form.Label>
                 <Form.Control name="cartons_label" value={form.cartons_label} onChange={handleFormChange} placeholder="70 CTNS" />
               </div>
-              <div className="col-md-3">
+              <div className="col-md-2">
+                <Form.Label>Ctn count</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="cartons_count"
+                  value={form.cartons_count}
+                  onChange={handleFormChange}
+                  min="0"
+                  placeholder="auto"
+                />
+              </div>
+              <div className="col-md-2">
                 <Form.Label>Shipped qty</Form.Label>
                 <Form.Control type="number" name="shipped_qty" value={form.shipped_qty} onChange={handleFormChange} min="0" />
               </div>

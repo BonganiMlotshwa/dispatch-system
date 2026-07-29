@@ -232,15 +232,29 @@ function recordLegacyOutboundShip(
     $remarks = 'Legacy: ' . ($row['internal_po'] ?? ('#' . $legacyId));
     $truckShipmentId = getOrCreateTruckShipmentForDispatch($pdo, $truckReg, $driverName, $shipmentDate, $shipmentWeek, $remarks);
 
-    $stmtDup = $pdo->prepare('SELECT id FROM truck_shipment_legacy_items WHERE truck_shipment_id = ? AND legacy_goods_id = ?');
-    $stmtDup->execute([$truckShipmentId, $legacyId]);
-    if (!$stmtDup->fetch()) {
-        $stmtIns = $pdo->prepare('
-            INSERT INTO truck_shipment_legacy_items (truck_shipment_id, legacy_goods_id, cartons_shipped, units_shipped)
-            VALUES (?, ?, ?, ?)
-        ');
-        $stmtIns->execute([$truckShipmentId, $legacyId, $cartonsShipped, $unitsShipped]);
-    }
+    $snapshotPo     = $row['internal_po'] ?? null;
+    $snapshotStyle  = $row['style'] ?? null;
+    $snapshotColor  = $row['color'] ?? null;
+    $snapshotLabel  = $row['cartons_label'] ?? null;
+
+    // Upsert: always write the latest snapshot so history stays accurate.
+    $stmtIns = $pdo->prepare('
+        INSERT INTO truck_shipment_legacy_items
+            (truck_shipment_id, legacy_goods_id, cartons_shipped, units_shipped,
+             internal_po, style, color, cartons_label)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            cartons_shipped = VALUES(cartons_shipped),
+            units_shipped   = VALUES(units_shipped),
+            internal_po     = VALUES(internal_po),
+            style           = VALUES(style),
+            color           = VALUES(color),
+            cartons_label   = VALUES(cartons_label)
+    ');
+    $stmtIns->execute([
+        $truckShipmentId, $legacyId, $cartonsShipped, $unitsShipped,
+        $snapshotPo, $snapshotStyle, $snapshotColor, $snapshotLabel,
+    ]);
 
     if (legacyShipmentColumnsExist($pdo)) {
         $stmtUp = $pdo->prepare('

@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/schedule_parser.php';
 
 try {
     $pdo = getDbConnection();
@@ -60,9 +61,9 @@ try {
     // Analyze potential matches for unlinked files
     $matchAnalysis = [];
     foreach ($unlinkedFiles as $file) {
-        $customerOrderNo = trim($file['customer_order_no'] ?? '');
-        
-        if (empty($customerOrderNo)) {
+        $customerOrderNo = scheduleNormalizeOrderNo(trim($file['customer_order_no'] ?? ''));
+
+        if ($customerOrderNo === '') {
             $matchAnalysis[] = [
                 'file_name' => $file['file_name'],
                 'customer_order_no' => 'MISSING',
@@ -71,11 +72,11 @@ try {
             ];
             continue;
         }
-        
-        // Look for exact matches
+
+        // Look for exact matches (both sides normalised — same logic as the real lookup)
         $exactMatches = [];
         foreach ($scheduleOrders as $order) {
-            if (trim($order['order_no']) === $customerOrderNo) {
+            if (scheduleNormalizeOrderNo(trim($order['order_no'])) === $customerOrderNo) {
                 $exactMatches[] = [
                     'schedule_week' => $order['week_label'],
                     'schedule_id' => $order['schedule_id'],
@@ -89,11 +90,12 @@ try {
             }
         }
         
-        // Look for case-insensitive matches
+        // Look for case-insensitive matches (order numbers are numeric so this catches
+        // edge cases where a non-numeric part differs only by case)
         $caseInsensitiveMatches = [];
         if (empty($exactMatches)) {
             foreach ($scheduleOrders as $order) {
-                if (strcasecmp(trim($order['order_no']), $customerOrderNo) === 0) {
+                if (strcasecmp(scheduleNormalizeOrderNo(trim($order['order_no'])), $customerOrderNo) === 0) {
                     $caseInsensitiveMatches[] = [
                         'schedule_week' => $order['week_label'],
                         'schedule_id' => $order['schedule_id'],
@@ -110,12 +112,30 @@ try {
             }
         }
         
-        // Look for partial matches (contains)
+        // Partial / numeric-value matches — these indicate data that the normaliser
+        // couldn't fix automatically (e.g. truncated or reformatted order numbers).
+        $numericMatches = [];
         $partialMatches = [];
         if (empty($exactMatches) && empty($caseInsensitiveMatches)) {
+            $customerInt = ctype_digit($customerOrderNo) ? (int)$customerOrderNo : -1;
             foreach ($scheduleOrders as $order) {
-                $orderNo = trim($order['order_no']);
-                if (stripos($orderNo, $customerOrderNo) !== false || stripos($customerOrderNo, $orderNo) !== false) {
+                $orderNo = scheduleNormalizeOrderNo(trim($order['order_no']));
+                $orderInt = ctype_digit($orderNo) ? (int)$orderNo : -2;
+                if ($customerInt >= 0 && $customerInt === $orderInt && $orderNo !== $customerOrderNo) {
+                    $numericMatches[] = [
+                        'schedule_week' => $order['week_label'],
+                        'schedule_id' => $order['schedule_id'],
+                        'is_active' => (bool)$order['is_active'],
+                        'indent_no' => $order['indent_no'],
+                        'ftm_po' => 'FTM-' . $order['indent_no'],
+                        'match_type' => 'numeric',
+                        'schedule_value' => $orderNo,
+                        'file_value' => $customerOrderNo,
+                    ];
+                } elseif (
+                    empty($numericMatches)
+                    && (stripos($orderNo, $customerOrderNo) !== false || stripos($customerOrderNo, $orderNo) !== false)
+                ) {
                     $partialMatches[] = [
                         'schedule_week' => $order['week_label'],
                         'schedule_id' => $order['schedule_id'],
@@ -129,12 +149,14 @@ try {
                 }
             }
         }
-        
+
         $status = 'No matches found';
         if (!empty($exactMatches)) {
             $status = 'EXACT MATCH FOUND - Should have linked!';
         } elseif (!empty($caseInsensitiveMatches)) {
             $status = 'Case mismatch detected';
+        } elseif (!empty($numericMatches)) {
+            $status = 'Leading zero mismatch - same order number, different padding';
         } elseif (!empty($partialMatches)) {
             $status = 'Partial match found - formatting issue';
         }
@@ -146,7 +168,8 @@ try {
             'status' => $status,
             'exact_matches' => $exactMatches,
             'case_insensitive_matches' => $caseInsensitiveMatches,
-            'partial_matches' => array_slice($partialMatches, 0, 3), // Limit to 3
+            'numeric_matches' => $numericMatches,
+            'partial_matches' => array_slice($partialMatches, 0, 3),
         ];
     }
     

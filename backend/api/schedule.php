@@ -173,6 +173,20 @@ try {
         $saved = scheduleSaveParsed($pdo, $parsed, $setActive);
         $backfillCandidates = scheduleFindBackfillCandidates($pdo, $saved['schedule_id']);
 
+        $safeCandidates = array_values(array_filter(
+            $backfillCandidates,
+            static fn(array $c): bool => !empty($c['safe_auto'])
+        ));
+        $reviewCandidates = array_values(array_filter(
+            $backfillCandidates,
+            static fn(array $c): bool => empty($c['safe_auto'])
+        ));
+
+        $autoApplied = ['applied' => 0, 'skipped' => 0, 'errors' => []];
+        if (!empty($safeCandidates)) {
+            $autoApplied = scheduleApplyBackfill($pdo, $safeCandidates);
+        }
+
         scheduleJsonResponse([
             'success' => true,
             'message' => 'Schedule imported successfully',
@@ -184,12 +198,10 @@ try {
                 'is_active' => $saved['is_active'],
             ],
             'backfill' => [
-                'candidates' => $backfillCandidates,
-                'count' => count($backfillCandidates),
-                'safe_count' => count(array_filter(
-                    $backfillCandidates,
-                    static fn(array $c): bool => !empty($c['safe_auto'])
-                )),
+                'auto_applied' => $autoApplied['applied'],
+                'auto_errors' => $autoApplied['errors'],
+                'review_needed' => $reviewCandidates,
+                'review_count' => count($reviewCandidates),
             ],
         ]);
     }

@@ -34,9 +34,10 @@ function shipmentGetCustomerOrderNo(array $shipment): string
 {
     $orderNo = trim((string) ($shipment['customer_order_no'] ?? ''));
     if ($orderNo !== '') {
-        return $orderNo;
+        return scheduleNormalizeOrderNo($orderNo);
     }
-    return shipmentPendingOrderFromPo((string) ($shipment['internal_po_number'] ?? '')) ?? '';
+    $fromPo = shipmentPendingOrderFromPo((string) ($shipment['internal_po_number'] ?? '')) ?? '';
+    return scheduleNormalizeOrderNo($fromPo);
 }
 
 function shipmentGetScannedCount(PDO $pdo, int $shipmentId): int
@@ -70,13 +71,23 @@ function shipmentClassifyBackfillRow(array $shipment, array $match): array
     $currentColor = trim((string) ($shipment['color'] ?? ''));
     $currentQty = trim((string) ($shipment['order_qty'] ?? ''));
 
+    $isPendingImport = shipmentIsPendingPo($currentPo)
+        || (string) ($shipment['schedule_status'] ?? '') === 'unlinked';
+
     $indentChanges = $currentPo !== '' && $currentPo !== $newPo && !shipmentIsPendingPo($currentPo);
-    $metaChanges = ($currentStyle !== '' && $currentStyle !== $match['style'])
-        || ($currentColor !== '' && $currentColor !== $match['color'])
-        || ($currentQty !== '' && $currentQty !== $match['quantity']);
+
+    // For pending imports, placeholder values ('Pending schedule', qty=0) are not
+    // real data — treat them as unset so they don't trigger a review classification.
+    $effectiveStyle = ($isPendingImport && $currentStyle === 'Pending schedule') ? '' : $currentStyle;
+    $effectiveColor = ($isPendingImport && $currentColor === 'Pending schedule') ? '' : $currentColor;
+    $effectiveQty   = ($isPendingImport && ($currentQty === '0' || $currentQty === '')) ? '' : $currentQty;
+
+    $metaChanges = ($effectiveStyle !== '' && $effectiveStyle !== $match['style'])
+        || ($effectiveColor !== '' && $effectiveColor !== $match['color'])
+        || ($effectiveQty !== '' && $effectiveQty !== $match['quantity']);
 
     $safeAuto = !$indentChanges && $scannedCount === 0;
-    if (shipmentIsPendingPo($currentPo) || (string) ($shipment['schedule_status'] ?? '') === 'unlinked') {
+    if ($isPendingImport) {
         $safeAuto = $scannedCount === 0;
         $indentChanges = false;
     }

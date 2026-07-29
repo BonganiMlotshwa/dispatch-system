@@ -97,6 +97,7 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     if ($customerOrderNo === '') {
         $customerOrderNo = (string) $metadata['customer_order_no'];
     }
+    $customerOrderNo = scheduleNormalizeOrderNo($customerOrderNo);
 
     $scheduleStatus = 'manual';
     $scheduleWeekLabel = null;

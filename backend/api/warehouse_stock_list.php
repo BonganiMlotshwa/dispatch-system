@@ -59,7 +59,10 @@ try {
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $st = normalizeLegacyWarehouseStatus($row['status']);
             $statusCounts[$st] = ($statusCounts[$st] ?? 0) + 1;
-            $legacyCtns = (int)($row['cartons_count'] ?? 0);
+            $legacyCtns = $row['cartons_count'] !== null ? (int)$row['cartons_count'] : 0;
+            // For shipped legacy items all cartons are considered dispatched; for all
+            // other statuses they are still counted as in-warehouse.
+            $isShipped = ($st === 'shipped');
             $items[] = [
                 'id' => 'legacy-' . $row['id'],
                 'source_type' => 'legacy',
@@ -75,8 +78,8 @@ try {
                 'order_qty' => $row['order_qty'] !== null ? (int)$row['order_qty'] : null,
                 'quantity_inside' => $row['quantity_inside'] !== null ? (int)$row['quantity_inside'] : null,
                 'shipped_qty' => $row['shipped_qty'] !== null ? (int)$row['shipped_qty'] : null,
-                'cartons_in_wh' => $legacyCtns,
-                'cartons_shipped' => null,
+                'cartons_in_wh' => $isShipped ? 0 : $legacyCtns,
+                'cartons_shipped' => $isShipped ? $legacyCtns : null,
                 'cartons_total' => $legacyCtns,
                 'cartons_pending' => null,
                 'status' => $st,

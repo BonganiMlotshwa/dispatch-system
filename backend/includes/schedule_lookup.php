@@ -140,7 +140,7 @@ function scheduleSaveParsed(PDO $pdo, array $parsed, bool $setActive = true): ar
         foreach ($parsed['orders'] as $order) {
             $orderStmt->execute([
                 $scheduleId,
-                $order['order_no'],
+                scheduleNormalizeOrderNo((string) $order['order_no']),
                 $order['indent_no'],
                 $order['description'] ?: null,
                 $order['colour'] ?: null,
@@ -178,10 +178,15 @@ function scheduleLookupOrder(PDO $pdo, string $orderNo, ?int $scheduleId = null)
 
 function scheduleLookupOrderInLibrary(PDO $pdo, string $orderNo, ?int $scheduleId = null): array
 {
-    $orderNo = trim($orderNo);
+    $orderNo = scheduleNormalizeOrderNo(trim($orderNo));
     if ($orderNo === '') {
         return ['match' => null, 'ambiguous' => false, 'alternates' => []];
     }
+
+    // The leading-zero fallback handles DB rows that were stored before normalisation ran.
+    // TRIM(LEADING '0' FROM o.order_no) is only evaluated for rows whose order_no starts
+    // with a leading zero, so index usage on the primary equality branch is preserved.
+    $leadingZeroRegex = '^0[0-9]+$';
 
     if ($scheduleId !== null) {
         $stmt = $pdo->prepare(
@@ -189,10 +194,13 @@ function scheduleLookupOrderInLibrary(PDO $pdo, string $orderNo, ?int $scheduleI
                     s.week_label, s.id AS schedule_id
              FROM delivery_schedule_orders o
              INNER JOIN delivery_schedules s ON s.id = o.schedule_id
-             WHERE o.schedule_id = ? AND o.order_no = ?
+             WHERE o.schedule_id = ?
+               AND (o.order_no = ?
+                    OR (o.order_no REGEXP ?
+                        AND TRIM(LEADING \'0\' FROM o.order_no) = ?))
              LIMIT 1'
         );
-        $stmt->execute([$scheduleId, $orderNo]);
+        $stmt->execute([$scheduleId, $orderNo, $leadingZeroRegex, $orderNo]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return [
             'match' => $row ? scheduleFormatMatch($row) : null,
@@ -207,9 +215,11 @@ function scheduleLookupOrderInLibrary(PDO $pdo, string $orderNo, ?int $scheduleI
          FROM delivery_schedule_orders o
          INNER JOIN delivery_schedules s ON s.id = o.schedule_id
          WHERE o.order_no = ?
+            OR (o.order_no REGEXP ?
+                AND TRIM(LEADING \'0\' FROM o.order_no) = ?)
          ORDER BY s.imported_at DESC, s.id DESC'
     );
-    $stmt->execute([$orderNo]);
+    $stmt->execute([$orderNo, $leadingZeroRegex, $orderNo]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     if (empty($rows)) {

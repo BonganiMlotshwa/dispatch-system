@@ -610,11 +610,11 @@ const FileUpload = () => {
       await loadScheduleStatus();
       await loadUploadedFiles();
 
-      if (res.data.backfill?.count > 0) {
-        const candidates = res.data.backfill.candidates || [];
-        setBackfillCandidates(candidates);
+      const reviewCandidates = res.data.backfill?.review_needed || [];
+      if (reviewCandidates.length > 0) {
+        setBackfillCandidates(reviewCandidates);
         const selected = {};
-        candidates.forEach((c) => {
+        reviewCandidates.forEach((c) => {
           if (c.safe_auto) selected[c.shipment_id] = true;
         });
         setBackfillSelected(selected);

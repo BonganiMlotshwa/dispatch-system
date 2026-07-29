@@ -5,6 +5,33 @@
 
 declare(strict_types=1);
 
+/**
+ * Normalise an order number so that values from any source match consistently:
+ *  - Trims outer whitespace and collapses internal whitespace
+ *  - Strips Excel decimal artefacts: "12345.00" → "12345"
+ *  - Strips leading zeros from pure-numeric strings: "012345" → "12345"
+ * Non-numeric strings (e.g. "AB-123") are returned as-is after whitespace cleanup.
+ */
+function scheduleNormalizeOrderNo(string $orderNo): string
+{
+    $v = trim($orderNo);
+    if ($v === '') {
+        return '';
+    }
+    // Collapse any internal whitespace
+    $v = (string) preg_replace('/\s+/', '', $v);
+    // Excel sometimes serialises integers as floats: "12345.0" or "12345.00"
+    if (preg_match('/^(\d+)\.0+$/', $v, $m)) {
+        $v = $m[1];
+    }
+    // Strip leading zeros from pure-numeric strings
+    if (preg_match('/^\d+$/', $v)) {
+        $stripped = ltrim($v, '0');
+        return $stripped === '' ? '0' : $stripped;
+    }
+    return $v;
+}
+
 function scheduleColumnToIndex(string $column): int
 {
     $column = strtoupper($column);
@@ -165,12 +192,17 @@ function scheduleFindHeaderRow(array $rows): ?array
 
 function scheduleLooksLikeDataRow(array $cells, array $columns): bool
 {
-    $orderNo = $cells[$columns['order_no']] ?? '';
-    $indentNo = $cells[$columns['indent_no']] ?? '';
+    $rawOrderNo = $cells[$columns['order_no']] ?? '';
+    $rawIndentNo = $cells[$columns['indent_no']] ?? '';
 
-    if ($orderNo === '' || $indentNo === '') {
+    if ($rawOrderNo === '' || $rawIndentNo === '') {
         return false;
     }
+
+    // Normalise before checking so Excel decimal artefacts ("12345.0") don't
+    // cause every data row to be rejected as non-numeric.
+    $orderNo = scheduleNormalizeOrderNo($rawOrderNo);
+    $indentNo = scheduleNormalizeOrderNo($rawIndentNo);
 
     if (!preg_match('/^\d+$/', $orderNo) || !preg_match('/^\d+$/', $indentNo)) {
         return false;
@@ -226,7 +258,7 @@ function scheduleParseXlsx(string $filePath): array
             continue;
         }
 
-        $orderNo = $cells[$columns['order_no']];
+        $orderNo = scheduleNormalizeOrderNo($cells[$columns['order_no']]);
         if (isset($seenOrders[$orderNo])) {
             continue;
         }
