@@ -3,20 +3,32 @@ import { Link } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
 
+const weekNum = (label) => parseInt(String(label || '').match(/\d+/)?.[0] || '0', 10);
+
 const WeeklyAnalysis = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const { data: dashboardData, loading, error, refetch } = useApi(`/dashboard_stats.php?refresh=${refreshKey > 0 ? 'true' : 'false'}`);
   const weeklyAnalysis = dashboardData?.stats?.weekly_analysis || [];
   const weeklyOutbound = dashboardData?.stats?.weekly_outbound || [];
 
+  const [viewMode, setViewMode] = useState('list');
+  const [sortAsc, setSortAsc] = useState(true);
+
   const handleRefresh = useCallback(() => {
-    if (typeof apiService?.clearCache === 'function') {
-      apiService.clearCache();
-    }
+    if (typeof apiService?.clearCache === 'function') apiService.clearCache();
     setRefreshKey((prev) => prev + 1);
   }, []);
 
-  const renderInboundWeek = (week) => {
+  const sortedOutbound = [...weeklyOutbound].sort((a, b) =>
+    sortAsc ? weekNum(a.week_label) - weekNum(b.week_label) : weekNum(b.week_label) - weekNum(a.week_label)
+  );
+  const sortedInbound = [...weeklyAnalysis].sort((a, b) =>
+    sortAsc ? weekNum(a.week_label) - weekNum(b.week_label) : weekNum(b.week_label) - weekNum(a.week_label)
+  );
+
+  // ── Grid renderers (original card layout) ──────────────────────────────────
+
+  const renderInboundCard = (week) => {
     const total = week.expected_cartons || ((week.received || 0) + (week.pending_to_enter || 0)) || 0;
     const receivedPercent = total > 0 ? Math.round((week.received / total) * 100) : 0;
     return (
@@ -56,7 +68,7 @@ const WeeklyAnalysis = () => {
     );
   };
 
-  const renderOutboundWeek = (week) => (
+  const renderOutboundCard = (week) => (
     <div key={`out-${week.week_label}`} className="col-12 col-lg-6 col-xxl-4">
       <div className="modern-card h-100 border-success border-opacity-25">
         <div className="modern-card-header d-flex justify-content-between align-items-center">
@@ -89,6 +101,90 @@ const WeeklyAnalysis = () => {
     </div>
   );
 
+  // ── List renderers (table rows) ────────────────────────────────────────────
+
+  const renderOutboundTable = () => (
+    <div className="modern-table-container">
+      <table className="modern-table mb-0">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Week start</th>
+            <th className="text-end">Truck loads</th>
+            <th className="text-end">Cartons (total)</th>
+            <th className="text-end">System</th>
+            <th className="text-end">Legacy</th>
+            <th className="text-end">Units (total)</th>
+            <th className="text-end">Legacy orders</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedOutbound.map((week) => (
+            <tr key={`out-${week.week_label}`}>
+              <td><span className="badge bg-success">{week.week_label}</span></td>
+              <td className="small text-muted">{week.week_start}</td>
+              <td className="text-end">{week.truck_loads}</td>
+              <td className="text-end fw-semibold">{week.total_cartons.toLocaleString()}</td>
+              <td className="text-end small text-muted">{week.cartons_shipped.toLocaleString()}</td>
+              <td className="text-end small text-muted">{week.legacy_cartons.toLocaleString()}</td>
+              <td className="text-end fw-semibold">{week.total_units.toLocaleString()}</td>
+              <td className="text-end">{week.legacy_orders > 0 ? week.legacy_orders : <span className="text-muted">—</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderInboundTable = () => (
+    <div className="modern-table-container">
+      <table className="modern-table mb-0">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th className="text-end">Files</th>
+            <th className="text-end">Orders</th>
+            <th className="text-end">Received</th>
+            <th className="text-end">In warehouse</th>
+            <th className="text-end">Pending</th>
+            <th className="text-end">Shipped</th>
+            <th style={{ minWidth: 120 }}>Progress</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedInbound.map((week) => {
+            const total = week.expected_cartons || ((week.received || 0) + (week.pending_to_enter || 0)) || 0;
+            const pct = total > 0 ? Math.min(100, Math.round((week.received / total) * 100)) : 0;
+            return (
+              <tr key={`in-${week.id}`}>
+                <td>
+                  <span className="fw-semibold">{week.week_label}</span>
+                  {week.is_active === 1 && <span className="badge bg-primary ms-2">Active</span>}
+                </td>
+                <td className="text-end small text-muted">{week.shipment_count}</td>
+                <td className="text-end small text-muted">{week.order_count}</td>
+                <td className="text-end fw-semibold text-primary">{week.received}</td>
+                <td className="text-end text-info">{week.in_warehouse}</td>
+                <td className="text-end text-warning">{week.pending_to_enter}</td>
+                <td className="text-end text-success">{week.shipped}</td>
+                <td>
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="progress flex-grow-1" style={{ height: 6 }}>
+                      <div className="progress-bar bg-success" style={{ width: `${pct}%` }}></div>
+                    </div>
+                    <span className="small text-muted" style={{ minWidth: 32 }}>{pct}%</span>
+                  </div>
+                </td>
+                <td></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
   const hasData = weeklyAnalysis.length > 0 || weeklyOutbound.length > 0;
 
   return (
@@ -98,7 +194,35 @@ const WeeklyAnalysis = () => {
           <h1 className="text-gradient mb-0">Weekly Analysis</h1>
           <div className="small text-muted mt-1">Delivery schedules (inbound) and shipment weeks (outbound)</div>
         </div>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap align-items-center">
+          {/* Sort toggle */}
+          <button
+            className="btn-modern btn-modern-outline-secondary"
+            onClick={() => setSortAsc((v) => !v)}
+            title={sortAsc ? 'Showing Week 1 first — click to reverse' : 'Showing latest week first — click to reverse'}
+          >
+            <i className={`bi bi-sort-numeric-${sortAsc ? 'down' : 'down-alt'}`}></i>
+            {sortAsc ? ' Week 1 first' : ' Latest first'}
+          </button>
+
+          {/* View toggle */}
+          <div className="btn-group" role="group" aria-label="View mode">
+            <button
+              className={`btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <i className="bi bi-list-ul"></i>
+            </button>
+            <button
+              className={`btn btn-sm ${viewMode === 'grid' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              <i className="bi bi-grid-3x3-gap"></i>
+            </button>
+          </div>
+
           <Link to="/truck-summary" className="btn-modern btn-modern-outline-primary">
             <i className="bi bi-truck"></i> Truck Summary
           </Link>
@@ -130,31 +254,47 @@ const WeeklyAnalysis = () => {
         </div>
       ) : hasData ? (
         <>
-          {weeklyOutbound.length > 0 && (
+          {sortedOutbound.length > 0 && (
             <section className="mb-5">
-              <h4 className="mb-3">
+              <h4 className="mb-1">
                 <i className="bi bi-truck me-2 text-success"></i>
                 Outbound shipment weeks
               </h4>
               <p className="text-muted small mb-3">
                 Auto-created when orders ship — manual entry, exit scan, or legacy stock marked shipped.
               </p>
-              <div className="row g-3 g-md-4">
-                {weeklyOutbound.map(renderOutboundWeek)}
-              </div>
+              {viewMode === 'list' ? (
+                <div className="modern-card">
+                  <div className="modern-card-body p-0">
+                    {renderOutboundTable()}
+                  </div>
+                </div>
+              ) : (
+                <div className="row g-3 g-md-4">
+                  {sortedOutbound.map(renderOutboundCard)}
+                </div>
+              )}
             </section>
           )}
 
-          {weeklyAnalysis.length > 0 && (
+          {sortedInbound.length > 0 && (
             <section>
-              <h4 className="mb-3">
+              <h4 className="mb-1">
                 <i className="bi bi-calendar-week me-2 text-primary"></i>
                 Delivery schedule weeks
               </h4>
               <p className="text-muted small mb-3">From uploaded Mr Price weekly schedules — goods received progress.</p>
-              <div className="row g-3 g-md-4">
-                {weeklyAnalysis.map(renderInboundWeek)}
-              </div>
+              {viewMode === 'list' ? (
+                <div className="modern-card">
+                  <div className="modern-card-body p-0">
+                    {renderInboundTable()}
+                  </div>
+                </div>
+              ) : (
+                <div className="row g-3 g-md-4">
+                  {sortedInbound.map(renderInboundCard)}
+                </div>
+              )}
             </section>
           )}
         </>
