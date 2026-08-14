@@ -6,9 +6,6 @@ import JsBarcode from 'jsbarcode';
 import QRCode from 'react-qr-code';
 import { API_BASE_URL } from '../config';
 
-// Configure axios with timeout
-axios.defaults.timeout = 10000;
-
 const StickerGenerator = () => {
   const [stickers, setStickers] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -31,14 +28,14 @@ const StickerGenerator = () => {
   const barcodeRefs = useRef({});
 
   // Load stickers data
-  const loadStickers = async (append = false) => {
+  const loadStickers = async (append = false, offsetOverride = null) => {
     setLoading(true);
     setError(null);
 
     try {
       const params = new URLSearchParams({
         limit: pagination.limit,
-        offset: append ? pagination.offset : 0
+        offset: offsetOverride !== null ? offsetOverride : (append ? pagination.offset : 0)
       });
 
       if (filters.ftm_po.trim()) {
@@ -52,8 +49,12 @@ const StickerGenerator = () => {
       const response = await axios.get(`${API_BASE_URL}/stickers.php?${params}`);
 
       if (response.data.success) {
-        const newStickers = append ? [...stickers, ...response.data.data.stickers] : response.data.data.stickers;
-        setStickers(newStickers);
+        if (append) {
+          const newItems = response.data.data.stickers;
+          setStickers(prev => [...prev, ...newItems]);
+        } else {
+          setStickers(response.data.data.stickers);
+        }
         setSummary(response.data.data.summary);
         setPagination(response.data.data.pagination);
 
@@ -96,11 +97,12 @@ const StickerGenerator = () => {
   // Load more stickers
   const loadMore = () => {
     if (pagination.has_more && !loading) {
+      const newOffset = pagination.offset + pagination.limit;
       setPagination(prev => ({
         ...prev,
-        offset: prev.offset + prev.limit
+        offset: newOffset
       }));
-      loadStickers(true);
+      loadStickers(true, newOffset);
     }
   };
 
@@ -147,7 +149,7 @@ const StickerGenerator = () => {
 
   // Generate sticker HTML for printing
   const generateStickerHTML = (sticker) => {
-    const barcodes = sticker.barcodes.split(',');
+    const barcodes = (sticker.barcodes || '').split(',');
     return barcodes.map((barcode, index) => `
       <div class="sticker-item" style="
         width: 300px;

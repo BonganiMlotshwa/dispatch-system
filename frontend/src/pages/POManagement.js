@@ -102,10 +102,10 @@ const POManagement = () => {
     
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(po => 
-        po.internal_po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      filtered = filtered.filter(po =>
+        (po.internal_po_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         po.customer_po_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        po.file_name.toLowerCase().includes(searchTerm.toLowerCase())
+        (po.file_name || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
@@ -740,7 +740,7 @@ const POManagement = () => {
                   <th width="30">
                     <Form.Check
                       type="checkbox"
-                      checked={selectedPOs.length === paginatedPOs.length && paginatedPOs.length > 0}
+                      checked={paginatedPOs.length > 0 && paginatedPOs.every(po => selectedPOs.includes(po.id))}
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedPOs(paginatedPOs.map(po => po.id));

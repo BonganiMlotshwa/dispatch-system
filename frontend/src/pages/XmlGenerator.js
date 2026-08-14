@@ -31,7 +31,7 @@ const XmlGenerator = () => {
 
   const handleCartonLineChange = (index, field, value) => {
     const newLines = [...cartonLines];
-    newLines[index][field] = value;
+    newLines[index] = { ...newLines[index], [field]: value };
     setCartonLines(newLines);
   };
 

@@ -17,7 +17,7 @@ const WeeklyAnalysis = () => {
   }, []);
 
   const renderInboundWeek = (week) => {
-    const total = week.expected_cartons || week.received + week.pending_to_enter || 0;
+    const total = week.expected_cartons || ((week.received || 0) + (week.pending_to_enter || 0)) || 0;
     const receivedPercent = total > 0 ? Math.round((week.received / total) * 100) : 0;
     return (
       <div key={`in-${week.id}`} className="col-12 col-lg-6 col-xxl-4">

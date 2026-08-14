@@ -48,7 +48,7 @@ const ExitScanModal = ({ show, onHide, onSuccess }) => {
     if (show && assignManualOrders && manualOrders.length === 0 && !loadingOrders) {
       fetchManualOrders();
     }
-  }, [show, assignManualOrders]);
+  }, [show, assignManualOrders, loadingOrders, manualOrders.length, fetchManualOrders]);
 
   const handleDriverInfoChange = (e) => {
     const { name, value } = e.target;

@@ -28,20 +28,22 @@ const SidebarEntryDonut = () => {
   const [loading, setLoading] = useState(true);
   const [periodLabel, setPeriodLabel] = useState('today');
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (signal) => {
     setLoading(true);
     try {
       let rows = [];
       let label = 'today';
 
       const todayRes = await axios.get(
-        `${API_BASE_URL}/reports.php?action=getDailyEnteredByCustomer&filter_period=daily`
+        `${API_BASE_URL}/reports.php?action=getDailyEnteredByCustomer&filter_period=daily`,
+        { signal }
       );
       rows = todayRes.data?.series || [];
 
       if (!rows.length) {
         const weekRes = await axios.get(
-          `${API_BASE_URL}/reports.php?action=getDailyEnteredByCustomer&filter_period=weekly`
+          `${API_BASE_URL}/reports.php?action=getDailyEnteredByCustomer&filter_period=weekly`,
+          { signal }
         );
         rows = weekRes.data?.series || [];
         label = 'this week';
@@ -62,17 +64,22 @@ const SidebarEntryDonut = () => {
         units: rows.reduce((s, r) => s + Number(r.units_entered || 0), 0)
       });
     } catch (err) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       console.error('Sidebar entry chart:', err);
       setByCustomer({});
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 60000);
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    loadData(controller.signal);
+    const interval = setInterval(() => loadData(controller.signal), 60000);
+    return () => {
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [loadData]);
 
   const buildDonut = useCallback((metric) => {

@@ -118,10 +118,7 @@ const TruckLoadChoiceModal = ({
                       key={truck.id}
                       action
                       active={String(truck.id) === String(selectedId)}
-                      onClick={() => {
-                        setSelectedId(String(truck.id));
-                        onContinueTruck(truck);
-                      }}
+                      onClick={() => setSelectedId(String(truck.id))}
                       className="d-flex justify-content-between align-items-center py-2"
                     >
                       <div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ModernCard } from './ModernCard';
 
 export const ModernTable = ({ 
@@ -16,6 +16,8 @@ export const ModernTable = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => { setCurrentPage(1); }, [data, searchTerm]);
 
   // Filter data based on search term
   const filteredData = useMemo(() => {

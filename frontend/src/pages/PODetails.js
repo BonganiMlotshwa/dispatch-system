@@ -284,8 +284,8 @@ const PODetails = React.memo(() => {
         date.setDate(date.getDate() - i);
         sampleDates.push({
           date: date.toLocaleDateString(),
-          entered: i === 0 ? 5 : Math.floor(Math.random() * 10),
-          shipped: i === 0 ? 3 : Math.floor(Math.random() * 8)
+          entered: 0,
+          shipped: 0
         });
       }
       
@@ -362,8 +362,8 @@ const PODetails = React.memo(() => {
       ...carton,
       formattedEntryTime: formatCartonDateTime(getCartonEntryTime(carton)),
       formattedExitTime: formatCartonDateTime(getCartonExitTime(carton)),
-      formattedCreatedAt: new Date(carton.created_at).toLocaleString(),
-      formattedUpdatedAt: new Date(carton.updated_at).toLocaleString()
+      formattedCreatedAt: carton.created_at ? new Date(carton.created_at).toLocaleString() : '—',
+      formattedUpdatedAt: carton.updated_at ? new Date(carton.updated_at).toLocaleString() : '—'
     };
     setSelectedCarton(processedCarton);
     setShowCartonModal(true);
@@ -1529,7 +1529,7 @@ const PODetails = React.memo(() => {
                     variant="outline-secondary" 
                     size="sm" 
                     onClick={() => {
-                      setFilters({ status: '', size: '' });
+                      setFilters({ status: '', size: '', qcStatus: '', finishingStatus: '' });
                       setSearchTerm('');
                       setCurrentPage(1);
                     }}

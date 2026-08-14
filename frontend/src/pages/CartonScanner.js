@@ -356,8 +356,7 @@ const detectCameraSupport = async () => {
   }
 };
 
-// Configure axios with timeout and error handling
-axios.defaults.timeout = 10000; // 10 seconds timeout
+// Configure axios error handling
 axios.interceptors.response.use(
   response => response,
   error => {
@@ -705,7 +704,7 @@ const CartonScanner = () => {
         clearTimeout(scanTimeoutId);
       }
     };
-  }, []);
+  }, [scanTimeoutId]);
 
   // Helper function to clean up Quagga
   const cleanupQuagga = () => {
@@ -819,6 +818,7 @@ const CartonScanner = () => {
           
           // Register detected barcode handler
           console.log('Registering barcode detection handler');
+          Quagga.offDetected(handleQuaggaDetection);
           Quagga.onDetected(handleQuaggaDetection);
         } catch (error) {
           console.error("Quagga start error:", error);
@@ -833,7 +833,7 @@ const CartonScanner = () => {
   };
 
   // Handle barcode detection from Quagga
-  const handleQuaggaDetection = (result) => {
+  const handleQuaggaDetection = useCallback((result) => {
     try {
       // Prevent multiple simultaneous scans
       if (isProcessingScan) {
@@ -915,7 +915,7 @@ const CartonScanner = () => {
       setIsProcessingScan(false);
       setError("Error processing code. Please try again.");
     }
-  };
+  }, [isProcessingScan, detectedCodes]);
 
   // Process collected codes and determine which one to use
   const processDetectedCodes = (codes) => {

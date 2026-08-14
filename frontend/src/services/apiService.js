@@ -31,7 +31,8 @@ const fixApiUrl = (url) => {
 
 const apiService = axios.create({
   baseURL: null, // We'll handle the URL construction manually
-  timeout: 15000, // Reduced timeout for faster failure detection
+  timeout: 15000,
+  withCredentials: true, // send session cookie with every request
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -56,7 +57,6 @@ apiService.interceptors.request.use(
 
       // Check if there's already a pending request for this endpoint
       if (pendingRequests.has(cacheKey)) {
-        // Return the existing promise to avoid duplicate requests
         config.adapter = () => pendingRequests.get(cacheKey);
         return config;
       }
@@ -64,8 +64,7 @@ apiService.interceptors.request.use(
       // Check cache first
       const cached = cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        // Return cached response immediately
-        performanceMonitor.endTimer(requestKey + ' (CACHED)');
+        performanceMonitor.endTimer(requestKey);
         config.adapter = () => Promise.resolve({
           ...cached.response,
           config,
@@ -94,7 +93,6 @@ apiService.interceptors.response.use(
     if (response.config.method === 'get' && response.status === 200) {
       const cacheKey = response.config.url + JSON.stringify(response.config.params || {});
 
-      // Remove from pending requests
       pendingRequests.delete(cacheKey);
 
       // Cache successful responses
@@ -122,11 +120,15 @@ apiService.interceptors.response.use(
       performanceMonitor.endTimer(error.config.metadata.requestKey + ' (ERROR)');
     }
 
-    // Clean up on errors
+    // Clean up pending requests on error, but preserve valid cache entries
     if (error.config?.method === 'get') {
       const cacheKey = error.config.url + JSON.stringify(error.config.params || {});
       pendingRequests.delete(cacheKey);
-      cache.delete(cacheKey);
+      // Only evict from cache if there is no cached entry (network error should not wipe good data)
+      const existing = cache.get(cacheKey);
+      if (!existing) {
+        cache.delete(cacheKey);
+      }
     }
     return Promise.reject(error);
   }

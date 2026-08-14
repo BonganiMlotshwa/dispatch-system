@@ -19,6 +19,11 @@ const EmployeeLogin = () => {
         employee_code: employeeCode
       });
 
+      if (!response.data.success) {
+        setError(response.data.message || 'Login failed. Please check your code.');
+        return;
+      }
+
       if (response.data.success) {
         // Store employee info in localStorage
         localStorage.setItem('employee', JSON.stringify(response.data.employee));

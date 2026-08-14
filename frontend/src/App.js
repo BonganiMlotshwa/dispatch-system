@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { UNSAFE_DataRouterContext, UNSAFE_DataRouterStateContext } from 'react-router';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import './styles/modern-theme.css';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -29,10 +28,6 @@ import WeeklyAnalysis from './pages/WeeklyAnalysis';
 import ScheduleDiagnostic from './pages/ScheduleDiagnostic';
 import UserManagement from './pages/UserManagement';
 import ErrorBoundary from './components/ErrorBoundary';
-
-// Enable React Router v7 future flags
-UNSAFE_DataRouterContext.displayName = 'DataRouterContext';
-UNSAFE_DataRouterStateContext.displayName = 'DataRouterStateContext';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -81,6 +76,7 @@ function App() {
                       <Route path="/schedule-diagnostic" element={<ScheduleDiagnostic />} />
                       <Route path="/settings" element={<UserManagement />} />
                       <Route path="/login" element={<Dashboard />} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </ErrorBoundary>
                 </div>

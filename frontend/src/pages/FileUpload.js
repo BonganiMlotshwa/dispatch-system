@@ -416,15 +416,16 @@ const FileUpload = () => {
       setUploadProgress(0);
       setError(null);
       setValidationErrors([]);
-      setUploadStartTime(Date.now());
+      const startTime = Date.now();
+      setUploadStartTime(startTime);
 
       const response = await axios.post(`${API_BASE_URL}/upload.php`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setUploadProgress(percentCompleted);
-          if (uploadStartTime) {
-            const elapsedTime = (Date.now() - uploadStartTime) / 1000;
+          if (startTime) {
+            const elapsedTime = (Date.now() - startTime) / 1000;
             const uploadedBytes = progressEvent.loaded;
             const remainingBytes = progressEvent.total - uploadedBytes;
             if (elapsedTime > 0) {

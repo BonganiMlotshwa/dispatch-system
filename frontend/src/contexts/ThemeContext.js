@@ -42,9 +42,10 @@ export const ThemeProvider = ({ children }) => {
     document.documentElement.setAttribute('data-theme', newResolvedTheme);
     
     // Remove transition class after a short delay
-    setTimeout(() => {
+    const id = setTimeout(() => {
       document.documentElement.classList.remove('theme-switching');
     }, 100);
+    return () => clearTimeout(id);
     
     // Save to localStorage
     localStorage.setItem('theme', theme);

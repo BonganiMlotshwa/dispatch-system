@@ -147,6 +147,10 @@ const Reports = () => {
       const response = await axios.get(`${API_BASE_URL}/reports.php?${params}`);
       if (response.data.success) {
         const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          alert('Please allow popups for this site to export PDFs.');
+          return;
+        }
         printWindow.document.write(response.data.html);
         printWindow.document.close();
         printWindow.print();
@@ -211,6 +215,10 @@ const Reports = () => {
 
       if (response.data.success) {
         const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          alert('Please allow popups for this site to export PDFs.');
+          return;
+        }
         printWindow.document.write(response.data.html);
         printWindow.document.close();
         printWindow.print();
@@ -252,6 +260,10 @@ const Reports = () => {
 
       if (response.data.success) {
         const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          alert('Please allow popups for this site to export PDFs.');
+          return;
+        }
         printWindow.document.write(response.data.html);
         printWindow.document.close();
         printWindow.print();

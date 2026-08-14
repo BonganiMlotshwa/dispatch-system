@@ -92,7 +92,7 @@ export const useApi = (url, options = {}) => {
       }
       currentRequest.current = null;
     }
-  }, [url, data, debounceMs]);
+  }, [url, debounceMs]);
 
   useEffect(() => {
     mounted.current = true;

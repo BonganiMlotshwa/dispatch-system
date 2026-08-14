@@ -26,7 +26,7 @@ const DailyEntryCharts = ({ period = 'all', startDate = '', endDate = '', chartH
     setFilters({ period, startDate, endDate });
   }, [period, startDate, endDate]);
 
-  const loadChart = useCallback(async () => {
+  const loadChart = useCallback(async (signal) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -37,19 +37,22 @@ const DailyEntryCharts = ({ period = 'all', startDate = '', endDate = '', chartH
         params.append('start_date', filters.startDate);
         params.append('end_date', filters.endDate);
       }
-      const response = await axios.get(`${API_BASE_URL}/reports.php?${params}`);
+      const response = await axios.get(`${API_BASE_URL}/reports.php?${params}`, { signal });
       if (response.data.success) {
         setData(response.data);
       }
     } catch (err) {
+      if (err.name === 'AbortError' || err.name === 'CanceledError') return;
       console.error('Failed to load daily entry chart:', err);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [filters.period, filters.startDate, filters.endDate]);
 
   useEffect(() => {
-    loadChart();
+    const controller = new AbortController();
+    loadChart(controller.signal);
+    return () => controller.abort();
   }, [loadChart]);
 
   const buildChartData = useCallback((metric) => {

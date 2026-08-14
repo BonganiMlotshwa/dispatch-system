@@ -99,9 +99,7 @@ const ModernHeader = ({ toggleSidebar }) => {
               try {
                 await logout();
               } finally {
-                navigate('/login');
-                // Hard reload to clear any cached state
-                setTimeout(() => window.location.reload(), 50);
+                window.location.href = '/login';
               }
             }}
           >
