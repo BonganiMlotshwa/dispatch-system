@@ -11,20 +11,20 @@ cors_headers(['POST']);
 require_once '../config/database.php';
 require_once '../includes/carton_timestamps.php';
 require_once '../includes/sync_shipment_warehouse_status.php';
+require_once '../includes/auth.php';
 
 try {
     $pdo = getDbConnection();
     $input = json_decode(file_get_contents('php://input'), true);
-    
+
     // Validate required fields
     if (!isset($input['barcode']) || !isset($input['action'])) {
         throw new Exception('Barcode and action are required');
     }
-    
+
     $barcode = trim($input['barcode']);
     $action = $input['action']; // 'entry' or 'exit'
     // Use authenticated session user for audit trail; fall back to input only if no session
-    require_once '../includes/auth.php';
     $sessionUser = auth_get_user();
     $scannedBy = $sessionUser ? $sessionUser['username'] : ($input['scanned_by'] ?? 'System');
     $notes = $input['notes'] ?? null;
