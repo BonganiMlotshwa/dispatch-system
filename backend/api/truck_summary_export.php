@@ -171,6 +171,7 @@ try {
         .num { text-align: right; }
         .total-row { background: #e2e8f0 !important; font-weight: bold; }
         .footer { text-align: center; margin-top: 24px; font-size: 12px; color: #666; }
+        @page { margin: 1cm; }
         @media print { body { margin: 0; } }
     </style>
 </head>
