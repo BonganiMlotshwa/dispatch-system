@@ -7,16 +7,8 @@
 
 // Set headers for API response
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: http://localhost:3000');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Max-Age: 86400'); // 24 hours
-header('Access-Control-Allow-Credentials: true');
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['GET']);
 
 // Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {

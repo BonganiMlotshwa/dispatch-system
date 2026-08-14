@@ -7,8 +7,8 @@
 
 // Set headers for API response
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET');
+require_once '../includes/cors.php';
+cors_headers(['GET']);
 
 // Only allow GET requests
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {

@@ -5,6 +5,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/schedule_backfill.php';
+
 function bulkPickParseQuantity(?string $quantity): int
 {
     if ($quantity === null || $quantity === '') {

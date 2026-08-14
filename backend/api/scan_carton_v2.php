@@ -5,13 +5,8 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['POST']);
 
 require_once '../config/database.php';
 require_once '../includes/carton_timestamps.php';
@@ -28,7 +23,10 @@ try {
     
     $barcode = trim($input['barcode']);
     $action = $input['action']; // 'entry' or 'exit'
-    $scannedBy = $input['scanned_by'] ?? 'System';
+    // Use authenticated session user for audit trail; fall back to input only if no session
+    require_once '../includes/auth.php';
+    $sessionUser = auth_get_user();
+    $scannedBy = $sessionUser ? $sessionUser['username'] : ($input['scanned_by'] ?? 'System');
     $notes = $input['notes'] ?? null;
     $truckShipmentId = isset($input['truck_shipment_id']) ? (int)$input['truck_shipment_id'] : null;
     
@@ -66,7 +64,17 @@ try {
     
     $previousStatus = $carton['status'];
     $newStatus = ($action === 'entry') ? 'entered' : 'exited';
-    
+
+    // Enforce scan state machine to prevent invalid transitions
+    if ($action === 'entry' && $previousStatus !== 'pending') {
+        $label = $previousStatus === 'entered' ? 'already received' : 'already shipped';
+        throw new Exception("Carton is {$label} — cannot scan entry again");
+    }
+    if ($action === 'exit' && $previousStatus !== 'entered') {
+        $label = $previousStatus === 'pending' ? 'not yet received' : 'already shipped';
+        throw new Exception("Carton is {$label} — receive it before scanning exit");
+    }
+
     // Update carton while keeping separate scan-in and scan-out timestamps.
     $hasTsCols = cartonTimestampColumnsExist($pdo);
     $tsUpdate = buildCartonStatusTimestampUpdate($newStatus, $previousStatus, $hasTsCols);

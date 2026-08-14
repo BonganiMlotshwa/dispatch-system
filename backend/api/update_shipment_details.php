@@ -4,11 +4,8 @@
  * Links an unlinked/pending shipment to a schedule by updating PO number, style, color, and quantity.
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') exit(0);
+require_once '../includes/cors.php';
+cors_headers(['POST']);
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Only POST method is allowed']);

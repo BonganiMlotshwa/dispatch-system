@@ -6,19 +6,11 @@
  */
 
 // Enable error logging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 error_log("=== UPDATE PO NUMBER REQUEST RECEIVED ===");
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    error_log("OPTIONS request received");
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['POST']);
 
 error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
 

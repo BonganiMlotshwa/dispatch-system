@@ -1,12 +1,7 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['GET', 'POST', 'PUT', 'DELETE']);
 
 require_once '../config/database.php';
 require_once '../includes/admin_auth.php';

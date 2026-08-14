@@ -8,15 +8,8 @@
 
 // Set headers for API response
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, Cache-Control, X-Requested-With');
-header('Access-Control-Max-Age: 86400'); // 24 hours
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['POST']);
 
 // Include database configuration
 require_once '../config/database.php';
@@ -187,7 +180,7 @@ try {
             
             $rowsAffected = $stmt->rowCount();
             $successCount += $rowsAffected;
-            $updatedCartons = array_merge($updatedCartons, array_slice($cartonIds, 0, $rowsAffected));
+            $updatedCartons = array_merge($updatedCartons, $cartonIds);
 
             if ($status === 'exited' && !empty($cartonIds) && $bulkTruckReg !== '' && $bulkDriverName !== '') {
                 recordOutboundShipForCartons(

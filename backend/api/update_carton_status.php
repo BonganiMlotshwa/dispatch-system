@@ -8,15 +8,8 @@
 
 // Set headers for API response
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, Cache-Control, X-Requested-With');
-header('Access-Control-Max-Age: 86400'); // 24 hours
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['POST']);
 
 // Include database configuration
 require_once '../config/database.php';
@@ -141,10 +134,10 @@ try {
         'shipment_week' => $shipmentWeek,
     ]);
     
-} catch (Exception $e) {
-    http_response_code(400);
-    echo json_encode(['error' => $e->getMessage()]);
 } catch (PDOException $e) {
     http_response_code(500); // Internal Server Error
     echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+} catch (Exception $e) {
+    http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
 }

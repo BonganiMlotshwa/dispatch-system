@@ -3,13 +3,8 @@
  * Combined warehouse stock list: manual legacy entries + system purchase orders.
  */
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['GET']);
 
 require_once '../config/database.php';
 require_once '../includes/warehouse_order_statuses.php';

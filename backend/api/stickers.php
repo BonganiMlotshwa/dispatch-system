@@ -7,14 +7,8 @@
 
 // Set headers for API response
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST');
-header('Access-Control-Allow-Headers: Content-Type');
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['GET', 'POST']);
 
 // Only allow GET and POST requests
 if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'])) {
@@ -34,6 +28,7 @@ try {
     $ftm_po = isset($_GET['ftm_po']) ? trim($_GET['ftm_po']) : null;
     $po_number = isset($_GET['po_number']) ? trim($_GET['po_number']) : null;
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
+    $limit = min($limit, 500);
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
     // Build query with filters

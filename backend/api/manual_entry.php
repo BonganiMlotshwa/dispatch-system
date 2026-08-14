@@ -1,12 +1,7 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, PUT, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
+require_once '../includes/cors.php';
+cors_headers(['POST', 'PUT']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'PUT') {
     http_response_code(405);
@@ -176,6 +171,9 @@ try {
     // Create carton records for EXPECTED cartons
     $cartonsExpected = (int)$input['cartons_expected'];
     $unitsExpected = (int)$input['units_expected'];
+    if ($cartonsExpected <= 0) {
+        throw new Exception('cartons_expected must be greater than zero');
+    }
     $unitsPerCarton = floor($unitsExpected / $cartonsExpected);
     $remainingUnits = $unitsExpected % $cartonsExpected;
     

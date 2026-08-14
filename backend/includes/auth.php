@@ -5,8 +5,10 @@
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start([
-        'cookie_httponly' => true,
-        'cookie_samesite' => 'Lax',
+        'cookie_httponly'  => true,
+        'cookie_samesite'  => 'Lax',
+        'cookie_secure'    => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on',
+        'use_strict_mode'  => true,
     ]);
 }
 
@@ -23,6 +25,7 @@ function auth_require_user() {
 }
 
 function auth_login($user) {
+    session_regenerate_id(true);
     $_SESSION['user'] = [
         'id' => (int)$user['id'],
         'username' => $user['username'],
