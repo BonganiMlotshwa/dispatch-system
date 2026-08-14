@@ -260,28 +260,7 @@ const WeeklyAnalysis = () => {
         </div>
       ) : hasData ? (
         <>
-          {sortedOutbound.length > 0 && (
-            <section className="mb-5">
-              <h4 className="mb-1">
-                <i className="bi bi-truck me-2 text-success"></i>
-                Outbound shipment weeks
-              </h4>
-              <p className="text-muted small mb-3">
-                Auto-created when orders ship — manual entry, exit scan, or legacy stock marked shipped.
-              </p>
-              {viewMode === 'list' ? (
-                <div className="modern-card">
-                  <div className="modern-card-body p-0">
-                    {renderOutboundTable()}
-                  </div>
-                </div>
-              ) : (
-                <div className="row g-3 g-md-4">
-                  {sortedOutbound.map(renderOutboundCard)}
-                </div>
-              )}
-            </section>
-          )}
+          {/* Outbound shipment weeks — hidden for now */}
 
           {sortedInbound.length > 0 && (
             <section>
