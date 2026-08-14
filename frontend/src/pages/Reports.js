@@ -870,7 +870,7 @@ const Reports = () => {
       </Tabs>
 
       {/* Signature Section */}
-      <div className="modern-card mt-5" style={{ borderTop: '3px solid #dee2e6' }}>
+      <div className="modern-card mt-5 print-only" style={{ borderTop: '3px solid #dee2e6' }}>
         <div className="modern-card-body">
           <Row className="g-4 text-center">
             <Col md={4}>

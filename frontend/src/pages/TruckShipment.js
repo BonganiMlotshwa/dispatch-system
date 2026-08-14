@@ -384,7 +384,7 @@ const TruckShipment = () => {
       </div>
 
       {/* Signature Section */}
-      <div className="modern-card mt-5" style={{ borderTop: '3px solid #dee2e6' }}>
+      <div className="modern-card mt-5 print-only" style={{ borderTop: '3px solid #dee2e6' }}>
         <div className="modern-card-body">
           <div className="row g-4 text-center">
             <div className="col-md-4">

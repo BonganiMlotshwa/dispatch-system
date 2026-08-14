@@ -24,6 +24,15 @@ newdbcol.txt
 .vscode/
 .idea/
 
+# AI tool residue
+.zencoder/
+.zenflow/
+
+# Excel temp/lock files
+~$*.xlsx
+~$*.xls
+~$*.docx
+
 # Logs
 *.log
 debug_log.txt

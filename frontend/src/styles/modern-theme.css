@@ -3390,3 +3390,14 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
 [data-theme="dark"] .auto-refresh-indicator {
   color: var(--text-muted);
 }
+
+/* Print-only: hidden on screen, shown only when printing/exporting */
+.print-only {
+  display: none !important;
+}
+
+@media print {
+  .print-only {
+    display: block !important;
+  }
+}
