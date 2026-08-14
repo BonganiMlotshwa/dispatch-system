@@ -10,9 +10,13 @@ require_once '../config/database.php';
 require_once '../includes/cors.php';
 cors_headers(['GET', 'POST']);
 
-header('Content-Type: application/json');
-
 $action = isset($_GET['action']) ? $_GET['action'] : '';
+
+// PDF actions stream HTML directly; everything else is JSON.
+$pdfActions = ['generateComprehensivePdfReport', 'generateTimeBasedPdfReport', 'generateInventoryPdfReport'];
+if (!in_array($action, $pdfActions, true)) {
+    header('Content-Type: application/json');
+}
 
 function outputCsv($filename, $data) {
     csvOutputRows($filename, $data);
@@ -93,7 +97,13 @@ switch ($action) {
         $startDate = $_GET['start_date'] ?? null;
         $endDate   = $_GET['end_date']   ?? null;
         $customer  = $_GET['customer']   ?? null;
-        echo json_encode(generateComprehensivePdfReport($pdo, $period, $startDate, $endDate, $customer));
+        $result    = generateComprehensivePdfReport($pdo, $period, $startDate, $endDate, $customer);
+        if ($result['success']) {
+            header('Content-Type: text/html; charset=utf-8');
+            echo $result['html'];
+        } else {
+            echo json_encode($result);
+        }
         break;
 
     case 'generateTimeBasedCsvReport':
@@ -116,7 +126,13 @@ switch ($action) {
         $startDate    = $_GET['start_date']    ?? null;
         $endDate      = $_GET['end_date']      ?? null;
         $filterPeriod = $_GET['filter_period'] ?? null;
-        echo json_encode(generateTimeBasedPdfReport($pdo, $period, $startDate, $endDate, $filterPeriod));
+        $result       = generateTimeBasedPdfReport($pdo, $period, $startDate, $endDate, $filterPeriod);
+        if ($result['success']) {
+            header('Content-Type: text/html; charset=utf-8');
+            echo $result['html'];
+        } else {
+            echo json_encode($result);
+        }
         break;
 
     case 'generateInventoryCsvReport':
@@ -129,7 +145,13 @@ switch ($action) {
         break;
 
     case 'generateInventoryPdfReport':
-        echo json_encode(generateInventoryPdfReport(getDbConnection()));
+        $result = generateInventoryPdfReport(getDbConnection());
+        if ($result['success']) {
+            header('Content-Type: text/html; charset=utf-8');
+            echo $result['html'];
+        } else {
+            echo json_encode($result);
+        }
         break;
 
     default:

@@ -131,35 +131,20 @@ const Reports = () => {
     }
   };
 
-  const exportComprehensivePdf = async () => {
-    try {
-      const params = new URLSearchParams({
-        action: 'generateComprehensivePdfReport',
-        period: reportFilters.period
-      });
-      if (reportFilters.startDate && reportFilters.endDate) {
-        params.append('start_date', reportFilters.startDate);
-        params.append('end_date', reportFilters.endDate);
-      }
-      if (reportFilters.customer && reportFilters.customer !== 'all') {
-        params.append('customer', reportFilters.customer);
-      }
-      const response = await axios.get(`${API_BASE_URL}/reports.php?${params}`);
-      if (response.data.success) {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-          alert('Please allow popups for this site to export PDFs.');
-          return;
-        }
-        printWindow.document.write(response.data.html);
-        printWindow.document.close();
-        printWindow.print();
-      } else {
-        setError(response.data.message || 'Failed to generate PDF report');
-      }
-    } catch (err) {
-      setError('Failed to export PDF report');
+  const exportComprehensivePdf = () => {
+    const params = new URLSearchParams({
+      action: 'generateComprehensivePdfReport',
+      period: reportFilters.period
+    });
+    if (reportFilters.startDate && reportFilters.endDate) {
+      params.append('start_date', reportFilters.startDate);
+      params.append('end_date', reportFilters.endDate);
     }
+    if (reportFilters.customer && reportFilters.customer !== 'all') {
+      params.append('customer', reportFilters.customer);
+    }
+    const w = window.open(`${API_BASE_URL}/reports.php?${params}`, '_blank');
+    if (!w) setError('Please allow popups for this site to export PDFs.');
   };
 
   // Export time-based report as CSV
@@ -197,38 +182,19 @@ const Reports = () => {
   };
 
   // Export time-based report as PDF
-  const exportTimeBasedPdf = async () => {
-    try {
-      const params = new URLSearchParams({
-        action: 'generateTimeBasedPdfReport',
-        period: reportFilters.timePeriod
-      });
-
-      if (reportFilters.startDate && reportFilters.endDate) {
-        params.append('start_date', reportFilters.startDate);
-        params.append('end_date', reportFilters.endDate);
-      } else if (reportFilters.period !== 'all') {
-        params.append('filter_period', reportFilters.period);
-      }
-
-      const response = await axios.get(`${API_BASE_URL}/reports.php?${params}`);
-
-      if (response.data.success) {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-          alert('Please allow popups for this site to export PDFs.');
-          return;
-        }
-        printWindow.document.write(response.data.html);
-        printWindow.document.close();
-        printWindow.print();
-      } else {
-        setError(response.data.message || 'Failed to generate PDF report');
-      }
-    } catch (err) {
-      console.error('Error exporting PDF:', err);
-      setError('Failed to export PDF report');
+  const exportTimeBasedPdf = () => {
+    const params = new URLSearchParams({
+      action: 'generateTimeBasedPdfReport',
+      period: reportFilters.timePeriod
+    });
+    if (reportFilters.startDate && reportFilters.endDate) {
+      params.append('start_date', reportFilters.startDate);
+      params.append('end_date', reportFilters.endDate);
+    } else if (reportFilters.period !== 'all') {
+      params.append('filter_period', reportFilters.period);
     }
+    const w = window.open(`${API_BASE_URL}/reports.php?${params}`, '_blank');
+    if (!w) setError('Please allow popups for this site to export PDFs.');
   };
 
   // Export inventory report as CSV
@@ -254,26 +220,9 @@ const Reports = () => {
   };
 
   // Export inventory report as PDF
-  const exportInventoryPdf = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/reports.php?action=generateInventoryPdfReport`);
-
-      if (response.data.success) {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-          alert('Please allow popups for this site to export PDFs.');
-          return;
-        }
-        printWindow.document.write(response.data.html);
-        printWindow.document.close();
-        printWindow.print();
-      } else {
-        setError(response.data.message || 'Failed to generate PDF report');
-      }
-    } catch (err) {
-      console.error('Error exporting PDF:', err);
-      setError('Failed to export PDF report');
-    }
+  const exportInventoryPdf = () => {
+    const w = window.open(`${API_BASE_URL}/reports.php?action=generateInventoryPdfReport`, '_blank');
+    if (!w) setError('Please allow popups for this site to export PDFs.');
   };
 
   // Load data when component mounts or filters change

@@ -35,6 +35,10 @@ const LegacyWarehouseGoods = () => {
   const [saving, setSaving] = useState(false);
   const [savingStatusId, setSavingStatusId] = useState(null);
 
+  const [showShipModal, setShowShipModal] = useState(false);
+  const [pendingShipRow, setPendingShipRow] = useState(null);
+  const [shipForm, setShipForm] = useState({ truck_reg: '', driver_name: '', shipment_date: '', shipment_week: '' });
+
   const loadList = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -138,6 +142,13 @@ const LegacyWarehouseGoods = () => {
 
   const handleStatusChange = async (row, newStatus) => {
     if (newStatus === row.status) return;
+    if (row.source_type !== 'system' && newStatus === 'shipped') {
+      setPendingShipRow(row);
+      const today = new Date().toISOString().slice(0, 10);
+      setShipForm({ truck_reg: '', driver_name: '', shipment_date: today, shipment_week: '' });
+      setShowShipModal(true);
+      return;
+    }
     setSavingStatusId(row.id);
     setError('');
     try {
@@ -171,6 +182,45 @@ const LegacyWarehouseGoods = () => {
       setError(err.response?.data?.message || 'Failed to update status');
     } finally {
       setSavingStatusId(null);
+    }
+  };
+
+  const handleShipConfirm = async (e) => {
+    e.preventDefault();
+    if (!pendingShipRow) return;
+    const row = pendingShipRow;
+    setSavingStatusId(row.id);
+    setShowShipModal(false);
+    setError('');
+    try {
+      await axios.put(`${API_BASE_URL}/legacy_warehouse_goods.php`, {
+        id: row.source_id,
+        internal_po: row.internal_po,
+        customer_order_number: row.customer_order_number || '',
+        customer: row.customer || 'MRP',
+        customer_other: row.customer_other || '',
+        style: row.style || '',
+        color: row.color || '',
+        order_qty: row.order_qty ?? '',
+        quantity_inside: row.quantity_inside ?? '',
+        cartons_label: row.cartons_label || '',
+        cartons_count: row.cartons_count ?? '',
+        status: 'shipped',
+        remarks: row.remarks || '',
+        new_developments: row.new_developments || '',
+        shipped_qty: row.shipped_qty ?? 0,
+        source_year: row.source_year || 2025,
+        truck_reg: shipForm.truck_reg || null,
+        driver_name: shipForm.driver_name || null,
+        shipment_date: shipForm.shipment_date || null,
+        shipment_week: shipForm.shipment_week || null,
+      });
+      await loadList();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to ship order');
+    } finally {
+      setSavingStatusId(null);
+      setPendingShipRow(null);
     }
   };
 
@@ -468,6 +518,66 @@ const LegacyWarehouseGoods = () => {
           )}
         </div>
       </div>
+
+      {/* Ship truck details modal */}
+      <Modal show={showShipModal} onHide={() => { setShowShipModal(false); setPendingShipRow(null); }} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Ship order — truck details</Modal.Title>
+        </Modal.Header>
+        <Form onSubmit={handleShipConfirm}>
+          <Modal.Body>
+            {pendingShipRow && (
+              <p className="mb-3 text-muted small">
+                Shipping <strong>{pendingShipRow.internal_po}</strong>
+                {pendingShipRow.style ? ` — ${pendingShipRow.style}` : ''}.
+                Enter truck details for the record (all fields optional).
+              </p>
+            )}
+            <div className="row g-3">
+              <div className="col-md-6">
+                <Form.Label>Truck registration</Form.Label>
+                <Form.Control
+                  value={shipForm.truck_reg}
+                  onChange={(e) => setShipForm(f => ({ ...f, truck_reg: e.target.value }))}
+                  placeholder="e.g. SD 123 SZ"
+                />
+              </div>
+              <div className="col-md-6">
+                <Form.Label>Driver name</Form.Label>
+                <Form.Control
+                  value={shipForm.driver_name}
+                  onChange={(e) => setShipForm(f => ({ ...f, driver_name: e.target.value }))}
+                  placeholder="Driver full name"
+                />
+              </div>
+              <div className="col-md-6">
+                <Form.Label>Shipment date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={shipForm.shipment_date}
+                  onChange={(e) => setShipForm(f => ({ ...f, shipment_date: e.target.value }))}
+                />
+              </div>
+              <div className="col-md-6">
+                <Form.Label>Shipment week</Form.Label>
+                <Form.Control
+                  value={shipForm.shipment_week}
+                  onChange={(e) => setShipForm(f => ({ ...f, shipment_week: e.target.value }))}
+                  placeholder="e.g. 32"
+                />
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => { setShowShipModal(false); setPendingShipRow(null); }}>
+              Cancel
+            </Button>
+            <Button variant="success" type="submit">
+              Confirm ship
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
 
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
         <Modal.Header closeButton>

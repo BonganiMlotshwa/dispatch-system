@@ -34,6 +34,15 @@ function legacyShipmentColumnsExist(PDO $pdo): bool
     return $cached;
 }
 
+function legacyItemsHasSnapshotColumns(PDO $pdo): bool
+{
+    static $cached = null;
+    if ($cached === null) {
+        $cached = (bool)$pdo->query("SHOW COLUMNS FROM truck_shipment_legacy_items LIKE 'internal_po'")->fetch();
+    }
+    return $cached;
+}
+
 function truckShipmentLegacyItemsTableExists(PDO $pdo): bool
 {
     static $cached = null;
@@ -237,24 +246,36 @@ function recordLegacyOutboundShip(
     $snapshotColor  = $row['color'] ?? null;
     $snapshotLabel  = $row['cartons_label'] ?? null;
 
-    // Upsert: always write the latest snapshot so history stays accurate.
-    $stmtIns = $pdo->prepare('
-        INSERT INTO truck_shipment_legacy_items
-            (truck_shipment_id, legacy_goods_id, cartons_shipped, units_shipped,
-             internal_po, style, color, cartons_label)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-            cartons_shipped = VALUES(cartons_shipped),
-            units_shipped   = VALUES(units_shipped),
-            internal_po     = VALUES(internal_po),
-            style           = VALUES(style),
-            color           = VALUES(color),
-            cartons_label   = VALUES(cartons_label)
-    ');
-    $stmtIns->execute([
-        $truckShipmentId, $legacyId, $cartonsShipped, $unitsShipped,
-        $snapshotPo, $snapshotStyle, $snapshotColor, $snapshotLabel,
-    ]);
+    // Upsert: write snapshot columns when migration 013 has been applied.
+    if (legacyItemsHasSnapshotColumns($pdo)) {
+        $stmtIns = $pdo->prepare('
+            INSERT INTO truck_shipment_legacy_items
+                (truck_shipment_id, legacy_goods_id, cartons_shipped, units_shipped,
+                 internal_po, style, color, cartons_label)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                cartons_shipped = VALUES(cartons_shipped),
+                units_shipped   = VALUES(units_shipped),
+                internal_po     = VALUES(internal_po),
+                style           = VALUES(style),
+                color           = VALUES(color),
+                cartons_label   = VALUES(cartons_label)
+        ');
+        $stmtIns->execute([
+            $truckShipmentId, $legacyId, $cartonsShipped, $unitsShipped,
+            $snapshotPo, $snapshotStyle, $snapshotColor, $snapshotLabel,
+        ]);
+    } else {
+        $stmtIns = $pdo->prepare('
+            INSERT INTO truck_shipment_legacy_items
+                (truck_shipment_id, legacy_goods_id, cartons_shipped, units_shipped)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                cartons_shipped = VALUES(cartons_shipped),
+                units_shipped   = VALUES(units_shipped)
+        ');
+        $stmtIns->execute([$truckShipmentId, $legacyId, $cartonsShipped, $unitsShipped]);
+    }
 
     if (legacyShipmentColumnsExist($pdo)) {
         $stmtUp = $pdo->prepare('

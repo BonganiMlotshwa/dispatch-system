@@ -13,6 +13,87 @@ require_once __DIR__ . '/carton_timestamps.php';
 define('PDF_MARGIN', 10);
 define('PDF_LINE_HEIGHT', 6);
 
+/**
+ * Return a base64 data URI for a logo file, or '' if not found.
+ */
+function getPdfLogoDataUri(string $filename): string
+{
+    $path = __DIR__ . '/../../frontend/public/' . $filename;
+    if (!file_exists($path)) {
+        return '';
+    }
+    return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+}
+
+/**
+ * HTML block: three company logos — natural sizing with max-height, matching the screen layout.
+ */
+function getPdfLogoHtml(): string
+{
+    $logos = [
+        ['file' => 'sabs_iso.png', 'alt' => 'SABS ISO 9001', 'align' => 'left'],
+        ['file' => 'ftm.png',      'alt' => 'FTM',            'align' => 'center'],
+        ['file' => 'sabs.png',     'alt' => 'SABS Approved',  'align' => 'right'],
+    ];
+    $html  = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;';
+    $html .= 'border-top:1px solid #dee2e6;padding-top:16px;margin-top:16px;">';
+    $html .= '<tr>';
+    foreach ($logos as $logo) {
+        $src   = getPdfLogoDataUri($logo['file']);
+        $alt   = htmlspecialchars($logo['alt']);
+        $align = $logo['align'];
+        $html .= '<td style="border:none;text-align:' . $align . ';padding:16px 8px 8px;width:33.33%;">';
+        if ($src) {
+            $html .= '<img src="' . $src . '" alt="' . $alt . '" style="max-height:80px;max-width:100%;" />';
+        } else {
+            $html .= '<span style="color:#999;font-size:10px;">' . $alt . '</span>';
+        }
+        $html .= '</td>';
+    }
+    $html .= '</tr></table>';
+    return $html;
+}
+
+/**
+ * HTML block: 5-signatory section (3 + 2 layout) + logos, matching the on-screen Reports layout.
+ */
+function getPdfSignatureHtml(): string
+{
+    $cellStyle = 'border:none;text-align:center;padding:0 16px;width:33.33%;';
+
+    $sigCell = function(string $label, string $sub) use ($cellStyle): string {
+        $h  = '<td style="' . $cellStyle . '">';
+        $h .= '<div style="min-height:80px;border-bottom:2px solid #000;margin-bottom:8px;"></div>';
+        $h .= '<div style="font-weight:bold;font-size:11px;">' . htmlspecialchars($label) . '</div>';
+        $h .= '<div style="color:#666;font-size:10px;margin-top:3px;">' . htmlspecialchars($sub) . '</div>';
+        $h .= '</td>';
+        return $h;
+    };
+
+    $html  = '<div style="margin:40px 0 8px;page-break-inside:avoid;">';
+
+    // Row 1 — three signatories
+    $html .= '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:20px;">';
+    $html .= '<tr>';
+    $html .= $sigCell('1. PREPARED BY:',  'NAME AND SIGNATURE');
+    $html .= $sigCell('2. NOTED BY:',     'DEPARTMENT MANAGER');
+    $html .= $sigCell('3. NOTED BY:',     'VICE FACTORY MANAGER');
+    $html .= '</tr></table>';
+
+    // Row 2 — signatories 4 and 5, empty centre
+    $html .= '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:12px;">';
+    $html .= '<tr>';
+    $html .= $sigCell('4. APPROVED BY:', 'VICE FACTORY ADMINISTRATION DIRECTOR');
+    $html .= '<td style="' . $cellStyle . '"></td>';
+    $html .= $sigCell('5. NOTED BY:',    'MANAGING DIRECTOR');
+    $html .= '</tr></table>';
+
+    $html .= '<p style="font-size:9px;color:#666;margin:4px 0 0;">Note: Please Print (Name, Signature, Date &amp; Time)</p>';
+    $html .= getPdfLogoHtml();
+    $html .= '</div>';
+    return $html;
+}
+
 function cartonEntryReportTime($carton) {
     return $carton['entry_timestamp']
         ?? (($carton['status'] === 'entered' || $carton['status'] === 'exited') ? ($carton['scan_timestamp'] ?? '') : '');
@@ -1082,11 +1163,15 @@ function generateComprehensivePdfReport($pdo, $period = 'all', $startDate = null
 
         echo "</table>";
 
+        // Signature + logos
+        echo getPdfSignatureHtml();
+
         // Footer
         echo "<div class='footer'>";
-        echo "<p>Warehouse Carton Tracking System &copy; " . date('Y') . "</p>";
+        echo "<p>FTM Garments Warehouse &copy; " . date('Y') . " &mdash; Generated " . date('Y-m-d H:i:s') . "</p>";
         echo "</div>";
 
+        echo "<script>window.onload = function() { window.print(); };</script>";
         echo "</body></html>";
 
         $html = ob_get_clean();
@@ -1314,12 +1399,16 @@ function generateTimeBasedPdfReport($pdo, $period = 'daily', $startDate = null, 
 
         echo "</tbody></table>";
 
+        // Signature + logos
+        echo getPdfSignatureHtml();
+
         // Footer
         echo "<div class='footer'>";
         echo "<p>FTM Garments Warehouse Tracking System &copy; " . date('Y') . "</p>";
         echo "<p>This report was automatically generated on " . date('F j, Y \a\t g:i A') . "</p>";
         echo "</div>";
 
+        echo "<script>window.onload = function() { window.print(); };</script>";
         echo "</body></html>";
 
         $html = ob_get_clean();
@@ -1487,12 +1576,16 @@ function generateInventoryPdfReport($pdo) {
 
         echo "</tbody></table>";
 
+        // Signature + logos
+        echo getPdfSignatureHtml();
+
         // Footer
         echo "<div class='footer'>";
         echo "<p>FTM Garments Warehouse Tracking System &copy; " . date('Y') . "</p>";
         echo "<p>This report shows all cartons currently in the warehouse (status: entered)</p>";
         echo "</div>";
 
+        echo "<script>window.onload = function() { window.print(); };</script>";
         echo "</body></html>";
 
         $html = ob_get_clean();

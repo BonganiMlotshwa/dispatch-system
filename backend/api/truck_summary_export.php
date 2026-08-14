@@ -5,6 +5,7 @@
 
 require_once '../config/database.php';
 require_once '../includes/csv_export.php';
+require_once '../includes/reports.php';
 
 try {
     $pdo = getDbConnection();
@@ -212,48 +213,7 @@ try {
         </tbody>
     </table>
     <div class="footer">
-        <!-- Signature Section -->
-        <div style="margin: 40px 0; page-break-inside: avoid;">
-            <h4 style="margin-bottom: 20px; text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px;">APPROVAL SECTION</h4>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                <tr style="border: none;">
-                    <td style="border: none; text-align: center; padding: 20px; width: 20%; height: 100px; border-bottom: 2px solid #000; vertical-align: bottom;">
-                        <strong style="display: block; margin-top: 40px;">1. PREPARED BY:</strong>
-                        <small style="color: #666;">NAME AND SIGNATURE</small>
-                    </td>
-                    <td style="border: none; text-align: center; padding: 20px; width: 20%; height: 100px; border-bottom: 2px solid #000; vertical-align: bottom;">
-                        <strong style="display: block; margin-top: 40px;">2. NOTED BY DEPARTMENT MANAGER:</strong>
-                        <small style="color: #666;">NAME AND SIGNATURE</small>
-                    </td>
-                    <td style="border: none; text-align: center; padding: 20px; width: 20%; height: 100px; border-bottom: 2px solid #000; vertical-align: bottom;">
-                        <strong style="display: block; margin-top: 40px;">3. NOTED BY VICE FACTORY MANAGER:</strong>
-                        <small style="color: #666;">NAME AND SIGNATURE</small>
-                    </td>
-                    <td style="border: none; text-align: center; padding: 20px; width: 20%; height: 100px; border-bottom: 2px solid #000; vertical-align: bottom;">
-                        <strong style="display: block; margin-top: 40px;">4. APPROVED BY VICE FACTORY ADMINISTRATION DIRECTOR:</strong>
-                        <small style="color: #666;">NAME AND SIGNATURE</small>
-                    </td>
-                    <td style="border: none; text-align: center; padding: 20px; width: 20%; height: 100px; border-bottom: 2px solid #000; vertical-align: bottom;">
-                        <strong style="display: block; margin-top: 40px;">5. NOTED BY MANAGING DIRECTOR:</strong>
-                        <small style="color: #666;">NAME AND SIGNATURE</small>
-                    </td>
-                </tr>
-            </table>
-            
-            <!-- Company Logos -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #dee2e6; padding-top: 20px; margin-top: 20px;">
-                <div style="text-align: left; width: 33%;">
-                    <img src="http://localhost:3000/sabs_iso.png" alt="SABS ISO 9001" style="max-height: 80px; max-width: 100%;" />
-                </div>
-                <div style="text-align: center; width: 33%;">
-                    <img src="http://localhost:3000/ftm.png" alt="FTM" style="max-height: 80px; max-width: 100%;" />
-                </div>
-                <div style="text-align: right; width: 33%;">
-                    <img src="http://localhost:3000/sabs.png" alt="SABS Approved" style="max-height: 80px; max-width: 100%;" />
-                </div>
-            </div>
-        </div>
-        
+        ' . getPdfSignatureHtml() . '
         <p>&copy; ' . date('Y') . ' FTM Garments Warehouse</p>
     </div>
     <script>window.onload = function() { window.print(); };</script>
