@@ -144,12 +144,15 @@ const WeeklyAnalysis = () => {
             <th>Week</th>
             <th className="text-end">Files</th>
             <th className="text-end">Orders</th>
-            <th className="text-end">Received</th>
-            <th className="text-end">In warehouse</th>
-            <th className="text-end">Pending</th>
-            <th className="text-end">Shipped</th>
+            <th className="text-end">Received (ctns)</th>
+            <th className="text-end">Units received</th>
+            <th className="text-end">In warehouse (ctns)</th>
+            <th className="text-end">Units in WH</th>
+            <th className="text-end">Pending (ctns)</th>
+            <th className="text-end">Units pending</th>
+            <th className="text-end">Shipped (ctns)</th>
+            <th className="text-end">Units shipped</th>
             <th style={{ minWidth: 120 }}>Progress</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -165,9 +168,13 @@ const WeeklyAnalysis = () => {
                 <td className="text-end small text-muted">{week.shipment_count}</td>
                 <td className="text-end small text-muted">{week.order_count}</td>
                 <td className="text-end fw-semibold text-primary">{week.received}</td>
+                <td className="text-end text-primary">{(week.units_received || 0).toLocaleString()}</td>
                 <td className="text-end text-info">{week.in_warehouse}</td>
+                <td className="text-end text-info">{(week.units_in_warehouse || 0).toLocaleString()}</td>
                 <td className="text-end text-warning">{week.pending_to_enter}</td>
+                <td className="text-end text-warning">{(week.units_pending || 0).toLocaleString()}</td>
                 <td className="text-end text-success">{week.shipped}</td>
+                <td className="text-end text-success">{(week.units_shipped || 0).toLocaleString()}</td>
                 <td>
                   <div className="d-flex align-items-center gap-2">
                     <div className="progress flex-grow-1" style={{ height: 6 }}>
@@ -176,7 +183,6 @@ const WeeklyAnalysis = () => {
                     <span className="small text-muted" style={{ minWidth: 32 }}>{pct}%</span>
                   </div>
                 </td>
-                <td></td>
               </tr>
             );
           })}

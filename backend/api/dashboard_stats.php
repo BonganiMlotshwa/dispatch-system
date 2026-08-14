@@ -176,7 +176,11 @@ try {
             COALESCE(SUM(CASE WHEN c.status IN ('entered', 'exited') THEN 1 ELSE 0 END), 0) as received,
             COALESCE(SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END), 0) as in_warehouse,
             COALESCE(SUM(CASE WHEN c.status = 'pending' THEN 1 ELSE 0 END), 0) as pending_to_enter,
-            COALESCE(SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END), 0) as shipped
+            COALESCE(SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END), 0) as shipped,
+            COALESCE(SUM(CASE WHEN c.status IN ('entered', 'exited') THEN CAST(c.units AS UNSIGNED) ELSE 0 END), 0) as units_received,
+            COALESCE(SUM(CASE WHEN c.status = 'entered' THEN CAST(c.units AS UNSIGNED) ELSE 0 END), 0) as units_in_warehouse,
+            COALESCE(SUM(CASE WHEN c.status = 'pending' THEN CAST(c.units AS UNSIGNED) ELSE 0 END), 0) as units_pending,
+            COALESCE(SUM(CASE WHEN c.status = 'exited' THEN CAST(c.units AS UNSIGNED) ELSE 0 END), 0) as units_shipped
             FROM delivery_schedules ds
             LEFT JOIN shipments s ON s.schedule_id = ds.id
             LEFT JOIN cartons c ON c.shipment_id = s.id
@@ -194,6 +198,10 @@ try {
             $week['in_warehouse'] = (int)$week['in_warehouse'];
             $week['pending_to_enter'] = (int)$week['pending_to_enter'];
             $week['shipped'] = (int)$week['shipped'];
+            $week['units_received'] = (int)$week['units_received'];
+            $week['units_in_warehouse'] = (int)$week['units_in_warehouse'];
+            $week['units_pending'] = (int)$week['units_pending'];
+            $week['units_shipped'] = (int)$week['units_shipped'];
         }
         unset($week);
         $stats['weekly_analysis'] = $weeklyAnalysis;
