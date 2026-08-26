@@ -10,6 +10,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 // Include database configuration
 require_once '../config/database.php';

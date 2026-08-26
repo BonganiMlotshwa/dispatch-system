@@ -8,8 +8,6 @@ const pendingRequests = new Map(); // Track pending requests to avoid duplicates
 const CACHE_DURATION = 60000; // 1 minute for better performance
 const MAX_CACHE_SIZE = 100; // Limit cache size
 
-console.log('Creating API service with baseURL:', API_BASE_URL);
-
 // Fix API connection issues by ensuring proper URL handling
 const fixApiUrl = (url) => {
   // If URL already starts with http:// or https://, return as is
@@ -44,7 +42,6 @@ apiService.interceptors.request.use(
   (config) => {
     // Fix the URL using our helper function
     config.url = fixApiUrl(config.url);
-    console.log('Making request to:', config.url);
 
     // Start performance monitoring
     const requestKey = `${config.method?.toUpperCase()} ${config.url}`;
@@ -118,6 +115,16 @@ apiService.interceptors.response.use(
     // End performance monitoring for errors
     if (error.config?.metadata?.requestKey) {
       performanceMonitor.endTimer(error.config.metadata.requestKey + ' (ERROR)');
+    }
+
+    // Session expired — clear local auth state and redirect to login
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_user');
+      cache.clear();
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
     }
 
     // Clean up pending requests on error, but preserve valid cache entries

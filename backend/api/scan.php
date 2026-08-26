@@ -30,7 +30,6 @@ try {
     $data = json_decode($jsonInput, true);
     
     // Debug logging
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Scan Request: ' . $jsonInput . "\n", FILE_APPEND);
     
     // Validate input
     if (!$data || !isset($data['barcode']) || !isset($data['action'])) {
@@ -83,7 +82,6 @@ try {
     http_response_code(400); // Bad Request
     
     // Debug logging
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Scan Error: ' . $e->getMessage() . "\n", FILE_APPEND);
     
     echo json_encode([
         'success' => false,

@@ -6,6 +6,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['GET']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);

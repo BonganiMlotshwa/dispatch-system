@@ -8,6 +8,8 @@ header('Content-Type: application/json');
 
 require_once '../includes/cors.php';
 cors_headers(['GET', 'POST', 'PUT', 'DELETE']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 require_once __DIR__ . '/../config/database.php';
 

@@ -3,6 +3,8 @@
  * Truck Summary Export — full report (all trucks matching filters) as CSV or PDF (print HTML).
  */
 
+require_once '../includes/auth.php';
+auth_require_user();
 require_once '../config/database.php';
 require_once '../includes/csv_export.php';
 require_once '../includes/reports.php';

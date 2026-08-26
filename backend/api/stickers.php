@@ -9,6 +9,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['GET', 'POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 // Only allow GET and POST requests
 if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'])) {

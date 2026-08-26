@@ -13,6 +13,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['GET', 'POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/schedule_lookup.php';

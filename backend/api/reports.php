@@ -9,6 +9,8 @@ require_once '../config/database.php';
 
 require_once '../includes/cors.php';
 cors_headers(['GET', 'POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 

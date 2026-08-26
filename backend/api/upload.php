@@ -9,6 +9,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -22,9 +24,6 @@ require_once '../config/database.php';
 require_once '../includes/xml_parser.php';
 require_once '../includes/schedule_lookup.php';
 
-// Debug logging
-file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Request: ' . print_r($_REQUEST, true) . "\n", FILE_APPEND);
-file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Files: ' . print_r($_FILES, true) . "\n", FILE_APPEND);
 
 try {
     // Get database connection
@@ -127,7 +126,6 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
         }
     }
 
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Import mode: ' . $importMode . ', PO: ' . $internalPoNumber . "\n", FILE_APPEND);
     
     // Parse the XML file
     $parseResult = parseXmlFile($targetFilePath, $internalPoNumber);
@@ -171,7 +169,6 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     ];
     
     // Log success response
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Success Response: ' . json_encode($response) . "\n", FILE_APPEND);
     
     echo json_encode($response);
     
@@ -179,7 +176,6 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     http_response_code(400); // Bad Request
     
     // Log the error for debugging
-    file_put_contents(__DIR__ . '/../../debug_log.txt', date('Y-m-d H:i:s') . ' - Upload Error: ' . $e->getMessage() . "\n", FILE_APPEND);
     
     echo json_encode([
         'success' => false,

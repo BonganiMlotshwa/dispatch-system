@@ -2,6 +2,8 @@
 /**
  * Export legacy warehouse goods list to CSV (same columns as spreadsheet).
  */
+require_once '../includes/auth.php';
+auth_require_user();
 require_once '../config/database.php';
 require_once '../includes/csv_export.php';
 require_once '../includes/po_helpers.php';

@@ -2,6 +2,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['POST', 'PUT']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'PUT') {
     http_response_code(405);

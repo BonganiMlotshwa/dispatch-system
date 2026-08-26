@@ -1,6 +1,8 @@
 <?php
 require_once '../includes/cors.php';
 cors_headers(['GET', 'POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 header('Content-Type: application/json');
 
 /**

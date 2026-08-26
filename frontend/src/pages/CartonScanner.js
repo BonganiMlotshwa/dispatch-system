@@ -210,7 +210,6 @@ const detectCameraSupport = async () => {
     });
 
     if (!isSecure && !isLocalNetwork) {
-      console.log('Not running over secure context or local network');
       return {
         supported: false,
         reason: 'Camera access requires HTTPS. For development, please access via localhost or use manual entry.',
@@ -231,7 +230,6 @@ const detectCameraSupport = async () => {
     });
 
     if (!hasMediaDevices && !hasLegacyGetUserMedia) {
-      console.log('No camera API support detected');
       return { 
         supported: false, 
         reason: 'Camera API not supported. Please use a modern browser like Chrome, Firefox, Safari, or Edge.' 
@@ -239,7 +237,6 @@ const detectCameraSupport = async () => {
     }
 
     if (!hasGetUserMedia) {
-      console.log('Modern getUserMedia not supported, but legacy API might work');
       // Don't immediately fail - let the actual camera test determine support
     }
 
@@ -247,7 +244,6 @@ const detectCameraSupport = async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      console.log('Video devices found:', videoDevices.length);
       
       if (videoDevices.length === 0) {
         return { supported: false, reason: 'No camera found on this device.' };
@@ -295,12 +291,9 @@ const detectCameraSupport = async () => {
     
     for (let i = 0; i < cameraConfigs.length; i++) {
       try {
-        console.log(`Trying camera config ${i + 1}/${cameraConfigs.length}:`, cameraConfigs[i]);
         stream = await navigator.mediaDevices.getUserMedia(cameraConfigs[i]);
-        console.log(`✅ Camera config ${i + 1} successful`);
         break; // Success, exit loop
       } catch (configError) {
-        console.log(`❌ Camera config ${i + 1} failed:`, configError.name, configError.message);
         lastError = configError;
         
         // If this is a permission error, don't try other configs
@@ -319,12 +312,10 @@ const detectCameraSupport = async () => {
     // Stop the stream immediately after getting permission
     if (stream) {
       stream.getTracks().forEach(track => {
-        console.log('Stopping track:', track.label);
         track.stop();
       });
     }
 
-    console.log('Camera access granted successfully');
     return { supported: true, reason: null };
   } catch (error) {
     console.error('Camera access denied or not available:', error);
@@ -439,7 +430,6 @@ const CartonScanner = () => {
       const userAgent = navigator.userAgent || navigator.vendor || window.opera;
       const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
       setIsMobileDevice(isMobile);
-      console.log('Device detected as mobile:', isMobile);
       return isMobile;
     };
 
@@ -449,7 +439,6 @@ const CartonScanner = () => {
       setCameraSupported(result.supported);
       setCameraErrorReason(result.reason);
       setIsHttpsRequired(result.isHttpsRequired || false);
-      console.log('Camera support detected:', result.supported, 'Reason:', result.reason, 'HTTPS Required:', result.isHttpsRequired);
     };
 
     const loadActiveTrucks = () => {
@@ -466,8 +455,6 @@ const CartonScanner = () => {
     loadActiveTrucks();
 
     // Log access method
-    console.log('Page accessed via:', window.location.hostname);
-    console.log('User agent:', navigator.userAgent);
   }, []);
   
   // Handle URL parameters for pre-configuration (from PO Details "Scan to Ship" button)
@@ -484,17 +471,14 @@ const CartonScanner = () => {
       } else {
         setPoNumber(normalizedUrlPo);
       }
-      console.log('Pre-filled PO from URL:', urlPo);
     }
     
     if (urlAction === 'enter') {
       setAction('enter');
       setExitWithoutTruck(false);
-      console.log('Pre-selected action: enter');
     } else if (urlAction === 'exit') {
       // Open truck selection modal for exit mode
       setShowTruckChoiceModal(true);
-      console.log('Pre-selected action: exit - opening truck selection');
     }
   }, [searchParams]);
   
@@ -769,10 +753,6 @@ const CartonScanner = () => {
       }
 
       try {
-        console.log('Initializing Quagga with environment-facing camera');
-        console.log('Scanner element exists:', !!scannerRef.current);
-        console.log('Access method:', window.location.hostname);
-        console.log('Camera facing mode:', cameraFacingMode);
 
         Quagga.init({
         inputStream: {
@@ -803,21 +783,16 @@ const CartonScanner = () => {
       }, function(err) {
         if (err) {
           console.error("Quagga initialization error:", err);
-          console.log("Error details:", JSON.stringify(err));
           setError("Camera initialization failed. Please try again or use manual entry.");
           return;
         }
         
-        console.log("Quagga initialized successfully");
         
         try {
           // Start Quagga scanner
-          console.log('Starting Quagga scanner...');
           Quagga.start();
-          console.log('Quagga scanner started successfully');
           
           // Register detected barcode handler
-          console.log('Registering barcode detection handler');
           Quagga.offDetected(handleQuaggaDetection);
           Quagga.onDetected(handleQuaggaDetection);
         } catch (error) {
@@ -837,7 +812,6 @@ const CartonScanner = () => {
     try {
       // Prevent multiple simultaneous scans
       if (isProcessingScan) {
-        console.log("Scan already in progress, ignoring detection");
         return;
       }
 
@@ -852,7 +826,6 @@ const CartonScanner = () => {
 
       // Only log every 10th detection to reduce console spam
       if (Math.random() < 0.1) {
-        console.log("Code detected:", detectedBarcode, "Format:", format, "Confidence:", confidence);
       }
 
       // Validate basic requirements
@@ -934,13 +907,11 @@ const CartonScanner = () => {
       return b.originalConfidence - a.originalConfidence;
     });
 
-    console.log("Processing", codes.length, "detected codes:", sortedCodes);
 
     // Filter out codes with extremely low confidence (but keep zero confidence ones)
     const validCodes = sortedCodes.filter(c => c.originalConfidence >= 0);
 
     if (validCodes.length === 0) {
-      console.log("No valid codes found");
       setIsProcessingScan(false);
       setError("No valid codes detected. Please try again or use manual entry.");
       return;
@@ -960,7 +931,6 @@ const CartonScanner = () => {
       }
     } else {
       // All codes have low/zero confidence, but still show them for selection
-      console.log("All codes have low confidence, showing selection anyway");
       setDetectedCodes(validCodes);
       setShowCodeSelection(true);
       setIsProcessingScan(false);
@@ -969,7 +939,6 @@ const CartonScanner = () => {
 
   // Handle code selection from the modal
   const selectCode = (selectedCode) => {
-    console.log("Selected code:", selectedCode);
 
     // Set the selected barcode
     setBarcode(selectedCode.code);
@@ -1045,7 +1014,6 @@ const CartonScanner = () => {
   // Process single carton scan
   const handleSingleScan = async (barcodeToScan, actionToUse) => {
     try {
-      console.log(`Processing scan for barcode: ${barcodeToScan}, action: ${actionToUse}`);
       const normalizedPo = normalizeExpectedPo(expectedPo);
       
       // Prepare request data
@@ -1062,7 +1030,6 @@ const CartonScanner = () => {
       
       const response = await axios.post(`${API_BASE_URL}/scan.php`, requestData);
 
-      console.log('Scan response:', response.data);
       // Some servers might still return 200 with success=false; handle here
       if (!response.data?.success) {
         const fauxErr = { response: { data: { message: response.data?.message || 'Scan failed', error_code: response.data?.error_code || 'UNKNOWN' } } };
@@ -1240,7 +1207,6 @@ const CartonScanner = () => {
 
     // Prevent multiple simultaneous scans
     if (loading) {
-      console.log("Scan already in progress, ignoring request");
       return;
     }
 
@@ -1317,13 +1283,11 @@ const CartonScanner = () => {
     // Toggle camera facing mode
     const newMode = cameraFacingMode === 'environment' ? 'user' : 'environment';
     setCameraFacingMode(newMode);
-    console.log('Switching camera to:', newMode);
     
     // Restart Quagga with new camera
     if (typeof Quagga.stop === 'function') {
       try {
         Quagga.stop();
-        console.log('Quagga stopped for camera switch');
       } catch (error) {
         console.error('Error stopping Quagga for camera switch:', error);
       }
@@ -1331,7 +1295,6 @@ const CartonScanner = () => {
     
     // Short delay before reinitializing
     setTimeout(() => {
-      console.log('Reinitializing Quagga with new camera mode:', newMode);
       initQuagga();
     }, 500);
   };
@@ -1671,7 +1634,6 @@ const CartonScanner = () => {
                             type="button"
                             className="btn btn-sm btn-outline-primary me-2"
                             onClick={async () => {
-                              console.log('Manual camera test initiated');
                               const result = await detectCameraSupport();
                               setCameraSupported(result.supported);
                               setCameraErrorReason(result.reason);

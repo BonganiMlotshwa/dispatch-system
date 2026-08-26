@@ -5,6 +5,8 @@
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 require_once '../config/database.php';
 require_once '../includes/warehouse_order_statuses.php';

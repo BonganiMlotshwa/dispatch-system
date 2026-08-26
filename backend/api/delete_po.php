@@ -11,6 +11,8 @@ error_log("=== DELETE PO REQUEST RECEIVED ===");
 header('Content-Type: application/json');
 require_once '../includes/cors.php';
 cors_headers(['POST']);
+require_once '../includes/auth.php';
+auth_require_user();
 
 error_log("Request method: " . $_SERVER['REQUEST_METHOD']);
 
