@@ -116,8 +116,8 @@ try {
                 .data-table th { background-color: #4a5568; color: white; }
                 .total-row { background-color: #e2e8f0; font-weight: bold; }
                 .footer { text-align: center; margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 12px; }
-                @page { margin: 1cm; }
-                @media print { body { margin: 0; } }
+                @page { margin: 0; }
+                @media print { body { padding: 1cm; margin: 0; } }
             </style>
         </head>
         <body>
