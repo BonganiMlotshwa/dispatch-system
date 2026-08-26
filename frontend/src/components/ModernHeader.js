@@ -16,7 +16,7 @@ const ModernHeader = ({ toggleSidebar }) => {
       case '/upload': return { title: 'Import Data', subtitle: 'Upload and process shipment files' };
       case '/settings': return { title: 'Settings', subtitle: 'User management and system configuration' };
       case '/legacy-warehouse': return { title: 'Legacy Warehouse Stock', subtitle: 'Spec 1.5 — manual entry, status filter (Active, Shipped, Cancelled, …)' };
-      case '/manual-entry': return { title: 'Manual Entry', subtitle: 'Enter customer orders manually' };
+      case '/manual-entry': return { title: '', subtitle: '' };
       case '/scanner': return { title: 'Barcode Scanner', subtitle: 'Scan cartons and update status' };
       case '/stickers': return { title: 'Label Generator', subtitle: 'Generate shipping labels and stickers' };
       case '/reports': return { title: 'Analytics & Reports', subtitle: 'View detailed reports and insights' };
