@@ -11,7 +11,7 @@ const ModernHeader = ({ toggleSidebar }) => {
   const getPageTitle = () => {
     const path = location.pathname;
     switch (path) {
-      case '/': return { title: 'Dashboard', subtitle: 'System overview and key metrics' };
+      case '/': return { title: '', subtitle: '' };
       case '/pos': return { title: 'Purchase Orders', subtitle: 'Manage and track PO status' };
       case '/upload': return { title: 'Import Data', subtitle: 'Upload and process shipment files' };
       case '/settings': return { title: 'Settings', subtitle: 'User management and system configuration' };
@@ -48,10 +48,12 @@ const ModernHeader = ({ toggleSidebar }) => {
           <i className="bi bi-list"></i>
         </button>
         
-        <div>
-          <h1 className="header-title">{title}</h1>
-          <p className="header-subtitle">{subtitle}</p>
-        </div>
+        {(title || subtitle) && (
+          <div>
+            {title && <h1 className="header-title">{title}</h1>}
+            {subtitle && <p className="header-subtitle">{subtitle}</p>}
+          </div>
+        )}
       </div>
 
       <div className="header-right">
