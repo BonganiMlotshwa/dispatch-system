@@ -1893,6 +1893,18 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
   border-bottom: none;
 }
 
+/* Weekly Analysis — full grid borders, centred content */
+.weekly-analysis-table thead th,
+.weekly-analysis-table tbody td {
+  border: 1px solid var(--gray-200) !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.weekly-analysis-table thead th {
+  border-bottom-width: 2px !important;
+}
+
 .table-row {
   cursor: pointer;
 }
