@@ -1893,6 +1893,18 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
   border-bottom: none;
 }
 
+/* Purchase Orders table — full grid borders, centred content */
+.po-management-table thead th,
+.po-management-table tbody td {
+  border: 1px solid var(--gray-200) !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.po-management-table thead th {
+  border-bottom-width: 2px !important;
+}
+
 /* Weekly Analysis — full grid borders, centred content */
 .weekly-analysis-table thead th,
 .weekly-analysis-table tbody td {

@@ -734,7 +734,7 @@ const POManagement = () => {
         /* List View */
         <Card className="border-0 shadow-sm">
           <div className="table-responsive">
-            <table className="table table-hover mb-0">
+            <table className="table table-hover po-management-table mb-0">
               <thead className="bg-light">
                 <tr>
                   <th width="30">
