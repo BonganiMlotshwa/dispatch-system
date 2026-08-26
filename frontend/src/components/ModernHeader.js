@@ -12,7 +12,7 @@ const ModernHeader = ({ toggleSidebar }) => {
     const path = location.pathname;
     switch (path) {
       case '/': return { title: '', subtitle: '' };
-      case '/pos': return { title: 'Purchase Orders', subtitle: 'Manage and track PO status' };
+      case '/pos': return { title: '', subtitle: '' };
       case '/upload': return { title: 'Import Data', subtitle: 'Upload and process shipment files' };
       case '/settings': return { title: 'Settings', subtitle: 'User management and system configuration' };
       case '/legacy-warehouse': return { title: 'Legacy Warehouse Stock', subtitle: 'Spec 1.5 — manual entry, status filter (Active, Shipped, Cancelled, …)' };
