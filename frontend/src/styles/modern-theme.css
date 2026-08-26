@@ -3400,4 +3400,19 @@ h5 { font-size: 1.125rem; line-height: 1.75rem; }
   .print-only {
     display: block !important;
   }
+
+  /* Force all text to black for legible print output */
+  * {
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Keep borders and backgrounds visible where needed */
+  .text-muted,
+  .text-secondary,
+  small,
+  .small {
+    color: #000 !important;
+  }
 }
