@@ -1089,6 +1089,7 @@ function generateComprehensivePdfReport($pdo, $period = 'all', $startDate = null
         echo ".summary-value { font-size: 18px; font-weight: bold; color: #007bff; }";
         echo ".header { text-align: center; margin-bottom: 20px; }";
         echo ".footer { text-align: center; font-size: 12px; margin-top: 30px; color: #666; }";
+        echo "@page { margin: 1cm; }";
         echo "</style>";
         echo "</head><body>";
 
@@ -1309,6 +1310,7 @@ function generateTimeBasedPdfReport($pdo, $period = 'daily', $startDate = null, 
         echo ".footer { text-align: center; font-size: 12px; margin-top: 30px; color: #666; }";
         echo ".text-right { text-align: right; }";
         echo ".po-number { color: #2196F3; font-weight: bold; }";
+        echo "@page { margin: 1cm; }";
         echo "</style>";
         echo "</head><body>";
 
@@ -1517,6 +1519,7 @@ function generateInventoryPdfReport($pdo) {
         echo ".badge-warning { background-color: #ff9800; color: white; padding: 3px 8px; border-radius: 3px; }";
         echo ".badge-danger { background-color: #f44336; color: white; padding: 3px 8px; border-radius: 3px; }";
         echo ".badge-success { background-color: #4caf50; color: white; padding: 3px 8px; border-radius: 3px; }";
+        echo "@page { margin: 1cm; }";
         echo "</style>";
         echo "</head><body>";
 
