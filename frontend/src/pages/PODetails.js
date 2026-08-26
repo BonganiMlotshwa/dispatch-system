@@ -1112,6 +1112,9 @@ const PODetails = React.memo(() => {
         <Col>
           <div className="d-flex justify-content-between align-items-start">
             <div>
+              <button className="btn btn-sm btn-outline-secondary mb-2" onClick={() => navigate(-1)}>
+                <i className="bi bi-arrow-left me-1"></i> Back
+              </button>
               <nav aria-label="breadcrumb">
                 <ol className="breadcrumb">
                   <li className="breadcrumb-item">

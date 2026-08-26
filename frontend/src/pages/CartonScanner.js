@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Button, Form, Alert, Badge, Table, ProgressBar } from 'react-bootstrap';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Quagga from 'quagga';
 import { API_BASE_URL } from '../config';
@@ -367,6 +367,7 @@ axios.interceptors.response.use(
  * Handles barcode scanning for carton entry and exit tracking
  */
 const CartonScanner = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [barcode, setBarcode] = useState('');
   const [barcodes, setBarcodes] = useState(''); // For batch scanning
@@ -1348,6 +1349,9 @@ const CartonScanner = () => {
       </div>
 
       <div className="mb-4">
+        <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i> Back
+        </button>
         <h1 className="text-gradient mb-0">Carton Scanner</h1>
       </div>
       

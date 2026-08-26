@@ -288,6 +288,9 @@ const LegacyWarehouseGoods = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
         <div>
           <h1 className="text-gradient mb-1">Legacy Warehouse Stock</h1>

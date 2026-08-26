@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
@@ -57,6 +57,7 @@ const validateMrpgFile = (selectedFile) => {
 };
 
 const FileUpload = () => {
+  const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [bulkItems, setBulkItems] = useState([]);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -857,6 +858,9 @@ const FileUpload = () => {
   return (
     <div className="py-2">
       <div className="mb-4">
+        <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i> Back
+        </button>
         <h1 className="text-gradient mb-0">Import XML File</h1>
       </div>
 
