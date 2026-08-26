@@ -13,17 +13,7 @@ const ModernHeader = ({ toggleSidebar }) => {
     switch (path) {
       case '/': return { title: '', subtitle: '' };
       case '/pos': return { title: '', subtitle: '' };
-      case '/upload': return { title: 'Import Data', subtitle: 'Upload and process shipment files' };
-      case '/settings': return { title: 'Settings', subtitle: 'User management and system configuration' };
-      case '/legacy-warehouse': return { title: '', subtitle: '' };
-      case '/manual-entry': return { title: '', subtitle: '' };
-      case '/scanner': return { title: 'Barcode Scanner', subtitle: 'Scan cartons and update status' };
-      case '/stickers': return { title: 'Label Generator', subtitle: 'Generate shipping labels and stickers' };
-      case '/reports': return { title: 'Analytics & Reports', subtitle: 'View detailed reports and insights' };
-      default: 
-        if (path.startsWith('/shipment/')) return { title: 'Shipment Details', subtitle: 'View and manage shipment information' };
-        if (path.startsWith('/po/')) return { title: 'PO Details', subtitle: 'Purchase order analytics and tracking' };
-        return { title: 'Warehouse Tracking', subtitle: 'System navigation' };
+      default: return { title: '', subtitle: '' };
     }
   };
 
