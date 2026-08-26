@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 import { getInternalPoSortValue } from '../utils/poDisplay';
 
 const TruckShipment = () => {
+  const navigate = useNavigate();
   const [shipments, setShipments] = useState([]);
   const [availableOrders, setAvailableOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -144,6 +146,9 @@ const TruckShipment = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="text-gradient mb-0">Truck Shipment Management</h1>
         <button

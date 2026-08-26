@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Container, Row, Col, Card, Badge, Button, Form, 
   InputGroup, Spinner, Alert, ProgressBar, Dropdown,
@@ -26,6 +26,7 @@ const POManagement = () => {
   const { withAdminAuth } = useAdminAuth();
 
   // State management
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('internal_po_number');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -474,6 +475,9 @@ const POManagement = () => {
       )}
 
       {/* Header */}
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h1 className="display-6 mb-2">

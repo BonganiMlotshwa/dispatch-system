@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DailyEntryCharts from '../components/DailyEntryCharts';
 
 const DailyEntryReport = () => {
+  const navigate = useNavigate();
   const [filters] = useState({ period: 'all', startDate: '', endDate: '' });
 
   return (
     <div className="py-2">
       <div className="mb-4">
+        <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i> Back
+        </button>
         <h1 className="text-gradient mb-0">Daily Entry Report</h1>
         <p className="text-muted mt-2">
           Cartons and units entered into the warehouse daily, by customer

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Badge, InputGroup, Modal, Table, Spinner } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import JsBarcode from 'jsbarcode';
 import QRCode from 'react-qr-code';
 import { API_BASE_URL } from '../config';
 
 const StickerGenerator = () => {
+  const navigate = useNavigate();
   const [stickers, setStickers] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -651,6 +652,9 @@ const StickerGenerator = () => {
       `}</style>
 
       <div className="mb-4">
+        <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i> Back
+        </button>
         <h1 className="text-gradient mb-0">Sticker Generator</h1>
         <p className="text-muted mt-2">Generate and print individual stickers for cartons with filtering by FTM PO and PO number</p>
       </div>

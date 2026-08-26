@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Alert, Form, Table, Badge, Button, Modal } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 const TruckSummary = () => {
+  const navigate = useNavigate();
   const [trucks, setTrucks] = useState([]);
   const [summary, setSummary] = useState({ total_trucks: 0, total_cartons: 0, total_units: 0 });
   const [availableWeeks, setAvailableWeeks] = useState([]);
@@ -217,6 +219,9 @@ const TruckSummary = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
         <div>
           <h1 className="text-gradient mb-0">Truck Summary</h1>

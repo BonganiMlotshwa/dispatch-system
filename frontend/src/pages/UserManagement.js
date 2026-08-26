@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 const UserManagement = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -272,6 +274,9 @@ const UserManagement = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h1 className="text-gradient mb-0">User Management</h1>

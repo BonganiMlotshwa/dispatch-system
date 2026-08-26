@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
 const ScheduleDiagnostic = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,6 +52,9 @@ const ScheduleDiagnostic = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <h1 className="text-gradient mb-4">Schedule Linking Diagnostic</h1>
 
       {/* Summary */}

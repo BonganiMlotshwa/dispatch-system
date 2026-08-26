@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
 
 const weekNum = (label) => parseInt(String(label || '').match(/\d+/)?.[0] || '0', 10);
 
 const WeeklyAnalysis = () => {
+  const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data: dashboardData, loading, error, refetch } = useApi(`/dashboard_stats.php?refresh=${refreshKey > 0 ? 'true' : 'false'}`);
   const weeklyAnalysis = dashboardData?.stats?.weekly_analysis || [];
@@ -195,6 +196,9 @@ const WeeklyAnalysis = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
           <h1 className="text-gradient mb-0">Weekly Analysis</h1>

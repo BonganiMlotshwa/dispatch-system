@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import apiService from '../services/apiService';
 import { downloadCsv } from '../utils/csvExport';
 import { formatInternalPoDisplay, formatCustomerPoForDisplay } from '../utils/poDisplay';
 
 const DailySummary = () => {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const { data, loading, error, refetch } = useApi(`/daily_summary.php?date=${selectedDate}`);
 
@@ -266,6 +268,9 @@ const DailySummary = () => {
 
   return (
     <div className="py-2">
+      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+        <i className="bi bi-arrow-left me-1"></i> Back
+      </button>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="text-gradient mb-0">Daily Summary Report</h1>
         <div className="d-flex gap-2">

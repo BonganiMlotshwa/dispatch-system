@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Form, Alert, Table, Badge, Modal, Spinner, Tab, Tabs } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -13,6 +14,7 @@ const Reports = () => {
   const [timeBasedReports, setTimeBasedReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('comprehensive');
   const [timeBasedView, setTimeBasedView] = useState('list'); // 'list' or 'grid'
 
@@ -239,6 +241,9 @@ const Reports = () => {
   return (
     <div className="py-2">
       <div className="mb-4">
+        <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i> Back
+        </button>
         <h1 className="text-gradient mb-0">Reports</h1>
         <p className="text-muted mt-2">Comprehensive warehouse reports and analytics</p>
       </div>

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Form, Button, Alert, Table, Badge, Card } from 'react-bootstrap';
 
 const XmlGenerator = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     ftmPo: '',
     customerPo: '',
@@ -148,6 +150,9 @@ const XmlGenerator = () => {
   return (
     <div className="py-2">
       <div className="mb-4">
+        <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
+          <i className="bi bi-arrow-left me-1"></i> Back
+        </button>
         <h1 className="text-gradient mb-0">XML File Generator</h1>
         <p className="text-muted mt-2">Create XML files for label printing</p>
         <p className="text-muted small mb-0">
