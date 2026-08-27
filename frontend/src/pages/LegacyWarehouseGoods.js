@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Form, Button, Modal, Badge, Spinner, Alert, ProgressBar } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
@@ -14,17 +14,21 @@ const CUSTOMERS = ['MRP', 'OTB', 'OBSW', 'Other'];
 
 const LegacyWarehouseGoods = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { withAdminAuth } = useAdminAuth();
   const [items, setItems] = useState([]);
   const [statusCounts, setStatusCounts] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState({
-    status: 'active',
-    customer: '',
-    source_year: '',
-    in_warehouse_only: false,
-    search: ''
+  const [filters, setFilters] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return {
+      status: params.get('status') || 'active',
+      customer: '',
+      source_year: '',
+      in_warehouse_only: false,
+      search: ''
+    };
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -286,6 +290,160 @@ const LegacyWarehouseGoods = () => {
     );
   };
 
+  const renderTable = (rows) => (
+    <div className="modern-table-container">
+      <table className="modern-table warehouse-stock-table mb-0">
+        <thead>
+          <tr>
+            <th>Purchase order</th>
+            <th>Customer</th>
+            <th>Product</th>
+            <th className="text-end">Units</th>
+            <th style={{ minWidth: 140 }}>Cartons</th>
+            <th>Status</th>
+            <th className="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>
+                <div className="fw-semibold">{row.internal_po}</div>
+                {row.customer_order_number && (
+                  <div className="small text-muted">Order {row.customer_order_number}</div>
+                )}
+                {row.source_type === 'legacy' && (
+                  <Badge bg="secondary" className="mt-1">Manual sheet</Badge>
+                )}
+              </td>
+              <td>{row.customer || '—'}{row.customer === 'Other' && row.customer_other ? ` (${row.customer_other})` : ''}</td>
+              <td>
+                {formatCell(row.style) || formatCell(row.color) ? (
+                  <>
+                    <div>{row.style || '—'}</div>
+                    <div className="small text-muted">{row.color || ''}</div>
+                  </>
+                ) : (
+                  <span className="text-muted small">—</span>
+                )}
+                {row.source_type === 'legacy' && (row.remarks || row.new_developments) && (
+                  <div className="small text-muted mt-1 text-truncate" style={{ maxWidth: 220 }} title={[row.remarks, row.new_developments].filter(Boolean).join(' · ')}>
+                    {[row.remarks, row.new_developments].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </td>
+              <td className="text-end small">
+                <div><span className="text-muted">Order</span> {row.order_qty != null ? row.order_qty.toLocaleString() : '—'}</div>
+                <div><span className="text-muted">In WH</span> <strong>{row.quantity_inside != null ? row.quantity_inside.toLocaleString() : '—'}</strong></div>
+                <div><span className="text-muted">Shipped</span> {row.shipped_qty != null ? row.shipped_qty.toLocaleString() : '—'}</div>
+              </td>
+              <td>{renderCartonProgress(row)}</td>
+              <td style={{ minWidth: 160 }}>
+                <Form.Select
+                  size="sm"
+                  value={row.status}
+                  disabled={savingStatusId === row.id}
+                  onChange={(e) => handleStatusChange(row, e.target.value)}
+                  aria-label={`Status for ${row.internal_po}`}
+                >
+                  {Object.entries(LEGACY_STATUS_OPTIONS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </Form.Select>
+              </td>
+              <td className="text-end text-nowrap">
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  className="me-1"
+                  onClick={() => openEdit(row)}
+                >
+                  <i className={`bi ${row.source_type === 'system' ? 'bi-box-arrow-up-right' : 'bi-pencil'} me-1`}></i>
+                  {row.source_type === 'system' ? 'Open' : 'Edit'}
+                </Button>
+                {row.source_type === 'legacy' && (
+                  <Button variant="outline-danger" size="sm" onClick={() => handleDeleteClick(row)}>
+                    <i className="bi bi-trash"></i>
+                  </Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderShippedLegacyCard = (row) => (
+    <div key={row.id} className="col-12 col-md-6 col-xl-4">
+      <div className="modern-card h-100 border-success border-opacity-25">
+        <div className="modern-card-header d-flex justify-content-between align-items-center">
+          <div>
+            <div className="fw-semibold">{row.internal_po}</div>
+            {row.customer_order_number && (
+              <div className="small text-muted">Order {row.customer_order_number}</div>
+            )}
+          </div>
+          <span className="badge bg-success">Shipped</span>
+        </div>
+        <div className="modern-card-body">
+          <div className="mb-2">
+            <span className="fw-medium">{row.customer}{row.customer === 'Other' && row.customer_other ? ` (${row.customer_other})` : ''}</span>
+            {row.style && <div className="small mt-1">{row.style}</div>}
+            {row.color && <div className="small text-muted">{row.color}</div>}
+          </div>
+          <div className="row g-2 small mt-2">
+            {row.shipped_at && (
+              <div className="col-6">
+                <div className="text-muted">Shipped on</div>
+                <div className="fw-medium">{new Date(row.shipped_at).toLocaleDateString()}</div>
+              </div>
+            )}
+            {row.shipment_week && (
+              <div className="col-6">
+                <div className="text-muted">Week</div>
+                <div className="fw-medium">Wk {row.shipment_week}</div>
+              </div>
+            )}
+            {row.truck_reg && (
+              <div className="col-6">
+                <div className="text-muted">Truck</div>
+                <div className="fw-medium">{row.truck_reg}</div>
+              </div>
+            )}
+            {row.driver_name && (
+              <div className="col-6">
+                <div className="text-muted">Driver</div>
+                <div className="fw-medium">{row.driver_name}</div>
+              </div>
+            )}
+            {!row.shipped_at && !row.shipment_week && !row.truck_reg && !row.driver_name && (
+              <div className="col-12 text-muted fst-italic">No dispatch details recorded</div>
+            )}
+          </div>
+          {(row.cartons_count || row.shipped_qty) && (
+            <div className="mt-3 pt-2 border-top d-flex gap-3 small">
+              {row.cartons_count != null && (
+                <span><strong className="text-success">{row.cartons_count}</strong> <span className="text-muted">ctns</span></span>
+              )}
+              {row.shipped_qty != null && row.shipped_qty > 0 && (
+                <span><strong className="text-success">{row.shipped_qty.toLocaleString()}</strong> <span className="text-muted">units</span></span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="modern-card-body pt-0 d-flex justify-content-end gap-2" style={{ borderTop: '1px solid var(--gray-200)' }}>
+          <Button variant="outline-secondary" size="sm" onClick={() => openEdit(row)}>
+            <i className="bi bi-pencil me-1"></i> Edit
+          </Button>
+          <Button variant="outline-danger" size="sm" onClick={() => handleDeleteClick(row)}>
+            <i className="bi bi-trash"></i>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="py-2">
       <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
@@ -422,105 +580,54 @@ const LegacyWarehouseGoods = () => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="modern-card">
-        <div className="modern-card-body p-0">
-          {loading ? (
-            <div className="text-center py-5">
-              <Spinner animation="border" />
-              <p className="text-muted mt-2 mb-0">Loading…</p>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="text-center py-5 text-muted">
-              <i className="bi bi-inbox fs-1 d-block mb-2"></i>
-              No orders match your filters. Try <strong>Reset</strong> (clear source year), or view{' '}
-              <Link to="/pos">Purchase Orders</Link>.
-            </div>
-          ) : (
-            <div className="modern-table-container">
-              <table className="modern-table warehouse-stock-table mb-0">
-                <thead>
-                  <tr>
-                    <th>Purchase order</th>
-                    <th>Customer</th>
-                    <th>Product</th>
-                    <th className="text-end">Units</th>
-                    <th style={{ minWidth: 140 }}>Cartons</th>
-                    <th>Status</th>
-                    <th className="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <div className="fw-semibold">{row.internal_po}</div>
-                        {row.customer_order_number && (
-                          <div className="small text-muted">Order {row.customer_order_number}</div>
-                        )}
-                        {row.source_type === 'legacy' && (
-                          <Badge bg="secondary" className="mt-1">Manual sheet</Badge>
-                        )}
-                      </td>
-                      <td>{row.customer || '—'}{row.customer === 'Other' && row.customer_other ? ` (${row.customer_other})` : ''}</td>
-                      <td>
-                        {formatCell(row.style) || formatCell(row.color) ? (
-                          <>
-                            <div>{row.style || '—'}</div>
-                            <div className="small text-muted">{row.color || ''}</div>
-                          </>
-                        ) : (
-                          <span className="text-muted small">—</span>
-                        )}
-                        {row.source_type === 'legacy' && (row.remarks || row.new_developments) && (
-                          <div className="small text-muted mt-1 text-truncate" style={{ maxWidth: 220 }} title={[row.remarks, row.new_developments].filter(Boolean).join(' · ')}>
-                            {[row.remarks, row.new_developments].filter(Boolean).join(' · ')}
-                          </div>
-                        )}
-                      </td>
-                      <td className="text-end small">
-                        <div><span className="text-muted">Order</span> {row.order_qty != null ? row.order_qty.toLocaleString() : '—'}</div>
-                        <div><span className="text-muted">In WH</span> <strong>{row.quantity_inside != null ? row.quantity_inside.toLocaleString() : '—'}</strong></div>
-                        <div><span className="text-muted">Shipped</span> {row.shipped_qty != null ? row.shipped_qty.toLocaleString() : '—'}</div>
-                      </td>
-                      <td>{renderCartonProgress(row)}</td>
-                      <td style={{ minWidth: 160 }}>
-                        <Form.Select
-                          size="sm"
-                          value={row.status}
-                          disabled={savingStatusId === row.id}
-                          onChange={(e) => handleStatusChange(row, e.target.value)}
-                          aria-label={`Status for ${row.internal_po}`}
-                        >
-                          {Object.entries(LEGACY_STATUS_OPTIONS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                          ))}
-                        </Form.Select>
-                      </td>
-                      <td className="text-end text-nowrap">
-                        <Button
-                          variant="outline-primary"
-                          size="sm"
-                          className="me-1"
-                          onClick={() => openEdit(row)}
-                        >
-                          <i className={`bi ${row.source_type === 'system' ? 'bi-box-arrow-up-right' : 'bi-pencil'} me-1`}></i>
-                          {row.source_type === 'system' ? 'Open' : 'Edit'}
-                        </Button>
-                        {row.source_type === 'legacy' && (
-                          <Button variant="outline-danger" size="sm" onClick={() => handleDeleteClick(row)}>
-                            <i className="bi bi-trash"></i>
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      {/* Main content: cards for shipped legacy, table for everything else */}
+      {loading ? (
+        <div className="modern-card">
+          <div className="modern-card-body text-center py-5">
+            <Spinner animation="border" />
+            <p className="text-muted mt-2 mb-0">Loading…</p>
+          </div>
         </div>
-      </div>
+      ) : items.length === 0 ? (
+        <div className="modern-card">
+          <div className="modern-card-body text-center py-5 text-muted">
+            <i className="bi bi-inbox fs-1 d-block mb-2"></i>
+            No orders match your filters. Try <strong>Reset</strong> (clear source year), or view{' '}
+            <Link to="/pos">Purchase Orders</Link>.
+          </div>
+        </div>
+      ) : filters.status === 'shipped' ? (() => {
+        const legacyShipped = items.filter(r => r.source_type === 'legacy');
+        const systemShipped = items.filter(r => r.source_type === 'system');
+        return (
+          <>
+            {legacyShipped.length > 0 && (
+              <div className="mb-4">
+                <h5 className="mb-3"><i className="bi bi-box-arrow-right me-2 text-success"></i>Legacy orders shipped <span className="text-muted fw-normal small">({legacyShipped.length})</span></h5>
+                <div className="row g-3">
+                  {legacyShipped.map(renderShippedLegacyCard)}
+                </div>
+              </div>
+            )}
+            {systemShipped.length > 0 && (
+              <div>
+                <h5 className="mb-3"><i className="bi bi-diagram-3 me-2 text-primary"></i>System orders shipped <span className="text-muted fw-normal small">({systemShipped.length})</span></h5>
+                <div className="modern-card">
+                  <div className="modern-card-body p-0">
+                    {renderTable(systemShipped)}
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })() : (
+        <div className="modern-card">
+          <div className="modern-card-body p-0">
+            {renderTable(items)}
+          </div>
+        </div>
+      )}
 
       {/* Ship truck details modal */}
       <Modal show={showShipModal} onHide={() => { setShowShipModal(false); setPendingShipRow(null); }} centered>

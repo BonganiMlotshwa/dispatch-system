@@ -72,24 +72,36 @@ try {
         FROM cartons c");
     $combined = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Get legacy warehouse goods statistics - COUNT ALL STATUSES
-    $legacyStats = ['orders' => 0, 'cartons' => 0, 'units' => 0];
+    // Get legacy warehouse goods statistics — totals + per-status breakdown
+    $legacyStats = ['orders' => 0, 'cartons' => 0, 'units' => 0, 'by_status' => []];
     $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'legacy_warehouse_goods'")->fetch();
     if ($legacyTableExists) {
-        // Query counts all legacy orders regardless of status for complete historical tracking
-        $stmt = $pdo->query("SELECT 
+        $statusRows = $pdo->query("SELECT
+            status,
             COUNT(*) as orders_count,
             COALESCE(SUM(cartons_count), 0) as total_cartons,
             COALESCE(SUM(quantity_inside), 0) as total_units
-            FROM legacy_warehouse_goods");
-        $legacy = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($legacy) {
-            $legacyStats = [
-                'orders' => (int)$legacy['orders_count'],
-                'cartons' => (int)$legacy['total_cartons'],
-                'units' => (int)$legacy['total_units']
+            FROM legacy_warehouse_goods
+            GROUP BY status");
+        $byStatus = [];
+        $totOrders = 0; $totCartons = 0; $totUnits = 0;
+        while ($sRow = $statusRows->fetch(PDO::FETCH_ASSOC)) {
+            $st = $sRow['status'];
+            $byStatus[$st] = [
+                'orders'  => (int)$sRow['orders_count'],
+                'cartons' => (int)$sRow['total_cartons'],
+                'units'   => (int)$sRow['total_units'],
             ];
+            $totOrders  += (int)$sRow['orders_count'];
+            $totCartons += (int)$sRow['total_cartons'];
+            $totUnits   += (int)$sRow['total_units'];
         }
+        $legacyStats = [
+            'orders'    => $totOrders,
+            'cartons'   => $totCartons,
+            'units'     => $totUnits,
+            'by_status' => $byStatus,
+        ];
     }
     
     $stats['totals'] = [

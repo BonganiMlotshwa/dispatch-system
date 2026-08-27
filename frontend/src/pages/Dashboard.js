@@ -453,6 +453,50 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Row 4: legacy status breakdown */}
+          <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
+            <div className="col-6 col-lg-3">
+              <Link to="/legacy-warehouse?status=active" className="text-decoration-none d-flex w-100">
+                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #f59e0b' }}>
+                  <div className="dashboard-stat-label"><i className="bi bi-building me-2"></i>In Factory (Legacy)</div>
+                  <div className="dashboard-stat-number text-warning">
+                    {dashboardData.stats?.legacy_warehouse?.by_status?.active?.orders ?? 0}
+                  </div>
+                </div>
+              </Link>
+            </div>
+            <div className="col-6 col-lg-3">
+              <Link to="/legacy-warehouse?status=shipped" className="text-decoration-none d-flex w-100">
+                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #10b981' }}>
+                  <div className="dashboard-stat-label"><i className="bi bi-truck me-2"></i>Shipped (Legacy)</div>
+                  <div className="dashboard-stat-number text-success">
+                    {dashboardData.stats?.legacy_warehouse?.by_status?.shipped?.orders ?? 0}
+                  </div>
+                </div>
+              </Link>
+            </div>
+            <div className="col-6 col-lg-3">
+              <Link to="/legacy-warehouse?status=waiting_for_booking" className="text-decoration-none d-flex w-100">
+                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #3b82f6' }}>
+                  <div className="dashboard-stat-label"><i className="bi bi-hourglass-split me-2"></i>Waiting Booking (Legacy)</div>
+                  <div className="dashboard-stat-number text-primary">
+                    {dashboardData.stats?.legacy_warehouse?.by_status?.waiting_for_booking?.orders ?? 0}
+                  </div>
+                </div>
+              </Link>
+            </div>
+            <div className="col-6 col-lg-3">
+              <Link to="/legacy-warehouse?status=cancelled" className="text-decoration-none d-flex w-100">
+                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #ef4444' }}>
+                  <div className="dashboard-stat-label"><i className="bi bi-x-circle me-2"></i>Cancelled (Legacy)</div>
+                  <div className="dashboard-stat-number text-danger">
+                    {dashboardData.stats?.legacy_warehouse?.by_status?.cancelled?.orders ?? 0}
+                  </div>
+                </div>
+              </Link>
+            </div>
+          </div>
+
           {/* Charts Row - Quick Stats + Carton Status/Data Completeness */}
           <div className="row g-3 g-md-4 mb-4">
             {/* Left Half - Quick Stats */}

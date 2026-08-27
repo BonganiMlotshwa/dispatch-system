@@ -129,6 +129,36 @@ try {
 
 
 
+    // Legacy goods shipped on this date
+    $legacyShipped = [];
+    $legacyShippedTotals = ['orders' => 0, 'cartons' => 0, 'units' => 0];
+    $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'legacy_warehouse_goods'")->fetch();
+    if ($legacyTableExists) {
+        $truckTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipments'")->fetch();
+        $truckJoin = $truckTableExists
+            ? 'LEFT JOIN truck_shipments ts ON ts.id = l.truck_shipment_id'
+            : '';
+        $truckCols = $truckTableExists
+            ? ', ts.truck_reg, ts.driver_name'
+            : ', NULL AS truck_reg, NULL AS driver_name';
+
+        $legacyStmt = $pdo->prepare(
+            "SELECT l.internal_po, l.customer_order_number, l.customer, l.style, l.color,
+                    l.cartons_count, l.shipped_qty, l.shipped_at, l.shipment_week
+                    {$truckCols}
+             FROM legacy_warehouse_goods l {$truckJoin}
+             WHERE DATE(l.shipped_at) = ?
+             ORDER BY l.internal_po ASC"
+        );
+        $legacyStmt->execute([$date]);
+        $legacyShipped = $legacyStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($legacyShipped as $row) {
+            $legacyShippedTotals['orders']++;
+            $legacyShippedTotals['cartons'] += (int)($row['cartons_count'] ?? 0);
+            $legacyShippedTotals['units']   += (int)($row['shipped_qty'] ?? 0);
+        }
+    }
+
     echo json_encode([
 
         'success' => true,
@@ -137,7 +167,11 @@ try {
 
         'pos' => $poSummary,
 
-        'totals' => $totals
+        'totals' => $totals,
+
+        'legacy_shipped' => $legacyShipped,
+
+        'legacy_shipped_totals' => $legacyShippedTotals,
 
     ]);
 

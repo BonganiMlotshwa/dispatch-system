@@ -51,7 +51,19 @@ try {
             array_push($lp, $q, $q, $q, $q, $q, $q);
         }
 
-        $stmt = $pdo->prepare('SELECT l.* FROM legacy_warehouse_goods l WHERE ' . implode(' AND ', $lw));
+        $truckTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipments'")->fetch();
+        $truckJoin = $truckTableExists
+            ? 'LEFT JOIN truck_shipments ts ON ts.id = l.truck_shipment_id'
+            : '';
+        $truckCols = $truckTableExists
+            ? ', ts.truck_reg, ts.driver_name'
+            : ', NULL AS truck_reg, NULL AS driver_name';
+
+        $stmt = $pdo->prepare(
+            'SELECT l.*' . $truckCols .
+            ' FROM legacy_warehouse_goods l ' . $truckJoin .
+            ' WHERE ' . implode(' AND ', $lw)
+        );
         $stmt->execute($lp);
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $st = normalizeLegacyWarehouseStatus($row['status']);
@@ -85,6 +97,11 @@ try {
                 'new_developments' => $row['new_developments'],
                 'source_year' => $row['source_year'],
                 'entry_type' => 'manual_legacy',
+                'shipped_at' => $row['shipped_at'] ?? null,
+                'shipment_week' => $row['shipment_week'] ?? null,
+                'truck_shipment_id' => !empty($row['truck_shipment_id']) ? (int)$row['truck_shipment_id'] : null,
+                'truck_reg' => $row['truck_reg'] ?? null,
+                'driver_name' => $row['driver_name'] ?? null,
             ];
         }
     }

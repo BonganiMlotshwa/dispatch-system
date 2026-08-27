@@ -49,6 +49,30 @@ const DailySummary = () => {
       ]
     ];
 
+    if (data?.legacy_shipped?.length > 0) {
+      rows.push([], ['Legacy Orders Shipped Today', selectedDate], []);
+      rows.push(['FTM PO', 'Customer Order', 'Customer', 'Style', 'Colour', 'Cartons', 'Units Shipped', 'Week', 'Truck', 'Driver']);
+      data.legacy_shipped.forEach(r => {
+        rows.push([
+          r.internal_po || '',
+          r.customer_order_number || '',
+          r.customer || '',
+          r.style || '',
+          r.color || '',
+          r.cartons_count || 0,
+          r.shipped_qty || 0,
+          r.shipment_week || '',
+          r.truck_reg || '',
+          r.driver_name || '',
+        ]);
+      });
+      rows.push(['Total', '', '', '', '',
+        data.legacy_shipped_totals?.cartons || 0,
+        data.legacy_shipped_totals?.units || 0,
+        '', '', ''
+      ]);
+    }
+
     downloadCsv(`daily-summary-${selectedDate}.csv`, rows);
   };
 
@@ -184,6 +208,48 @@ const DailySummary = () => {
           </tbody>
         </table>
         
+        ${data?.legacy_shipped?.length > 0 ? `
+        <h2 style="margin-top: 40px; font-size: 18px;">Legacy Orders Shipped — ${selectedDate}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>FTM PO</th>
+              <th>Customer Order</th>
+              <th>Customer</th>
+              <th>Style</th>
+              <th>Colour</th>
+              <th style="text-align:right;">Cartons</th>
+              <th style="text-align:right;">Units Shipped</th>
+              <th>Week</th>
+              <th>Truck</th>
+              <th>Driver</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.legacy_shipped.map(r => `
+              <tr>
+                <td>${r.internal_po || ''}</td>
+                <td>${r.customer_order_number || ''}</td>
+                <td>${r.customer || ''}</td>
+                <td>${r.style || ''}</td>
+                <td>${r.color || ''}</td>
+                <td style="text-align:right;">${r.cartons_count || 0}</td>
+                <td style="text-align:right;">${(r.shipped_qty || 0).toLocaleString()}</td>
+                <td>${r.shipment_week ? 'Wk ' + r.shipment_week : ''}</td>
+                <td>${r.truck_reg || ''}</td>
+                <td>${r.driver_name || ''}</td>
+              </tr>
+            `).join('')}
+            <tr class="total-row">
+              <td colspan="5">Total</td>
+              <td style="text-align:right;">${data.legacy_shipped_totals?.cartons || 0}</td>
+              <td style="text-align:right;">${(data.legacy_shipped_totals?.units || 0).toLocaleString()}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tbody>
+        </table>
+        ` : ''}
+
         <div class="footer">
           <p style="margin-top: 40px; margin-bottom: 10px; border-top: 1px solid #ddd; padding-top: 20px;">
             <strong>Signature Section</strong>
@@ -372,6 +438,65 @@ const DailySummary = () => {
               </table>
             </div>
           </div>
+
+          {/* Legacy orders shipped today */}
+          {data?.legacy_shipped?.length > 0 && (
+            <div className="modern-card mt-4">
+              <div className="modern-card-header">
+                <h5 className="mb-0">
+                  <i className="bi bi-truck me-2 text-success"></i>
+                  Legacy Orders Shipped on {new Date(selectedDate).toLocaleDateString()}
+                </h5>
+                <p className="small text-muted mb-0 mt-1">
+                  {data.legacy_shipped_totals.orders} order{data.legacy_shipped_totals.orders !== 1 ? 's' : ''} · {data.legacy_shipped_totals.cartons} cartons · {data.legacy_shipped_totals.units.toLocaleString()} units
+                </p>
+              </div>
+              <div className="modern-card-body p-0">
+                <div className="table-responsive">
+                  <table className="table-modern mb-0">
+                    <thead>
+                      <tr>
+                        <th>FTM PO</th>
+                        <th>Customer Order</th>
+                        <th>Customer</th>
+                        <th>Style / Colour</th>
+                        <th className="text-end">Cartons</th>
+                        <th className="text-end">Units Shipped</th>
+                        <th>Week</th>
+                        <th>Truck</th>
+                        <th>Driver</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.legacy_shipped.map((r, i) => (
+                        <tr key={i}>
+                          <td className="fw-medium">{r.internal_po}</td>
+                          <td className="text-muted small">{r.customer_order_number || '—'}</td>
+                          <td>{r.customer || '—'}</td>
+                          <td>
+                            {r.style && <div>{r.style}</div>}
+                            {r.color && <div className="small text-muted">{r.color}</div>}
+                            {!r.style && !r.color && <span className="text-muted">—</span>}
+                          </td>
+                          <td className="text-end">{r.cartons_count || '—'}</td>
+                          <td className="text-end">{r.shipped_qty ? r.shipped_qty.toLocaleString() : '—'}</td>
+                          <td>{r.shipment_week ? `Wk ${r.shipment_week}` : '—'}</td>
+                          <td>{r.truck_reg || '—'}</td>
+                          <td>{r.driver_name || '—'}</td>
+                        </tr>
+                      ))}
+                      <tr className="table-active fw-bold">
+                        <td colSpan="4">Total</td>
+                        <td className="text-end">{data.legacy_shipped_totals.cartons}</td>
+                        <td className="text-end">{data.legacy_shipped_totals.units.toLocaleString()}</td>
+                        <td colSpan="3"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Signature Section */}
           <div className="modern-card mt-5 print-only" style={{ borderTop: '3px solid #dee2e6' }}>
