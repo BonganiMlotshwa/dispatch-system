@@ -225,7 +225,7 @@ function recordLegacyOutboundShip(
     }
 
     $truckReg = trim((string)($truckReg ?: 'LEGACY'));
-    $driverName = trim((string)($driverName ?: 'Legacy stock'));
+    $driverName = trim((string)($driverName ?: 'Previous Year stock'));
     $shipmentDate = $shipmentDate ?: date('Y-m-d');
     $shipmentWeek = $shipmentWeek ?: formatShipmentWeek($shipmentDate);
 
@@ -238,7 +238,7 @@ function recordLegacyOutboundShip(
         $unitsShipped = (int)($row['quantity_inside'] ?? 0);
     }
 
-    $remarks = 'Legacy: ' . ($row['internal_po'] ?? ('#' . $legacyId));
+    $remarks = 'Prev. Year: ' . ($row['internal_po'] ?? ('#' . $legacyId));
     $truckShipmentId = getOrCreateTruckShipmentForDispatch($pdo, $truckReg, $driverName, $shipmentDate, $shipmentWeek, $remarks);
 
     $snapshotPo     = $row['internal_po'] ?? null;
@@ -280,7 +280,7 @@ function recordLegacyOutboundShip(
     if (legacyShipmentColumnsExist($pdo)) {
         $stmtUp = $pdo->prepare('
             UPDATE legacy_warehouse_goods
-            SET shipment_week = ?, shipped_at = COALESCE(shipped_at, NOW()), truck_shipment_id = ?
+            SET status = \'shipped\', shipment_week = ?, shipped_at = COALESCE(shipped_at, NOW()), truck_shipment_id = ?
             WHERE id = ?
         ');
         $stmtUp->execute([$shipmentWeek, $truckShipmentId, $legacyId]);

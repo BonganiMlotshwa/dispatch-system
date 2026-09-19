@@ -328,11 +328,11 @@ const ManualEntry = () => {
               <hr className="my-3" />
               <p className="small fw-semibold mb-2">Prior-year stock still in warehouse? (Spec 1.5)</p>
               <p className="small text-muted mb-2">
-                Cancelled, failed audit, waiting for booking, not audited, etc. — use the legacy tracker (not this form).
+                Cancelled, failed audit, waiting for booking, not audited, etc. — use the Previous Year Orders tracker (not this form).
               </p>
               <Link to="/legacy-warehouse" className="btn btn-sm btn-outline-primary w-100">
                 <i className="bi bi-archive me-1"></i>
-                Legacy Warehouse Stock
+                Previous Year Orders
               </Link>
             </div>
           </div>

@@ -64,7 +64,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     { path: '/manual-entry', icon: 'bi-pencil-square', label: 'Manual Entry', badge: null },
 
-    { path: '/legacy-warehouse', icon: 'bi-archive', label: 'Legacy Warehouse Stock', badge: null },
+    { path: '/legacy-warehouse', icon: 'bi-archive', label: 'Previous Year Orders', badge: null },
 
     { path: '/xml-generator', icon: 'bi-file-earmark-code', label: 'XML Generator', badge: null, hidden: true },
 

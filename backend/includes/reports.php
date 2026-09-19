@@ -299,7 +299,7 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
         if (!$hideSize) {
             $header[] = 'Size';
         }
-        $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan In Time', 'Scan Out Time', 'Notes']);
+        $header = array_merge($header, ['Units', 'Item', 'Status', 'Scan In Time', 'Scan Out Time', 'Scanned By', 'Notes']);
         $csvData[] = $header;
         
         foreach ($cartons as $carton) {
@@ -321,6 +321,7 @@ function generateShipmentCsvReport($shipmentId, $pdo) {
             ]);
             $row[] = cartonEntryReportTime($carton);
             $row[] = cartonExitReportTime($carton);
+            $row[] = $carton['scanned_by'] ?? '';
             $row[] = $carton['notes'] ?? '';
             $csvData[] = $row;
         }
@@ -444,7 +445,7 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
         }
         echo "<th>Units</th>";
         echo "<th>Status</th>";
-        echo "<th>Scan In Time</th><th>Scan Out Time</th>";
+        echo "<th>Scan In Time</th><th>Scan Out Time</th><th>Scanned By</th>";
         echo "</tr>";
 
         $isManual = true;
@@ -463,7 +464,9 @@ function generateShipmentPdfReport($shipmentId, $pdo) {
                 echo "<td>" . ($carton['exit_timestamp'] ?? '—') . "</td>";
             } else {
                 echo "<td>" . ($carton['scan_timestamp'] ?? '—') . "</td>";
+                echo "<td>—</td>";
             }
+            echo "<td>" . htmlspecialchars($carton['scanned_by'] ?? '—') . "</td>";
             echo "</tr>";
         }
 
@@ -735,7 +738,7 @@ function getWarehouseInventory($pdo) {
                     l.customer,
                     l.internal_po as ftm_po,
                     l.customer_order_number as customer_po,
-                    'Legacy Stock' as file_name,
+                    'Prev. Year Stock' as file_name,
                     l.created_at as import_date,
                     COALESCE(l.cartons_count, 0) as total_cartons,
                     COALESCE(l.quantity_inside, 0) as total_units,
@@ -1470,7 +1473,7 @@ function generateInventoryCsvReport($pdo) {
         $csvData[] = array_merge(['Total Cartons in Warehouse', $inventoryData['total_cartons']], $pad);
         $csvData[] = array_merge(['Total Units in Warehouse',   $inventoryData['total_units']], $pad);
         $csvData[] = array_merge(['Total Active Orders',        $inventoryData['total_orders']], $pad);
-        $csvData[] = array_merge(['Total Legacy Orders',        $inventoryData['total_legacy_orders']], $pad);
+        $csvData[] = array_merge(['Total Previous Year Orders',  $inventoryData['total_legacy_orders']], $pad);
         $csvData[] = array_merge(['Maximum Days in Warehouse',  $inventoryData['max_days_in_warehouse']], $pad);
         $csvData[] = array_merge(['Average Days in Warehouse',  $inventoryData['avg_days_in_warehouse']], $pad);
         $csvData[] = array_merge(['Report Generated',           $inventoryData['generated_at']], $pad);
@@ -1535,7 +1538,7 @@ function generateInventoryPdfReport($pdo) {
         echo "<div class='summary-item'><strong>Total Cartons in Warehouse:</strong> " . number_format($inventoryData['total_cartons']) . "</div>";
         echo "<div class='summary-item'><strong>Total Units in Warehouse:</strong> " . number_format($inventoryData['total_units']) . "</div>";
         echo "<div class='summary-item'><strong>Total Active Orders:</strong> " . number_format($inventoryData['total_orders']) . "</div>";
-        echo "<div class='summary-item'><strong>Total Legacy Orders:</strong> " . number_format($inventoryData['total_legacy_orders']) . "</div>";
+        echo "<div class='summary-item'><strong>Total Previous Year Orders:</strong> " . number_format($inventoryData['total_legacy_orders']) . "</div>";
         echo "<div class='summary-item'><strong>Maximum Days in Warehouse:</strong> " . $inventoryData['max_days_in_warehouse'] . " days</div>";
         echo "<div class='summary-item'><strong>Average Days in Warehouse:</strong> " . $inventoryData['avg_days_in_warehouse'] . " days</div>";
         echo "</div>";

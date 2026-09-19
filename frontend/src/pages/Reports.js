@@ -555,7 +555,7 @@ const Reports = () => {
                       <div className="modern-card text-center">
                         <div className="modern-card-body">
                           <div className="fs-2 fw-bold text-secondary">{(warehouseInventory.total_legacy_orders || 0).toLocaleString()}</div>
-                          <div className="text-muted">Total Legacy Orders</div>
+                          <div className="text-muted">Total Prev. Year Orders</div>
                         </div>
                       </div>
                     </Col>

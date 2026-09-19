@@ -22,9 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/truck_shipment_helpers.php';
 
+// Year filter — defaults to current year, clamped to a reasonable range
+$currentYear = (int)date('Y');
+$year = isset($_GET['year']) ? (int)$_GET['year'] : $currentYear;
+if ($year < 2020 || $year > $currentYear + 1) $year = $currentYear;
+
 // Short cache time for dashboard stats
 $cacheDir = __DIR__ . '/../cache';
-$cacheFile = $cacheDir . '/dashboard_stats.json';
+$cacheFile = $cacheDir . '/dashboard_stats_' . $year . '.json';
 $cacheTime = 5; // Very short cache time - 5 seconds for real-time feel
 $cachingEnabled = true; // Re-enabled with very short cache
 
@@ -56,20 +61,23 @@ try {
     // Initialize statistics array
     $stats = [];
     
-    // Single optimized query for all counts and statistics including units
-    $stmt = $pdo->query("SELECT 
-        (SELECT COUNT(*) FROM shipments) as total_shipments,
-        (SELECT COUNT(*) FROM cartons) as total_cartons,
-        (SELECT COALESCE(SUM(CAST(units AS UNSIGNED)), 0) FROM cartons) as total_units,
-        SUM(CASE WHEN c.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
-        SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END) as entered_count,
-        SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END) as exited_count,
-        SUM(CASE WHEN c.status = 'pending' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END) as pending_units,
-        SUM(CASE WHEN c.status = 'entered' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END) as factory_units,
-        SUM(CASE WHEN c.status = 'exited' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END) as shipped_units,
-        SUM(CASE WHEN c.qc_number IS NULL THEN 1 ELSE 0 END) as missing_qc,
-        SUM(CASE WHEN c.finishing_number IS NULL THEN 1 ELSE 0 END) as missing_finishing
-        FROM cartons c");
+    // Single optimized query for all counts and statistics including units — scoped to $year
+    $stmt = $pdo->prepare("SELECT
+        (SELECT COUNT(*) FROM shipments WHERE YEAR(import_date) = ?) as total_shipments,
+        (SELECT COUNT(c2.id) FROM cartons c2 INNER JOIN shipments s2 ON s2.id = c2.shipment_id WHERE YEAR(s2.import_date) = ?) as total_cartons,
+        (SELECT COALESCE(SUM(CAST(c3.units AS UNSIGNED)), 0) FROM cartons c3 INNER JOIN shipments s3 ON s3.id = c3.shipment_id WHERE YEAR(s3.import_date) = ?) as total_units,
+        COALESCE(SUM(CASE WHEN c.status = 'pending' THEN 1 ELSE 0 END), 0) as pending_count,
+        COALESCE(SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END), 0) as entered_count,
+        COALESCE(SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END), 0) as exited_count,
+        COALESCE(SUM(CASE WHEN c.status = 'pending' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END), 0) as pending_units,
+        COALESCE(SUM(CASE WHEN c.status = 'entered' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END), 0) as factory_units,
+        COALESCE(SUM(CASE WHEN c.status = 'exited' THEN COALESCE(CAST(c.units AS UNSIGNED), 0) ELSE 0 END), 0) as shipped_units,
+        COALESCE(SUM(CASE WHEN c.qc_number IS NULL THEN 1 ELSE 0 END), 0) as missing_qc,
+        COALESCE(SUM(CASE WHEN c.finishing_number IS NULL THEN 1 ELSE 0 END), 0) as missing_finishing
+        FROM cartons c
+        INNER JOIN shipments s ON s.id = c.shipment_id
+        WHERE YEAR(s.import_date) = ?");
+    $stmt->execute([$year, $year, $year, $year]);
     $combined = $stmt->fetch(PDO::FETCH_ASSOC);
     
     // Get legacy warehouse goods statistics — totals + per-status breakdown
@@ -131,54 +139,62 @@ try {
         'missing_finishing' => (int)$combined['missing_finishing']
     ];
     
-    // Get recent shipments
-    $stmt = $pdo->query("SELECT 
-        s.id, 
-        s.internal_po_number, 
-        s.file_name, 
+    // Get recent shipments for selected year
+    $stmt = $pdo->prepare("SELECT
+        s.id,
+        s.internal_po_number,
+        s.file_name,
         s.import_date,
         COUNT(c.id) as carton_count,
         SUM(CASE WHEN c.status = 'entered' THEN 1 ELSE 0 END) as entered_count,
         SUM(CASE WHEN c.status = 'exited' THEN 1 ELSE 0 END) as exited_count
         FROM shipments s
         LEFT JOIN cartons c ON s.id = c.shipment_id
+        WHERE YEAR(s.import_date) = ?
         GROUP BY s.id
         ORDER BY s.import_date DESC
         LIMIT 5");
+    $stmt->execute([$year]);
     $recentShipments = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $stats['recent_shipments'] = $recentShipments;
     
-    // Get size distribution
-    $stmt = $pdo->query("SELECT 
-        size, 
-        COUNT(*) as count 
-        FROM cartons 
-        GROUP BY size 
+    // Get size distribution for selected year
+    $stmt = $pdo->prepare("SELECT
+        c.size,
+        COUNT(*) as count
+        FROM cartons c
+        INNER JOIN shipments s ON s.id = c.shipment_id
+        WHERE YEAR(s.import_date) = ?
+        GROUP BY c.size
         ORDER BY count DESC
         LIMIT 10");
+    $stmt->execute([$year]);
     $sizeDistribution = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $stats['size_distribution'] = $sizeDistribution;
     
-    // Get daily activity (last 7 days)
-    $stmt = $pdo->query("SELECT 
-        DATE(scan_timestamp) as date,
-        COUNT(CASE WHEN status = 'entered' THEN 1 END) as entered,
-        COUNT(CASE WHEN status = 'exited' THEN 1 END) as exited
-        FROM cartons 
-        WHERE scan_timestamp IS NOT NULL
-        AND scan_timestamp >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(scan_timestamp)
-        ORDER BY date ASC");
-    $dailyActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Get daily activity — last 7 scan days within selected year
+    $stmt = $pdo->prepare("SELECT
+        DATE(c.scan_timestamp) as date,
+        COUNT(CASE WHEN c.status = 'entered' THEN 1 END) as entered,
+        COUNT(CASE WHEN c.status = 'exited' THEN 1 END) as exited
+        FROM cartons c
+        INNER JOIN shipments s ON s.id = c.shipment_id
+        WHERE c.scan_timestamp IS NOT NULL
+        AND YEAR(s.import_date) = ?
+        GROUP BY DATE(c.scan_timestamp)
+        ORDER BY date DESC
+        LIMIT 7");
+    $stmt->execute([$year]);
+    $dailyActivity = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC));
     
     $stats['daily_activity'] = $dailyActivity;
 
     $scheduleTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'delivery_schedules'")->fetch();
     $stats['weekly_analysis'] = [];
     if ($scheduleTableExists) {
-        $stmt = $pdo->query("SELECT
+        $stmt = $pdo->prepare("SELECT
             ds.id,
             ds.week_label,
             ds.file_name,
@@ -198,9 +214,11 @@ try {
             FROM delivery_schedules ds
             LEFT JOIN shipments s ON s.schedule_id = ds.id
             LEFT JOIN cartons c ON c.shipment_id = s.id
+            WHERE YEAR(ds.imported_at) = ?
             GROUP BY ds.id, ds.week_label, ds.file_name, ds.order_count, ds.is_active, ds.imported_at
             ORDER BY ds.imported_at DESC, ds.id DESC
             LIMIT 12");
+        $stmt->execute([$year]);
         $weeklyAnalysis = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($weeklyAnalysis as &$week) {
             $week['id'] = (int)$week['id'];
@@ -234,6 +252,7 @@ try {
                 FROM truck_shipments ts
                 INNER JOIN truck_shipment_legacy_items tli ON tli.truck_shipment_id = ts.id
                 WHERE ts.shipment_week IS NOT NULL AND ts.shipment_week != ''
+                AND YEAR(ts.shipment_date) = {$year}
                 GROUP BY YEAR(ts.shipment_date), ts.shipment_week
             ) lg ON lg.ship_year = w.ship_year AND lg.shipment_week = w.shipment_week
         " : '';
@@ -255,6 +274,7 @@ try {
                     MIN(shipment_date) AS week_start, COUNT(*) AS truck_loads
                 FROM truck_shipments
                 WHERE shipment_week IS NOT NULL AND shipment_week != ''
+                AND YEAR(shipment_date) = {$year}
                 GROUP BY YEAR(shipment_date), shipment_week
             ) w
             LEFT JOIN (
@@ -264,6 +284,7 @@ try {
                 FROM truck_shipments ts
                 INNER JOIN cartons c ON c.truck_shipment_id = ts.id
                 WHERE ts.shipment_week IS NOT NULL AND ts.shipment_week != ''
+                AND YEAR(ts.shipment_date) = {$year}
                 GROUP BY YEAR(ts.shipment_date), ts.shipment_week
             ) sc ON sc.ship_year = w.ship_year AND sc.shipment_week = w.shipment_week
             {$legacySub}
@@ -287,6 +308,13 @@ try {
         $stats['weekly_outbound'] = $weeklyOutbound;
     }
     
+    // Available years for the year filter (derived from shipments table)
+    $yearRows = $pdo->query("SELECT DISTINCT YEAR(import_date) as y FROM shipments WHERE import_date IS NOT NULL ORDER BY y DESC");
+    $availableYears = array_map('intval', array_column($yearRows->fetchAll(PDO::FETCH_ASSOC), 'y'));
+    if (empty($availableYears)) $availableYears = [$currentYear];
+    $stats['available_years'] = $availableYears;
+    $stats['selected_year'] = $year;
+
     // Prepare response
     $response = json_encode([
         'success' => true,

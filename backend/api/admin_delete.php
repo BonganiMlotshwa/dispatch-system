@@ -69,7 +69,7 @@ try {
         case 'legacy_warehouse_goods':
             $stmt = $pdo->prepare('DELETE FROM legacy_warehouse_goods WHERE id = ?');
             $stmt->execute([$id]);
-            $message = 'Legacy warehouse entry deleted successfully';
+            $message = 'Previous year order deleted successfully';
             break;
             
         case 'user':

@@ -41,7 +41,7 @@ const LegacyWarehouseGoods = () => {
 
   const [showShipModal, setShowShipModal] = useState(false);
   const [pendingShipRow, setPendingShipRow] = useState(null);
-  const [shipForm, setShipForm] = useState({ truck_reg: '', driver_name: '', shipment_date: '', shipment_week: '' });
+  const [shipForm, setShipForm] = useState({ truck_reg: '', driver_name: '', shipment_date: '', shipment_week: '', customer: '' });
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -201,7 +201,7 @@ const LegacyWarehouseGoods = () => {
         id: row.source_id,
         internal_po: row.internal_po,
         customer_order_number: row.customer_order_number || '',
-        customer: row.customer || 'MRP',
+        customer: shipForm.customer || row.customer || 'MRP',
         customer_other: row.customer_other || '',
         style: row.style || '',
         color: row.color || '',
@@ -451,9 +451,9 @@ const LegacyWarehouseGoods = () => {
       </button>
       <div className="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
         <div>
-          <h1 className="text-gradient mb-1">Legacy Warehouse Stock</h1>
+          <h1 className="text-gradient mb-1">Previous Year Orders</h1>
           <p className="text-muted mb-0 small">
-            All warehouse orders — <strong>system POs</strong> (scanned/imported) and <strong>manual legacy</strong> rows.
+            All warehouse orders — <strong>system POs</strong> (scanned/imported) and <strong>previous year manual</strong> rows.
             Default filter shows <strong>Active</strong> orders. Use <strong>Add entry</strong> for spreadsheet-only prior-year stock.
           </p>
         </div>
@@ -603,7 +603,7 @@ const LegacyWarehouseGoods = () => {
           <>
             {legacyShipped.length > 0 && (
               <div className="mb-4">
-                <h5 className="mb-3"><i className="bi bi-box-arrow-right me-2 text-success"></i>Legacy orders shipped <span className="text-muted fw-normal small">({legacyShipped.length})</span></h5>
+                <h5 className="mb-3"><i className="bi bi-box-arrow-right me-2 text-success"></i>Previous Year Orders shipped <span className="text-muted fw-normal small">({legacyShipped.length})</span></h5>
                 <div className="row g-3">
                   {legacyShipped.map(renderShippedLegacyCard)}
                 </div>
@@ -676,6 +676,14 @@ const LegacyWarehouseGoods = () => {
                   placeholder="e.g. 32"
                 />
               </div>
+              <div className="col-12">
+                <Form.Label>Customer</Form.Label>
+                <Form.Control
+                  value={shipForm.customer}
+                  onChange={(e) => setShipForm(f => ({ ...f, customer: e.target.value }))}
+                  placeholder={pendingShipRow?.customer || 'Leave blank to keep existing'}
+                />
+              </div>
             </div>
           </Modal.Body>
           <Modal.Footer>
@@ -710,7 +718,7 @@ const LegacyWarehouseGoods = () => {
       {/* Add / Edit modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
         <Modal.Header closeButton>
-          <Modal.Title>{editingId ? 'Edit entry' : 'Add legacy warehouse entry'}</Modal.Title>
+          <Modal.Title>{editingId ? 'Edit entry' : 'Add previous year order'}</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSave}>
           <Modal.Body>

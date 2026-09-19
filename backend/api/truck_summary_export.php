@@ -49,6 +49,26 @@ try {
 
     $whereClause = count($whereConditions) > 0 ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
 
+    $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipment_legacy_items'")->fetch();
+    $legacyCartonsSub = $legacyTableExists
+        ? "COALESCE((SELECT SUM(tli.cartons_shipped) FROM truck_shipment_legacy_items tli WHERE tli.truck_shipment_id = ts.id), 0)"
+        : "0";
+    $legacyUnitsSub = $legacyTableExists
+        ? "COALESCE((SELECT SUM(tli.units_shipped) FROM truck_shipment_legacy_items tli WHERE tli.truck_shipment_id = ts.id), 0)"
+        : "0";
+    $legacyPosSub = $legacyTableExists
+        ? "COALESCE((SELECT COUNT(*) FROM truck_shipment_legacy_items tli WHERE tli.truck_shipment_id = ts.id), 0)"
+        : "0";
+    $legacyCustomersSub = $legacyTableExists
+        ? "COALESCE((SELECT GROUP_CONCAT(DISTINCT lg.customer ORDER BY lg.customer SEPARATOR ', ') FROM truck_shipment_legacy_items tli INNER JOIN legacy_warehouse_goods lg ON lg.id = tli.legacy_goods_id WHERE tli.truck_shipment_id = ts.id), '')"
+        : "''";
+    $legacyFirstScanSub = $legacyTableExists
+        ? "COALESCE((SELECT MIN(lg.shipped_at) FROM truck_shipment_legacy_items tli INNER JOIN legacy_warehouse_goods lg ON lg.id = tli.legacy_goods_id WHERE tli.truck_shipment_id = ts.id), NULL)"
+        : "NULL";
+    $legacyLastScanSub = $legacyTableExists
+        ? "COALESCE((SELECT MAX(lg.shipped_at) FROM truck_shipment_legacy_items tli INNER JOIN legacy_warehouse_goods lg ON lg.id = tli.legacy_goods_id WHERE tli.truck_shipment_id = ts.id), NULL)"
+        : "NULL";
+
     $sql = "
         SELECT
             ts.shipment_date,
@@ -56,12 +76,18 @@ try {
             ts.truck_reg,
             ts.driver_name,
             ts.remarks,
-            COUNT(DISTINCT c.id) as total_cartons,
-            COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as total_units,
-            COUNT(DISTINCT c.shipment_id) as total_pos,
+            COUNT(DISTINCT c.id) as system_cartons,
+            COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as system_units,
+            COUNT(DISTINCT c.shipment_id) as system_pos,
+            {$legacyCartonsSub} as legacy_cartons,
+            {$legacyUnitsSub} as legacy_units,
+            {$legacyPosSub} as legacy_pos,
             GROUP_CONCAT(DISTINCT s.customer ORDER BY s.customer SEPARATOR ', ') as customers,
+            {$legacyCustomersSub} as legacy_customers,
             MIN(c.exit_timestamp) as first_scan_out_time,
-            MAX(c.exit_timestamp) as last_scan_out_time
+            MAX(c.exit_timestamp) as last_scan_out_time,
+            {$legacyFirstScanSub} as legacy_first_scan,
+            {$legacyLastScanSub} as legacy_last_scan
         FROM truck_shipments ts
         LEFT JOIN cartons c ON c.truck_shipment_id = ts.id
         LEFT JOIN shipments s ON c.shipment_id = s.id
@@ -73,6 +99,23 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $trucks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($trucks as &$truck) {
+        $truck['total_cartons'] = (int)$truck['system_cartons'] + (int)$truck['legacy_cartons'];
+        $truck['total_units']   = (int)$truck['system_units']   + (int)$truck['legacy_units'];
+        $truck['total_pos']     = (int)$truck['system_pos']     + (int)$truck['legacy_pos'];
+        $truck['remarks']       = str_replace('Legacy: ', 'Prev. Year: ', $truck['remarks'] ?? '');
+        $sysC = $truck['customers'] ? array_filter(explode(', ', $truck['customers'])) : [];
+        $legC = $truck['legacy_customers'] ? array_filter(explode(', ', $truck['legacy_customers'])) : [];
+        $truck['customers'] = implode(', ', array_unique(array_merge($sysC, $legC))) ?: '-';
+        if (!$truck['first_scan_out_time'] && !empty($truck['legacy_first_scan'])) {
+            $truck['first_scan_out_time'] = $truck['legacy_first_scan'];
+        }
+        if (!$truck['last_scan_out_time'] && !empty($truck['legacy_last_scan'])) {
+            $truck['last_scan_out_time'] = $truck['legacy_last_scan'];
+        }
+    }
+    unset($truck);
 
     $totalTrucks = count($trucks);
     $totalCartons = array_sum(array_column($trucks, 'total_cartons'));

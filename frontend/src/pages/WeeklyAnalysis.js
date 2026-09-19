@@ -84,16 +84,16 @@ const WeeklyAnalysis = () => {
             <div className="col-6">
               <div className="text-muted small">Cartons shipped</div>
               <div className="fs-4 fw-bold text-success">{week.total_cartons}</div>
-              <div className="small text-muted">System: {week.cartons_shipped} · Legacy: {week.legacy_cartons}</div>
+              <div className="small text-muted">System: {week.cartons_shipped} · Prev. Year: {week.legacy_cartons}</div>
             </div>
             <div className="col-6">
               <div className="text-muted small">Units shipped</div>
               <div className="fs-4 fw-bold text-primary">{week.total_units.toLocaleString()}</div>
-              <div className="small text-muted">System: {week.units_shipped.toLocaleString()} · Legacy: {week.legacy_units.toLocaleString()}</div>
+              <div className="small text-muted">System: {week.units_shipped.toLocaleString()} · Prev. Year: {week.legacy_units.toLocaleString()}</div>
             </div>
             {week.legacy_orders > 0 && (
               <div className="col-12">
-                <div className="small text-muted">{week.legacy_orders} legacy order(s) included this week</div>
+                <div className="small text-muted">{week.legacy_orders} prev. year order(s) included this week</div>
               </div>
             )}
           </div>
@@ -114,9 +114,9 @@ const WeeklyAnalysis = () => {
             <th>Truck loads</th>
             <th>Cartons (total)</th>
             <th>System</th>
-            <th>Legacy</th>
+            <th>Prev. Year</th>
             <th>Units (total)</th>
-            <th>Legacy orders</th>
+            <th>Prev. Year Orders</th>
           </tr>
         </thead>
         <tbody>
@@ -168,14 +168,14 @@ const WeeklyAnalysis = () => {
                 </td>
                 <td className="small">{week.shipment_count}</td>
                 <td className="small">{week.order_count}</td>
-                <td className="fw-semibold text-primary">{week.received}</td>
-                <td className="text-primary">{(week.units_received || 0).toLocaleString()}</td>
-                <td className="text-info">{week.in_warehouse}</td>
-                <td className="text-info">{(week.units_in_warehouse || 0).toLocaleString()}</td>
-                <td className="text-warning">{week.pending_to_enter}</td>
-                <td className="text-warning">{(week.units_pending || 0).toLocaleString()}</td>
-                <td className="text-success">{week.shipped}</td>
-                <td className="text-success">{(week.units_shipped || 0).toLocaleString()}</td>
+                <td className="fw-semibold">{week.received}</td>
+                <td>{(week.units_received || 0).toLocaleString()}</td>
+                <td>{week.in_warehouse}</td>
+                <td>{(week.units_in_warehouse || 0).toLocaleString()}</td>
+                <td>{week.pending_to_enter}</td>
+                <td>{(week.units_pending || 0).toLocaleString()}</td>
+                <td>{week.shipped}</td>
+                <td>{(week.units_shipped || 0).toLocaleString()}</td>
                 <td>
                   <div className="d-flex align-items-center gap-2">
                     <div className="progress flex-grow-1" style={{ height: 6 }}>
@@ -270,7 +270,7 @@ const WeeklyAnalysis = () => {
                 <i className="bi bi-truck me-2 text-success"></i>
                 Outbound shipment weeks
               </h4>
-              <p className="text-muted small mb-3">Truck dispatches by week — system cartons + legacy orders shipped out.</p>
+              <p className="text-muted small mb-3">Truck dispatches by week — system cartons + previous year orders shipped out.</p>
               {viewMode === 'list' ? (
                 <div className="modern-card">
                   <div className="modern-card-body p-0">

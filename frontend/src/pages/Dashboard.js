@@ -34,11 +34,24 @@ ChartJS.register(
  * 
  * Displays system metrics and recent shipments
  */
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2];
+
 const Dashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
-  const { data: dashboardData, loading, error, refetch } = useApi(`/dashboard_stats.php?refresh=${refreshKey > 0 ? 'true' : 'false'}`);
+  const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
+  const { data: dashboardData, loading, error, refetch } = useApi(
+    `/dashboard_stats.php?refresh=${refreshKey > 0 ? 'true' : 'false'}&year=${selectedYear}`
+  );
   const { resolvedTheme } = useTheme();
   const [lastUpdate, setLastUpdate] = useState(new Date());
+
+  const handleYearChange = useCallback((yr) => {
+    if (yr === selectedYear) return;
+    apiService.clearCache?.();
+    setSelectedYear(yr);
+    setLastUpdate(new Date());
+  }, [selectedYear]);
   
   const isDark = resolvedTheme === 'dark';
 
@@ -306,6 +319,19 @@ const Dashboard = () => {
     <div className="py-2">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
+          {/* Year filter — above heading */}
+          <div className="d-flex align-items-center gap-1 mb-2">
+            {YEAR_OPTIONS.map(yr => (
+              <button
+                key={yr}
+                className={`btn btn-sm ${selectedYear === yr ? 'btn-primary' : 'btn-outline-secondary'}`}
+                style={{ minWidth: '60px', fontWeight: selectedYear === yr ? 600 : 400 }}
+                onClick={() => handleYearChange(yr)}
+              >
+                {yr}
+              </button>
+            ))}
+          </div>
           <h1 className="text-gradient mb-0">Dashboard</h1>
           <div className="small text-muted mt-1">
             <i className="bi bi-clock"></i> Last updated: {lastUpdate.toLocaleTimeString()}
@@ -367,8 +393,8 @@ const Dashboard = () => {
           <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
-                <div className="dashboard-stat-label">Total Cartons Expected</div>
-                <div className="dashboard-stat-number">{dashboardData.stats?.totals?.total_cartons || 0}</div>
+                <div className="dashboard-stat-label">Cartons In Warehouse</div>
+                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.entered || 0}</div>
               </div>
             </div>
             <div className="col-6 col-lg-3">
@@ -424,7 +450,7 @@ const Dashboard = () => {
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #8b5cf6' }}>
                 <div className="dashboard-stat-label">
-                  <i className="bi bi-archive me-2"></i>Legacy Orders
+                  <i className="bi bi-archive me-2"></i>Prev. Year Orders
                 </div>
                 <div className="dashboard-stat-number text-purple">{dashboardData.stats?.legacy_warehouse?.orders || 0}</div>
               </div>
@@ -432,7 +458,7 @@ const Dashboard = () => {
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #ec4899' }}>
                 <div className="dashboard-stat-label">
-                  <i className="bi bi-boxes me-2"></i>Legacy Cartons
+                  <i className="bi bi-boxes me-2"></i>Prev. Year Cartons
                 </div>
                 <div className="dashboard-stat-number text-pink">{dashboardData.stats?.legacy_warehouse?.cartons || 0}</div>
               </div>
@@ -440,7 +466,7 @@ const Dashboard = () => {
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #f59e0b' }}>
                 <div className="dashboard-stat-label">
-                  <i className="bi bi-box-seam me-2"></i>Legacy Units
+                  <i className="bi bi-box-seam me-2"></i>Prev. Year Units
                 </div>
                 <div className="dashboard-stat-number text-warning">{dashboardData.stats?.legacy_warehouse?.units?.toLocaleString() || 0}</div>
               </div>
@@ -453,14 +479,14 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Row 4: legacy status breakdown */}
+          {/* Row 4: prev year in-warehouse vs shipped */}
           <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
             <div className="col-6 col-lg-3">
-              <Link to="/legacy-warehouse?status=active" className="text-decoration-none d-flex w-100">
+              <Link to="/legacy-warehouse" className="text-decoration-none d-flex w-100">
                 <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #f59e0b' }}>
-                  <div className="dashboard-stat-label"><i className="bi bi-building me-2"></i>In Factory (Legacy)</div>
+                  <div className="dashboard-stat-label"><i className="bi bi-building me-2"></i>In Warehouse (Prev. Year)</div>
                   <div className="dashboard-stat-number text-warning">
-                    {dashboardData.stats?.legacy_warehouse?.by_status?.active?.orders ?? 0}
+                    {(dashboardData.stats?.legacy_warehouse?.orders ?? 0) - (dashboardData.stats?.legacy_warehouse?.by_status?.shipped?.orders ?? 0)}
                   </div>
                 </div>
               </Link>
@@ -468,7 +494,7 @@ const Dashboard = () => {
             <div className="col-6 col-lg-3">
               <Link to="/legacy-warehouse?status=shipped" className="text-decoration-none d-flex w-100">
                 <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #10b981' }}>
-                  <div className="dashboard-stat-label"><i className="bi bi-truck me-2"></i>Shipped (Legacy)</div>
+                  <div className="dashboard-stat-label"><i className="bi bi-truck me-2"></i>Shipped (Prev. Year)</div>
                   <div className="dashboard-stat-number text-success">
                     {dashboardData.stats?.legacy_warehouse?.by_status?.shipped?.orders ?? 0}
                   </div>
@@ -476,21 +502,11 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="col-6 col-lg-3">
-              <Link to="/legacy-warehouse?status=waiting_for_booking" className="text-decoration-none d-flex w-100">
-                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #3b82f6' }}>
-                  <div className="dashboard-stat-label"><i className="bi bi-hourglass-split me-2"></i>Waiting Booking (Legacy)</div>
-                  <div className="dashboard-stat-number text-primary">
-                    {dashboardData.stats?.legacy_warehouse?.by_status?.waiting_for_booking?.orders ?? 0}
-                  </div>
-                </div>
-              </Link>
-            </div>
-            <div className="col-6 col-lg-3">
-              <Link to="/legacy-warehouse?status=cancelled" className="text-decoration-none d-flex w-100">
-                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #ef4444' }}>
-                  <div className="dashboard-stat-label"><i className="bi bi-x-circle me-2"></i>Cancelled (Legacy)</div>
-                  <div className="dashboard-stat-number text-danger">
-                    {dashboardData.stats?.legacy_warehouse?.by_status?.cancelled?.orders ?? 0}
+              <Link to="/legacy-warehouse?status=shipped" className="text-decoration-none d-flex w-100">
+                <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #10b981' }}>
+                  <div className="dashboard-stat-label"><i className="bi bi-box-seam me-2"></i>Units Shipped (Prev. Year)</div>
+                  <div className="dashboard-stat-number text-success">
+                    {(dashboardData.stats?.legacy_warehouse?.by_status?.shipped?.units ?? 0).toLocaleString()}
                   </div>
                 </div>
               </Link>

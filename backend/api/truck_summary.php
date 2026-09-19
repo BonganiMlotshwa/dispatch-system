@@ -49,9 +49,25 @@ try {
     
     $whereClause = count($whereConditions) > 0 ? "WHERE " . implode(" AND ", $whereConditions) : "";
     
-    // Get truck shipments with carton counts
+    // Check whether the legacy items table exists
+    $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipment_legacy_items'")->fetch();
+
+    $legacyCartonsSub = $legacyTableExists
+        ? "COALESCE((SELECT SUM(tli.cartons_shipped) FROM truck_shipment_legacy_items tli WHERE tli.truck_shipment_id = ts.id), 0)"
+        : "0";
+    $legacyUnitsSub = $legacyTableExists
+        ? "COALESCE((SELECT SUM(tli.units_shipped) FROM truck_shipment_legacy_items tli WHERE tli.truck_shipment_id = ts.id), 0)"
+        : "0";
+    $legacyPosSub = $legacyTableExists
+        ? "COALESCE((SELECT COUNT(*) FROM truck_shipment_legacy_items tli WHERE tli.truck_shipment_id = ts.id), 0)"
+        : "0";
+    $legacyCustomersSub = $legacyTableExists
+        ? "COALESCE((SELECT GROUP_CONCAT(DISTINCT lg.customer ORDER BY lg.customer SEPARATOR ', ') FROM truck_shipment_legacy_items tli INNER JOIN legacy_warehouse_goods lg ON lg.id = tli.legacy_goods_id WHERE tli.truck_shipment_id = ts.id), '')"
+        : "''";
+
+    // Get truck shipments with carton counts — system + previous year combined
     $sql = "
-        SELECT 
+        SELECT
             ts.id,
             ts.shipment_date,
             ts.shipment_week,
@@ -59,10 +75,14 @@ try {
             ts.driver_name,
             ts.remarks,
             ts.created_at,
-            COUNT(DISTINCT c.id) as total_cartons,
-            COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as total_units,
-            COUNT(DISTINCT c.shipment_id) as total_pos,
-            GROUP_CONCAT(DISTINCT s.customer ORDER BY s.customer SEPARATOR ', ') as customers
+            COUNT(DISTINCT c.id) as system_cartons,
+            COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as system_units,
+            COUNT(DISTINCT c.shipment_id) as system_pos,
+            {$legacyCartonsSub} as legacy_cartons,
+            {$legacyUnitsSub} as legacy_units,
+            {$legacyPosSub} as legacy_pos,
+            GROUP_CONCAT(DISTINCT s.customer ORDER BY s.customer SEPARATOR ', ') as customers,
+            {$legacyCustomersSub} as legacy_customers
         FROM truck_shipments ts
         LEFT JOIN cartons c ON c.truck_shipment_id = ts.id
         LEFT JOIN shipments s ON c.shipment_id = s.id
@@ -70,11 +90,23 @@ try {
         GROUP BY ts.id, ts.shipment_date, ts.shipment_week, ts.truck_reg, ts.driver_name, ts.remarks, ts.created_at
         ORDER BY ts.shipment_date DESC, ts.created_at DESC
     ";
-    
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $trucks = $stmt->fetchAll();
-    
+
+    // Combine system + previous year totals per truck; normalise legacy remarks label
+    foreach ($trucks as &$truck) {
+        $truck['total_cartons'] = (int)$truck['system_cartons'] + (int)$truck['legacy_cartons'];
+        $truck['total_units']   = (int)$truck['system_units']   + (int)$truck['legacy_units'];
+        $truck['total_pos']     = (int)$truck['system_pos']     + (int)$truck['legacy_pos'];
+        $truck['remarks']       = str_replace('Legacy: ', 'Prev. Year: ', $truck['remarks'] ?? '');
+        $sysC = $truck['customers'] ? array_filter(explode(', ', $truck['customers'])) : [];
+        $legC = $truck['legacy_customers'] ? array_filter(explode(', ', $truck['legacy_customers'])) : [];
+        $truck['customers'] = implode(', ', array_unique(array_merge($sysC, $legC))) ?: '-';
+    }
+    unset($truck);
+
     // Get summary statistics
     $totalTrucks = count($trucks);
     $totalCartons = array_sum(array_column($trucks, 'total_cartons'));

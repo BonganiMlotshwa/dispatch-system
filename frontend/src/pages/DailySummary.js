@@ -50,7 +50,7 @@ const DailySummary = () => {
     ];
 
     if (data?.legacy_shipped?.length > 0) {
-      rows.push([], ['Legacy Orders Shipped Today', selectedDate], []);
+      rows.push([], ['Previous Year Orders Shipped Today', selectedDate], []);
       rows.push(['FTM PO', 'Customer Order', 'Customer', 'Style', 'Colour', 'Cartons', 'Units Shipped', 'Week', 'Truck', 'Driver']);
       data.legacy_shipped.forEach(r => {
         rows.push([
@@ -209,7 +209,7 @@ const DailySummary = () => {
         </table>
         
         ${data?.legacy_shipped?.length > 0 ? `
-        <h2 style="margin-top: 40px; font-size: 18px;">Legacy Orders Shipped — ${selectedDate}</h2>
+        <h2 style="margin-top: 40px; font-size: 18px;">Previous Year Orders Shipped — ${selectedDate}</h2>
         <table>
           <thead>
             <tr>
@@ -445,7 +445,7 @@ const DailySummary = () => {
               <div className="modern-card-header">
                 <h5 className="mb-0">
                   <i className="bi bi-truck me-2 text-success"></i>
-                  Legacy Orders Shipped on {new Date(selectedDate).toLocaleDateString()}
+                  Previous Year Orders Shipped on {new Date(selectedDate).toLocaleDateString()}
                 </h5>
                 <p className="small text-muted mb-0 mt-1">
                   {data.legacy_shipped_totals.orders} order{data.legacy_shipped_totals.orders !== 1 ? 's' : ''} · {data.legacy_shipped_totals.cartons} cartons · {data.legacy_shipped_totals.units.toLocaleString()} units

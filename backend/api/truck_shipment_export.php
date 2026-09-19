@@ -63,7 +63,31 @@ try {
     if (count($directCartons) > 0) {
         $items = $directCartons;
     }
-    
+
+    // Append previous year (legacy) items linked to this truck
+    $legacyTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipment_legacy_items'")->fetch();
+    if ($legacyTableExists) {
+        $stmt = $pdo->prepare("
+            SELECT
+                COALESCE(lg.customer, 'Prev. Year') as customer,
+                lg.internal_po as internal_po_number,
+                lg.style,
+                lg.color,
+                lg.order_qty,
+                tli.cartons_shipped,
+                tli.units_shipped,
+                lg.created_at as first_scan_out_time,
+                COALESCE(lg.shipped_at, lg.created_at) as last_scan_out_time
+            FROM truck_shipment_legacy_items tli
+            INNER JOIN legacy_warehouse_goods lg ON lg.id = tli.legacy_goods_id
+            WHERE tli.truck_shipment_id = ?
+            ORDER BY lg.customer, lg.internal_po
+        ");
+        $stmt->execute([$id]);
+        $legacyItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $items = array_merge($items, $legacyItems);
+    }
+
     if ($format === 'csv') {
         $filename = 'truck_shipment_' . preg_replace('/[^A-Za-z0-9_-]/', '_', $shipment['truck_reg']) . '_' . $shipment['shipment_date'] . '.csv';
         $rows = [
