@@ -511,6 +511,20 @@ const Dashboard = () => {
                 </div>
               </Link>
             </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #6366f1' }}>
+                <div className="dashboard-stat-label"><i className="bi bi-send-check me-2"></i>Total Units Shipped</div>
+                <div className="dashboard-stat-number" style={{ color: '#6366f1' }}>
+                  {(
+                    (dashboardData.stats?.unit_counts?.shipped_units ?? 0) +
+                    (dashboardData.stats?.legacy_warehouse?.by_status?.shipped?.units ?? 0)
+                  ).toLocaleString()}
+                </div>
+                <div className="small text-muted mt-1">
+                  System + Prev. Year
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Charts Row - Quick Stats + Carton Status/Data Completeness */}
