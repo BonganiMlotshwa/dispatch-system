@@ -90,16 +90,19 @@ function scheduleReadSharedStrings(ZipArchive $zip): array
     return $strings;
 }
 
-function scheduleReadSheetRows(ZipArchive $zip, array $sharedStrings): array
+function scheduleReadSheetRows(ZipArchive $zip, array $sharedStrings, int $sheetNumber = 1): array
 {
-    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+    $sheetXml = $zip->getFromName("xl/worksheets/sheet{$sheetNumber}.xml");
     if ($sheetXml === false) {
-        throw new RuntimeException('Could not read worksheet data from the Excel file.');
+        if ($sheetNumber === 1) {
+            throw new RuntimeException('Could not read worksheet data from the Excel file.');
+        }
+        return [];
     }
 
     $xml = simplexml_load_string($sheetXml);
     if ($xml === false || !isset($xml->sheetData->row)) {
-        throw new RuntimeException('Invalid worksheet structure in the Excel file.');
+        return [];
     }
 
     $rows = [];
@@ -232,53 +235,64 @@ function scheduleParseXlsx(string $filePath): array
 
     try {
         $sharedStrings = scheduleReadSharedStrings($zip);
-        $rows = scheduleReadSheetRows($zip, $sharedStrings);
+
+        // Collect orders from every sheet — schedules split across multiple tabs
+        $orders = [];
+        $seenOrders = [];
+        $weekLabel = null;
+        $sheet1Rows = [];
+
+        for ($sheetNum = 1; $sheetNum <= 50; $sheetNum++) {
+            $rows = scheduleReadSheetRows($zip, $sharedStrings, $sheetNum);
+            if (empty($rows)) {
+                break; // no more sheets
+            }
+
+            if ($sheetNum === 1) {
+                $sheet1Rows = $rows;
+            }
+
+            $header = scheduleFindHeaderRow($rows);
+            if ($header === null) {
+                continue; // this sheet has no order table
+            }
+
+            $columns = $header['columns'];
+
+            foreach ($rows as $rowNumber => $cells) {
+                if ($rowNumber <= $header['row']) {
+                    continue;
+                }
+
+                if (!scheduleLooksLikeDataRow($cells, $columns)) {
+                    continue;
+                }
+
+                $orderNo = scheduleNormalizeOrderNo($cells[$columns['order_no']]);
+                if (isset($seenOrders[$orderNo])) {
+                    continue;
+                }
+
+                $sewingLine = '';
+                if (isset($columns['sewing'])) {
+                    $sewingLine = trim($cells[$columns['sewing']] ?? '');
+                } elseif (isset($columns['line'])) {
+                    $sewingLine = trim($cells[$columns['line']] ?? '');
+                }
+
+                $orders[] = [
+                    'order_no'    => $orderNo,
+                    'indent_no'   => $cells[$columns['indent_no']],
+                    'description' => isset($columns['description']) ? trim($cells[$columns['description']] ?? '') : null,
+                    'colour'      => isset($columns['colour'])      ? trim($cells[$columns['colour']]      ?? '') : null,
+                    'order_qty'   => isset($columns['order_qty'])   ? trim((string) ($cells[$columns['order_qty']] ?? '')) : null,
+                    'sewing_line' => $sewingLine !== '' ? $sewingLine : null,
+                ];
+                $seenOrders[$orderNo] = true;
+            }
+        }
     } finally {
         $zip->close();
-    }
-
-    $header = scheduleFindHeaderRow($rows);
-    if ($header === null) {
-        return [
-            'success' => false,
-            'message' => 'Could not find schedule headers (INDENT NO / ORDER NO) in the Excel file.',
-        ];
-    }
-
-    $columns = $header['columns'];
-    $orders = [];
-    $seenOrders = [];
-
-    foreach ($rows as $rowNumber => $cells) {
-        if ($rowNumber <= $header['row']) {
-            continue;
-        }
-
-        if (!scheduleLooksLikeDataRow($cells, $columns)) {
-            continue;
-        }
-
-        $orderNo = scheduleNormalizeOrderNo($cells[$columns['order_no']]);
-        if (isset($seenOrders[$orderNo])) {
-            continue;
-        }
-
-        $sewingLine = '';
-        if (isset($columns['sewing'])) {
-            $sewingLine = trim($cells[$columns['sewing']] ?? '');
-        } elseif (isset($columns['line'])) {
-            $sewingLine = trim($cells[$columns['line']] ?? '');
-        }
-
-        $orders[] = [
-            'order_no' => $orderNo,
-            'indent_no' => $cells[$columns['indent_no']],
-            'description' => isset($columns['description']) ? trim($cells[$columns['description']] ?? '') : null,
-            'colour' => isset($columns['colour']) ? trim($cells[$columns['colour']] ?? '') : null,
-            'order_qty' => isset($columns['order_qty']) ? trim((string) ($cells[$columns['order_qty']] ?? '')) : null,
-            'sewing_line' => $sewingLine !== '' ? $sewingLine : null,
-        ];
-        $seenOrders[$orderNo] = true;
     }
 
     if (empty($orders)) {
@@ -290,7 +304,7 @@ function scheduleParseXlsx(string $filePath): array
 
     return [
         'success' => true,
-        'week_label' => scheduleExtractWeekLabel(basename($filePath), $rows),
+        'week_label' => scheduleExtractWeekLabel(basename($filePath), $sheet1Rows),
         'file_name' => basename($filePath),
         'orders' => $orders,
         'order_count' => count($orders),

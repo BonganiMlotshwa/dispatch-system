@@ -193,8 +193,12 @@ try {
         if ($id <= 0) {
             throw new Exception('id is required');
         }
-        $stmt = $pdo->prepare('DELETE FROM legacy_warehouse_goods WHERE id = ?');
-        $stmt->execute([$id]);
+        // Remove truck shipment line items first — FK constraint blocks deleting the parent otherwise
+        $linkTableExists = (bool)$pdo->query("SHOW TABLES LIKE 'truck_shipment_legacy_items'")->fetch();
+        if ($linkTableExists) {
+            $pdo->prepare('DELETE FROM truck_shipment_legacy_items WHERE legacy_goods_id = ?')->execute([$id]);
+        }
+        $pdo->prepare('DELETE FROM legacy_warehouse_goods WHERE id = ?')->execute([$id]);
         echo json_encode(['success' => true, 'message' => 'Entry deleted']);
         exit;
     }

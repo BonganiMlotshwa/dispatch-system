@@ -4,17 +4,10 @@ RewriteEngine On
 # Set the base directory
 RewriteBase /dispatch/backend/
 
-# Allow CORS for API endpoints
-<IfModule mod_headers.c>
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control, X-Requested-With"
-    Header set Access-Control-Max-Age "3600"
-    
-    # Handle preflight OPTIONS requests
-    RewriteCond %{REQUEST_METHOD} OPTIONS
-    RewriteRule ^(.*)$ $1 [R=200,L]
-</IfModule>
+# CORS is handled by backend/includes/cors.php — do not set headers here.
+# Handle preflight OPTIONS requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ index.php [L]
 
 # Prevent directory listing
 Options -Indexes

@@ -6,13 +6,31 @@ import { useApi } from '../hooks/useApi';
 
 import apiService from '../services/apiService';
 
+import axios from 'axios';
+
+import { API_BASE_URL } from '../config';
+
 const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   const location = useLocation();
 
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const [appSettings, setAppSettings] = useState({});
+
   useApi(`/dashboard_stats.php?refresh=true&t=${refreshKey}`);
+
+  const fetchAppSettings = () => {
+    axios.get(`${API_BASE_URL}/app_settings.php`, { withCredentials: true })
+      .then((res) => { if (res.data.success) setAppSettings(res.data.settings); })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchAppSettings();
+    window.addEventListener('app-settings-changed', fetchAppSettings);
+    return () => window.removeEventListener('app-settings-changed', fetchAppSettings);
+  }, []);
 
 
 
@@ -66,13 +84,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     { path: '/legacy-warehouse', icon: 'bi-archive', label: 'Previous Year Orders', badge: null },
 
-    { path: '/xml-generator', icon: 'bi-file-earmark-code', label: 'XML Generator', badge: null, hidden: true },
+    { path: '/xml-generator', icon: 'bi-file-earmark-code', label: 'XML Generator', badge: null, hidden: appSettings.show_xml_generator !== '1' },
 
     { path: '/scanner', icon: 'bi-upc-scan', label: 'Barcode Scanner', badge: null },
 
     { path: '/truck-summary', icon: 'bi-truck', label: 'Truck Summary', badge: null },
 
-    { path: '/stickers', icon: 'bi-tags', label: 'Label Generator', badge: null, hidden: true },
+    { path: '/stickers', icon: 'bi-tags', label: 'Label Generator', badge: null, hidden: appSettings.show_label_generator !== '1' },
 
     { path: '/daily-summary', icon: 'bi-calendar-check', label: 'Daily Summary', badge: null },
 

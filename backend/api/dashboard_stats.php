@@ -100,9 +100,13 @@ try {
                 'cartons' => (int)$sRow['total_cartons'],
                 'units'   => (int)$sRow['total_units'],
             ];
-            $totOrders  += (int)$sRow['orders_count'];
-            $totCartons += (int)$sRow['total_cartons'];
-            $totUnits   += (int)$sRow['total_units'];
+            // Only count physically-present stock. Shipped = gone from warehouse.
+            // Cancelled/failed_audit/waiting_booking = still in factory, count them.
+            if ($st !== 'shipped') {
+                $totOrders  += (int)$sRow['orders_count'];
+                $totCartons += (int)$sRow['total_cartons'];
+                $totUnits   += (int)$sRow['total_units'];
+            }
         }
         $legacyStats = [
             'orders'    => $totOrders,
@@ -118,18 +122,39 @@ try {
         'total_units' => (int)$combined['total_units'] + $legacyStats['units']
     ];
     
+    // Expected: ALL cartons belonging to shipments that still have at least one pending carton.
+    // The full order count stays here until the last carton is scanned in.
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM cartons c
+        INNER JOIN shipments s ON s.id = c.shipment_id
+        WHERE YEAR(s.import_date) = ?
+        AND c.shipment_id IN (
+            SELECT shipment_id FROM cartons WHERE status = 'pending'
+        )
+    ");
+    $stmt->execute([$year]);
+    $expectedCartons = (int)$stmt->fetchColumn();
+
+    // Received: every carton scanned into the warehouse and not yet shipped.
+    // Counts per carton so each scan is visible immediately.
+    $receivedCartons = (int)$combined['entered_count'];
+
     $stats['status_counts'] = [
-        'pending' => (int)$combined['pending_count'],
-        'entered' => (int)$combined['entered_count'],
-        'exited' => (int)$combined['exited_count'],
-        'received' => (int)$combined['entered_count'] + (int)$combined['exited_count'] // Cartons received (entered + exited)
+        'pending'        => (int)$combined['pending_count'],
+        'entered'        => (int)$combined['entered_count'],
+        'exited'         => (int)$combined['exited_count'],
+        'received'       => (int)$combined['entered_count'] + (int)$combined['exited_count'],
+        'expected'         => $expectedCartons,
+        'received_cartons' => $receivedCartons,
     ];
     
     $stats['unit_counts'] = [
         'pending_units' => (int)$combined['pending_units'],
         'factory_units' => (int)$combined['factory_units'] + $legacyStats['units'],
         'shipped_units' => (int)$combined['shipped_units'],
-        'total_units' => (int)$combined['total_units'] + $legacyStats['units']
+        'total_units' => (int)$combined['total_units'] + $legacyStats['units'],
+        // Units in cartons scanned in or captured via manual entry. System only — no legacy.
+        'received_units' => (int)$combined['factory_units'],
     ];
     
     $stats['legacy_warehouse'] = $legacyStats;

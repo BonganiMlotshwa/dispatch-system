@@ -39,9 +39,56 @@ const LegacyWarehouseGoods = () => {
   const [saving, setSaving] = useState(false);
   const [savingStatusId, setSavingStatusId] = useState(null);
 
+  const [alertMessage, setAlertMessage] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
   const [showShipModal, setShowShipModal] = useState(false);
   const [pendingShipRow, setPendingShipRow] = useState(null);
   const [shipForm, setShipForm] = useState({ truck_reg: '', driver_name: '', shipment_date: '', shipment_week: '', customer: '' });
+
+  useEffect(() => {
+    if (!alertMessage) return;
+    const timer = setTimeout(() => setAlertMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [alertMessage]);
+
+  const toggleSelect = (sourceId) => {
+    setSelectedIds(prev =>
+      prev.includes(sourceId) ? prev.filter(x => x !== sourceId) : [...prev, sourceId]
+    );
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    try {
+      await withAdminAuth('delete previous year orders', async (adminCode) => {}, { forcePrompt: true });
+      await withAdminAuth('delete previous year orders', async (adminCode) => {
+        let successCount = 0;
+        let failCount = 0;
+        for (const id of selectedIds) {
+          try {
+            await axios.delete(`${API_BASE_URL}/legacy_warehouse_goods.php`, {
+              params: { id, admin_code: adminCode },
+              data: { id, admin_code: adminCode }
+            });
+            successCount++;
+          } catch (_) {
+            failCount++;
+          }
+        }
+        if (successCount > 0 && failCount === 0) {
+          setAlertMessage({ type: 'success', message: `Deleted ${successCount} order${successCount > 1 ? 's' : ''}` });
+        } else if (successCount > 0) {
+          setAlertMessage({ type: 'warning', message: `Deleted ${successCount}, failed to delete ${failCount}` });
+        } else {
+          setAlertMessage({ type: 'danger', message: `Failed to delete ${failCount} order${failCount > 1 ? 's' : ''}` });
+        }
+        setShowBulkDeleteConfirm(false);
+        setSelectedIds([]);
+        await loadList();
+      });
+    } catch (_) { /* admin cancelled */ }
+  };
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -290,11 +337,29 @@ const LegacyWarehouseGoods = () => {
     );
   };
 
-  const renderTable = (rows) => (
+  const renderTable = (rows) => {
+    const legacyRows = rows.filter(r => r.source_type === 'legacy');
+    const allSelected = legacyRows.length > 0 && legacyRows.every(r => selectedIds.includes(r.source_id));
+    const toggleAll = () => {
+      if (allSelected) {
+        setSelectedIds(prev => prev.filter(id => !legacyRows.map(r => r.source_id).includes(id)));
+      } else {
+        setSelectedIds(prev => [...new Set([...prev, ...legacyRows.map(r => r.source_id)])]);
+      }
+    };
+    return (
     <div className="modern-table-container">
       <table className="modern-table warehouse-stock-table mb-0">
         <thead>
           <tr>
+            <th style={{ width: 36 }}>
+              <Form.Check
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                title="Select all deletable rows"
+              />
+            </th>
             <th>Purchase order</th>
             <th>Customer</th>
             <th>Product</th>
@@ -306,7 +371,16 @@ const LegacyWarehouseGoods = () => {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
+            <tr key={row.id} className={selectedIds.includes(row.source_id) ? 'table-primary' : ''}>
+              <td>
+                {row.source_type === 'legacy' && (
+                  <Form.Check
+                    type="checkbox"
+                    checked={selectedIds.includes(row.source_id)}
+                    onChange={() => toggleSelect(row.source_id)}
+                  />
+                )}
+              </td>
               <td>
                 <div className="fw-semibold">{row.internal_po}</div>
                 {row.customer_order_number && (
@@ -372,17 +446,25 @@ const LegacyWarehouseGoods = () => {
         </tbody>
       </table>
     </div>
-  );
+    );
+  };
 
   const renderShippedLegacyCard = (row) => (
     <div key={row.id} className="col-12 col-md-6 col-xl-4">
       <div className="modern-card h-100 border-success border-opacity-25">
         <div className="modern-card-header d-flex justify-content-between align-items-center">
-          <div>
-            <div className="fw-semibold">{row.internal_po}</div>
-            {row.customer_order_number && (
-              <div className="small text-muted">Order {row.customer_order_number}</div>
-            )}
+          <div className="d-flex align-items-center gap-2">
+            <Form.Check
+              type="checkbox"
+              checked={selectedIds.includes(row.source_id)}
+              onChange={() => toggleSelect(row.source_id)}
+            />
+            <div>
+              <div className="fw-semibold">{row.internal_po}</div>
+              {row.customer_order_number && (
+                <div className="small text-muted">Order {row.customer_order_number}</div>
+              )}
+            </div>
           </div>
           <span className="badge bg-success">Shipped</span>
         </div>
@@ -473,6 +555,12 @@ const LegacyWarehouseGoods = () => {
         </Alert>
       )}
 
+      {alertMessage && (
+        <Alert variant={alertMessage.type} dismissible onClose={() => setAlertMessage(null)} className="mb-3">
+          {alertMessage.message}
+        </Alert>
+      )}
+
       {/* Status summary chips */}
       <div className="modern-card mb-4">
         <div className="modern-card-body py-3">
@@ -503,6 +591,19 @@ const LegacyWarehouseGoods = () => {
           </div>
         </div>
       </div>
+
+      {/* Bulk action bar */}
+      {selectedIds.length > 0 && (
+        <div className="d-flex align-items-center gap-2 mb-3 p-3 rounded" style={{ background: 'var(--bs-light, #f8f9fa)', border: '1px solid var(--bs-border-color, #dee2e6)' }}>
+          <span className="small fw-medium">{selectedIds.length} selected</span>
+          <Button variant="outline-danger" size="sm" onClick={() => setShowBulkDeleteConfirm(true)}>
+            <i className="bi bi-trash me-1"></i> Delete Selected
+          </Button>
+          <Button variant="outline-secondary" size="sm" onClick={() => setSelectedIds([])}>
+            Clear
+          </Button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="modern-card mb-4">
@@ -695,6 +796,28 @@ const LegacyWarehouseGoods = () => {
             </Button>
           </Modal.Footer>
         </Form>
+      </Modal>
+
+      {/* Bulk delete confirmation */}
+      <Modal show={showBulkDeleteConfirm} onHide={() => setShowBulkDeleteConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Delete {selectedIds.length} order{selectedIds.length !== 1 ? 's' : ''}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="danger" className="mb-2">
+            <i className="bi bi-exclamation-triangle-fill me-2"></i>
+            This cannot be undone.
+          </Alert>
+          <p className="mb-0">
+            Permanently delete <strong>{selectedIds.length}</strong> previous year order{selectedIds.length !== 1 ? 's' : ''} and their truck shipment line items? You will be asked for the admin code to confirm.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowBulkDeleteConfirm(false)}>Cancel</Button>
+          <Button variant="danger" onClick={handleBulkDeleteConfirm}>
+            <i className="bi bi-trash me-1"></i> Delete {selectedIds.length}
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>

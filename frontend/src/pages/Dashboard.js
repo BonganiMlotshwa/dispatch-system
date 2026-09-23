@@ -393,26 +393,32 @@ const Dashboard = () => {
           <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
-                <div className="dashboard-stat-label">Cartons In Warehouse</div>
-                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.entered || 0}</div>
-              </div>
-            </div>
-            <div className="col-6 col-lg-3">
-              <div className="dashboard-stat-card hover-lift">
-                <div className="dashboard-stat-label">Cartons Received</div>
-                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.received || 0}</div>
+                <div className="dashboard-stat-label">Cartons Expected</div>
+                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.expected || 0}</div>
+                <small className="text-muted">Expected — orders in progress</small>
               </div>
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
                 <div className="dashboard-stat-label">Pending Cartons</div>
                 <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.pending || 0}</div>
+                <small className="text-muted">Not yet scanned in</small>
               </div>
             </div>
             <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift">
-                <div className="dashboard-stat-label">Total Orders</div>
-                <div className="dashboard-stat-number">{dashboardData.stats?.totals?.total_shipments || 0}</div>
+                <div className="dashboard-stat-label">Cartons Received</div>
+                <div className="dashboard-stat-number">{dashboardData.stats?.status_counts?.received_cartons || 0}</div>
+                <small className="text-muted">Scanned in / manual entry</small>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #0ea5e9' }}>
+                <div className="dashboard-stat-label">Units Received</div>
+                <div className="dashboard-stat-number" style={{ color: '#0ea5e9' }}>
+                  {(dashboardData.stats?.unit_counts?.received_units ?? 0).toLocaleString()}
+                </div>
+                <small className="text-muted">Units in received cartons</small>
               </div>
             </div>
           </div>
@@ -448,19 +454,19 @@ const Dashboard = () => {
           {/* Row 3: legacy warehouse (cols 1–3) + total units */}
           <div className="row g-3 g-md-4 mb-4 dashboard-stat-grid">
             <div className="col-6 col-lg-3">
+              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #3b82f6' }}>
+                <div className="dashboard-stat-label">
+                  <i className="bi bi-clipboard-check me-2"></i>Current Orders
+                </div>
+                <div className="dashboard-stat-number">{dashboardData.stats?.totals?.total_shipments || 0}</div>
+              </div>
+            </div>
+            <div className="col-6 col-lg-3">
               <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #8b5cf6' }}>
                 <div className="dashboard-stat-label">
                   <i className="bi bi-archive me-2"></i>Prev. Year Orders
                 </div>
                 <div className="dashboard-stat-number text-purple">{dashboardData.stats?.legacy_warehouse?.orders || 0}</div>
-              </div>
-            </div>
-            <div className="col-6 col-lg-3">
-              <div className="dashboard-stat-card hover-lift" style={{ borderLeft: '4px solid #ec4899' }}>
-                <div className="dashboard-stat-label">
-                  <i className="bi bi-boxes me-2"></i>Prev. Year Cartons
-                </div>
-                <div className="dashboard-stat-number text-pink">{dashboardData.stats?.legacy_warehouse?.cartons || 0}</div>
               </div>
             </div>
             <div className="col-6 col-lg-3">
@@ -486,7 +492,7 @@ const Dashboard = () => {
                 <div className="dashboard-stat-card hover-lift" style={{ flex: 1, borderLeft: '4px solid #f59e0b' }}>
                   <div className="dashboard-stat-label"><i className="bi bi-building me-2"></i>In Warehouse (Prev. Year)</div>
                   <div className="dashboard-stat-number text-warning">
-                    {(dashboardData.stats?.legacy_warehouse?.orders ?? 0) - (dashboardData.stats?.legacy_warehouse?.by_status?.shipped?.orders ?? 0)}
+                    {dashboardData.stats?.legacy_warehouse?.orders ?? 0}
                   </div>
                 </div>
               </Link>

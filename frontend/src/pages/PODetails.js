@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   Container, Row, Col, Card, Badge, Button, Alert, Spinner, 
@@ -21,6 +21,8 @@ import {
 import { useApi } from '../hooks/useApi';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import JsBarcode from 'jsbarcode';
+import QRCode from 'react-qr-code';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { isOtbCustomer, formatInternalPoDisplay, formatCustomerPoForDisplay, formatCartonDateTime, getCartonEntryTime, getCartonExitTime, canDirectShipOrder } from '../utils/poDisplay';
 import { formatCartonStatus } from '../utils/formatters';
@@ -84,6 +86,14 @@ const PODetails = React.memo(() => {
   const [warehouseOrderStatus, setWarehouseOrderStatus] = useState('active');
   const [savingWhStatus, setSavingWhStatus] = useState(false);
 
+  // Label printing state
+  const [labelStickers, setLabelStickers] = useState([]);
+  const [selectedLabels, setSelectedLabels] = useState([]);
+  const [labelsLoading, setLabelsLoading] = useState(false);
+  const [showLabelPreview, setShowLabelPreview] = useState(false);
+  const [showLabelPrint, setShowLabelPrint] = useState(false);
+  const labelBarcodeRefs = useRef({});
+
   // Memoize API URLs to prevent unnecessary re-renders
   const analyticsUrl = useMemo(() => 
     `po_analytics.php?id=${id}&timeRange=${timeRange}&_key=${analyticsRefreshKey}`, 
@@ -132,6 +142,102 @@ const PODetails = React.memo(() => {
       setWarehouseOrderStatus(s.warehouse_order_status || 'active');
     }
   }, [poData?.shipment]);
+
+  const loadLabels = useCallback(async (ftmPo) => {
+    if (!ftmPo) return;
+    setLabelsLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/stickers.php?ftm_po=${encodeURIComponent(ftmPo)}&limit=500`);
+      if (res.data?.success) {
+        setLabelStickers(res.data.data.stickers || []);
+        setSelectedLabels([]);
+        labelBarcodeRefs.current = {};
+      }
+    } catch (_) {
+    } finally {
+      setLabelsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'labels' && shipment?.internal_po_number && labelStickers.length === 0) {
+      loadLabels(shipment.internal_po_number);
+    }
+  }, [activeTab, shipment?.internal_po_number, loadLabels, labelStickers.length]);
+
+  const handlePrintLabels = () => {
+    const toPrint = selectedLabels.length > 0 ? selectedLabels : labelStickers;
+    if (toPrint.length === 0) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) { alert('Pop-up blocked — please allow pop-ups for this site.'); return; }
+    let content = '<div class="sticker-grid">';
+    toPrint.forEach((s, i) => {
+      content += `
+        <div class="sticker-item">
+          <div class="sticker-top-row">
+            <div class="sticker-header">
+              <div class="sticker-title">${s.ftm_po}</div>
+              <div class="sticker-subtitle">Customer PO: ${s.po_number}</div>
+            </div>
+            <div class="qr-section-side">
+              <div class="qr-label">QR</div>
+              <div id="qr-${i}" class="qr-container"></div>
+            </div>
+          </div>
+          <div class="sticker-details">
+            <div class="detail-row"><span class="detail-label">Size:</span><span class="detail-value">${s.size || 'N/A'}</span></div>
+            <div class="detail-row"><span class="detail-label">Units:</span><span class="detail-value">${s.units || 'N/A'}</span></div>
+            <div class="detail-row"><span class="detail-label">Item:</span><span class="detail-value">${s.item || 'N/A'}</span></div>
+            <div class="detail-row"><span class="detail-label">Cartons:</span><span class="detail-value">${s.carton_count}</span></div>
+          </div>
+          <div class="barcode-section">
+            <div class="barcode-label">Barcode</div>
+            <svg id="barcode-${i}" class="barcode-svg"></svg>
+          </div>
+        </div>`;
+    });
+    content += '</div>';
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Labels — ${toPrint.length} cartons</title>
+      <meta charset="UTF-8">
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/qrcodejs2@0.0.2/qrcode.min.js"><\/script>
+      <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:Arial,sans-serif;background:#fff;padding:10mm}
+        .sticker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}
+        .sticker-item{border:2px solid #000;border-radius:4px;background:#fff;padding:8px;display:flex;flex-direction:column;page-break-inside:avoid;break-inside:avoid;min-height:180px}
+        .sticker-top-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px}
+        .sticker-header{flex:1;text-align:center}
+        .sticker-title{font-size:18px;font-weight:bold;margin-bottom:2px}
+        .sticker-subtitle{font-size:11px;color:#666}
+        .qr-section-side{flex-shrink:0;display:flex;flex-direction:column;align-items:center}
+        .qr-label{font-size:8px;color:#666;margin-bottom:2px;font-weight:500}
+        .qr-container{width:70px;height:70px;display:flex;align-items:center;justify-content:center}
+        .qr-container img{max-width:100%;max-height:100%}
+        .sticker-details{margin-bottom:8px;border-top:1px solid #ddd;padding-top:6px}
+        .detail-row{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;padding:0 4px}
+        .detail-label{font-weight:600}
+        .barcode-section{margin-top:auto;text-align:center}
+        .barcode-label{font-size:9px;color:#666;margin-bottom:2px;font-weight:500}
+        .barcode-svg{width:100%;height:45px;display:block}
+        @media print{body{padding:5mm}@page{size:A4 landscape;margin:10mm}}
+      </style></head><body>${content}
+      <script>
+        const stickers=${JSON.stringify(toPrint)};
+        window.onload=function(){
+          stickers.forEach(function(s,i){
+            var el=document.getElementById('barcode-'+i);
+            if(el&&window.JsBarcode){try{JsBarcode(el,s.barcode_2d,{format:'CODE128',width:2,height:45,displayValue:true,fontSize:11,margin:2});}catch(e){}}
+            var qr=document.getElementById('qr-'+i);
+            if(qr&&window.QRCode){try{new QRCode(qr,{text:s.barcode_2d,width:66,height:66,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}catch(e){}}
+          });
+          setTimeout(function(){window.print();},1000);
+        };
+        window.onafterprint=function(){setTimeout(function(){window.close();},500);};
+      <\/script></body></html>`);
+    printWindow.document.close();
+    setShowLabelPrint(false);
+  };
 
   const handleWarehouseOrderStatusChange = async (e) => {
     const next = e.target.value;
@@ -1394,6 +1500,7 @@ const PODetails = React.memo(() => {
           >
             <Tab eventKey="overview" title={<><i className="bi bi-graph-up me-1"></i> Overview</>} />
             <Tab eventKey="cartons" title={<><i className="bi bi-boxes me-1"></i> Cartons</>} />
+            <Tab eventKey="labels" title={<><i className="bi bi-tags me-1"></i> Labels</>} />
           </Tabs>
         </Card.Header>
         
@@ -1941,9 +2048,133 @@ const PODetails = React.memo(() => {
             </div>
           )}
 
+          {activeTab === 'labels' && (
+            <div>
+              {labelsLoading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status" />
+                  <p className="mt-2 text-muted">Loading labels…</p>
+                </div>
+              ) : labelStickers.length === 0 ? (
+                <div className="text-center py-5 text-muted">
+                  <i className="bi bi-tags fs-1 d-block mb-3 opacity-25"></i>
+                  <p>No labels found for this PO.</p>
+                  <Button variant="outline-secondary" size="sm" onClick={() => loadLabels(shipment?.internal_po_number)}>
+                    <i className="bi bi-arrow-clockwise me-1"></i> Retry
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <strong>{labelStickers.length}</strong> label{labelStickers.length !== 1 ? 's' : ''} found
+                      {selectedLabels.length > 0 && <span className="text-muted ms-2">· {selectedLabels.length} selected</span>}
+                    </div>
+                    <div className="d-flex gap-2">
+                      <Button variant="outline-secondary" size="sm"
+                        onClick={() => setSelectedLabels(selectedLabels.length === labelStickers.length ? [] : [...labelStickers])}>
+                        {selectedLabels.length === labelStickers.length ? 'Clear All' : 'Select All'}
+                      </Button>
+                      <Button variant="outline-primary" size="sm"
+                        onClick={() => setShowLabelPreview(true)}
+                        disabled={labelStickers.length === 0}>
+                        <i className="bi bi-eye me-1"></i> Preview
+                      </Button>
+                      <Button variant="primary" size="sm"
+                        onClick={handlePrintLabels}
+                        disabled={labelStickers.length === 0}>
+                        <i className="bi bi-printer me-1"></i>
+                        Print {selectedLabels.length > 0 ? `(${selectedLabels.length})` : 'All'}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="table-responsive">
+                    <table className="table table-sm table-hover align-middle">
+                      <thead className="table-light">
+                        <tr>
+                          <th style={{ width: 36 }}>
+                            <input type="checkbox"
+                              checked={selectedLabels.length === labelStickers.length && labelStickers.length > 0}
+                              onChange={(e) => setSelectedLabels(e.target.checked ? [...labelStickers] : [])} />
+                          </th>
+                          <th>#</th>
+                          <th>Barcode</th>
+                          <th>Size</th>
+                          <th>Units</th>
+                          <th>Item</th>
+                          <th>FTM PO</th>
+                          <th>Customer PO</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {labelStickers.map((s, i) => {
+                          const checked = selectedLabels.some((x) => x.barcode_2d === s.barcode_2d);
+                          return (
+                            <tr key={s.barcode_2d || i} className={checked ? 'table-primary' : ''}>
+                              <td>
+                                <input type="checkbox" checked={checked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setSelectedLabels((prev) => [...prev, s]);
+                                    else setSelectedLabels((prev) => prev.filter((x) => x.barcode_2d !== s.barcode_2d));
+                                  }} />
+                              </td>
+                              <td className="text-muted small">{i + 1}</td>
+                              <td><code className="small">{s.barcode_2d}</code></td>
+                              <td>{s.size || '—'}</td>
+                              <td>{s.units || '—'}</td>
+                              <td className="small">{s.item || '—'}</td>
+                              <td>{s.ftm_po}</td>
+                              <td>{s.po_number}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
         </Card.Body>
       </Card>
+
+      {/* Label Preview Modal */}
+      <Modal show={showLabelPreview} onHide={() => setShowLabelPreview(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title><i className="bi bi-tags me-2"></i>Label Preview</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="text-muted small mb-3">
+            Showing {(selectedLabels.length > 0 ? selectedLabels : labelStickers).length} label(s). Labels print 3-per-row on A4 landscape.
+          </p>
+          <div className="row g-3">
+            {(selectedLabels.length > 0 ? selectedLabels : labelStickers).slice(0, 9).map((s, i) => (
+              <div key={s.barcode_2d || i} className="col-md-4">
+                <div className="border rounded p-2 text-center bg-white" style={{ fontSize: 11 }}>
+                  <div className="fw-bold">{s.ftm_po}</div>
+                  <div className="text-muted" style={{ fontSize: 10 }}>PO: {s.po_number}</div>
+                  <div className="d-flex justify-content-around mt-1">
+                    <span>Size: <strong>{s.size || '—'}</strong></span>
+                    <span>Units: <strong>{s.units || '—'}</strong></span>
+                  </div>
+                  <div className="mt-1 text-muted" style={{ fontSize: 9 }}>{s.barcode_2d}</div>
+                  <QRCode value={s.barcode_2d || 'N/A'} size={64} className="mt-1" />
+                </div>
+              </div>
+            ))}
+          </div>
+          {(selectedLabels.length > 0 ? selectedLabels : labelStickers).length > 9 && (
+            <p className="text-muted small mt-2 text-center">…and {(selectedLabels.length > 0 ? selectedLabels : labelStickers).length - 9} more</p>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowLabelPreview(false)}>Close</Button>
+          <Button variant="primary" onClick={() => { setShowLabelPreview(false); handlePrintLabels(); }}>
+            <i className="bi bi-printer me-1"></i> Print
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Export Modal */}
       <Modal show={showExportModal} onHide={() => setShowExportModal(false)}>

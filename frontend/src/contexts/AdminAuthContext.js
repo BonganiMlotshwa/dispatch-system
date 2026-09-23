@@ -42,9 +42,9 @@ export function AdminAuthProvider({ children }) {
     throw new Error(res.data?.message || 'Invalid admin code');
   }, []);
 
-  const requestAdminCode = useCallback((label = 'this action') => {
+  const requestAdminCode = useCallback((label = 'this action', { forcePrompt = false } = {}) => {
     const existing = getStoredAdminCode();
-    if (existing) {
+    if (existing && !forcePrompt) {
       return Promise.resolve(existing);
     }
 
@@ -84,8 +84,8 @@ export function AdminAuthProvider({ children }) {
     resolverRef.current = null;
   };
 
-  const withAdminAuth = useCallback(async (label, fn) => {
-    const code = await requestAdminCode(label);
+  const withAdminAuth = useCallback(async (label, fn, { forcePrompt = false } = {}) => {
+    const code = await requestAdminCode(label, { forcePrompt });
     return fn(code);
   }, [requestAdminCode]);
 

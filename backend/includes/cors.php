@@ -11,7 +11,7 @@ function cors_headers(array $methods = ['GET', 'POST', 'OPTIONS']) {
         $host = preg_replace('#^https?://#', '', $origin);
         // Allow any origin serving the React app on port 3000, plus plain localhost
         if (
-            preg_match('/:3000$/', $host) ||
+            preg_match('/:300\d$/', $host) ||
             in_array($host, ['localhost', '127.0.0.1'], true)
         ) {
             $allowed = true;
