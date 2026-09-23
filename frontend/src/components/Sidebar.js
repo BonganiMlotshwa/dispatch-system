@@ -100,10 +100,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     { path: '/reports', icon: 'bi-file-earmark-text', label: 'Reports', badge: null },
 
-    { path: '/settings', icon: 'bi-people', label: 'User Management', badge: null },
-
-    { path: '/admin-settings', icon: 'bi-gear', label: 'Admin Settings', badge: null },
-
   ];
 
 
