@@ -27,6 +27,7 @@ import Reports from './pages/Reports';
 import WeeklyAnalysis from './pages/WeeklyAnalysis';
 import ScheduleDiagnostic from './pages/ScheduleDiagnostic';
 import UserManagement from './pages/UserManagement';
+import ScanSessions from './pages/ScanSessions';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -75,6 +76,7 @@ function App() {
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/schedule-diagnostic" element={<ScheduleDiagnostic />} />
                       <Route path="/settings" element={<UserManagement />} />
+                      <Route path="/scan-sessions" element={<ScanSessions />} />
                       <Route path="/login" element={<Dashboard />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>

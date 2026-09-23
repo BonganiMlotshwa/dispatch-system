@@ -25,6 +25,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS app_settings (
 $defaults = [
     'show_label_generator' => '0',
     'show_xml_generator'   => '0',
+    'support_email'        => 'ftmit@ftmswaziland.co',
 ];
 $ins = $pdo->prepare("INSERT IGNORE INTO app_settings (`key`, `value`) VALUES (?, ?)");
 foreach ($defaults as $k => $v) {

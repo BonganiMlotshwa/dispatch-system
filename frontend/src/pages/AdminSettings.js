@@ -23,6 +23,7 @@ const AdminSettings = () => {
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [supportEmailInput, setSupportEmailInput] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -34,6 +35,7 @@ const AdminSettings = () => {
       const res = await axios.get(`${API_BASE_URL}/app_settings.php`, { withCredentials: true });
       if (res.data.success) {
         setSettings(res.data.settings);
+        setSupportEmailInput(res.data.settings.support_email || 'ftmit@ftmswaziland.co');
       } else {
         setError('Failed to load settings');
       }
@@ -41,6 +43,33 @@ const AdminSettings = () => {
       setError(err.response?.data?.message || err.message || 'Failed to load settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    const email = supportEmailInput.trim();
+    if (!email) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      await withAdminAuth('update support email', async (adminCode) => {
+        setSaving('support_email');
+        const res = await axios.post(
+          `${API_BASE_URL}/app_settings.php`,
+          { admin_code: adminCode, key: 'support_email', value: email },
+          { withCredentials: true }
+        );
+        if (!res.data.success) throw new Error(res.data.message || 'Save failed');
+        setSettings((prev) => ({ ...prev, support_email: email }));
+        setSuccess('Support email updated.');
+        window.dispatchEvent(new Event('app-settings-changed'));
+      });
+    } catch (err) {
+      if (err.message !== 'Admin verification cancelled') {
+        setError(err.response?.data?.message || err.message || 'Failed to save');
+      }
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -148,6 +177,44 @@ const AdminSettings = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      <div className="card mt-4">
+        <div className="card-header">
+          <h6 className="mb-0">
+            <i className="bi bi-envelope me-2"></i>
+            Support Contact
+          </h6>
+        </div>
+        <div className="card-body">
+          <p className="text-muted small mb-3">
+            This email appears in the Help panel (? icon in the header) so users know who to contact.
+          </p>
+          <div className="d-flex align-items-center gap-2" style={{ maxWidth: '480px' }}>
+            <div className="input-group">
+              <span className="input-group-text"><i className="bi bi-envelope"></i></span>
+              <input
+                type="email"
+                className="form-control"
+                value={supportEmailInput}
+                onChange={(e) => setSupportEmailInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveEmail()}
+                placeholder="support@example.com"
+                disabled={saving === 'support_email'}
+              />
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveEmail}
+              disabled={saving === 'support_email' || supportEmailInput.trim() === (settings.support_email || '')}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {saving === 'support_email'
+                ? <span className="spinner-border spinner-border-sm" />
+                : 'Save'}
+            </button>
+          </div>
         </div>
       </div>
 

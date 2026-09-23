@@ -10,6 +10,7 @@ require_once '../includes/cors.php';
 cors_headers(['GET', 'POST', 'PUT', 'DELETE']);
 require_once '../includes/auth.php';
 auth_require_user();
+require_once '../includes/admin_auth.php';
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -314,10 +315,13 @@ try {
         ]);
     }
     
-    // DELETE: Delete user (soft delete by deactivating)
+    // DELETE: Delete user
     elseif ($method === 'DELETE' && $action === 'delete') {
+        $deleteBody = json_decode(file_get_contents('php://input'), true) ?? [];
+        requireAdminCode($deleteBody);
+
         $userId = (int)($_GET['user_id'] ?? 0);
-        
+
         if ($userId <= 0) {
             throw new Exception('Invalid user ID');
         }

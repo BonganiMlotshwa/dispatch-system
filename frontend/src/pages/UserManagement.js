@@ -210,13 +210,10 @@ const UserManagement = () => {
   };
 
   const handleDeleteUser = async (user) => {
-    if (!window.confirm(`Are you sure you want to delete user "${user.username}"? This action cannot be undone.`)) {
-      return;
-    }
-    
-    try {
+    await withAdminAuth(`delete user "${user.username}"`, async (adminCode) => {
       const res = await axios.delete(`${API_BASE_URL}/user_management.php?action=delete&user_id=${user.id}`, {
-        withCredentials: true
+        withCredentials: true,
+        data: { admin_code: adminCode }
       });
       if (res.data.success) {
         setSuccess(res.data.message);
@@ -224,9 +221,7 @@ const UserManagement = () => {
       } else {
         setError(res.data.message);
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete user');
-    }
+    });
   };
 
   const handleToggleActive = async (user) => {

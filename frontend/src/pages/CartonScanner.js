@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Modal, Button, Form, Alert, Badge, Table, ProgressBar } from 'react-bootstrap';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Quagga from 'quagga';
 import { API_BASE_URL } from '../config';
+import { getUser } from '../services/authService';
 import ExitScanModal from '../components/ExitScanModal';
 import TruckLoadChoiceModal from '../components/TruckLoadChoiceModal';
 import {
@@ -176,6 +177,25 @@ const bindAudioResumeOnInteraction = () => {
   ['click', 'keydown', 'touchstart'].forEach(evt => {
     window.addEventListener(evt, tryResume, { passive: true });
   });
+};
+
+// Extract the trailing carton sequence number from a barcode (last -N segment)
+const parseCartonSeq = (barcode) => {
+  const match = String(barcode || '').match(/-(\d+)$/);
+  return match ? parseInt(match[1], 10) : null;
+};
+
+// Compress a sorted gap array into readable ranges, e.g. [24,25,26,29] → "#24–26, #29"
+const formatGaps = (gaps) => {
+  if (!gaps.length) return '';
+  const ranges = [];
+  let start = gaps[0], end = gaps[0];
+  for (let i = 1; i < gaps.length; i++) {
+    if (gaps[i] === end + 1) { end = gaps[i]; }
+    else { ranges.push(start === end ? `#${start}` : `#${start}–${end}`); start = end = gaps[i]; }
+  }
+  ranges.push(start === end ? `#${start}` : `#${start}–${end}`);
+  return ranges.join(', ');
 };
 
 // Add debounce utility to prevent excessive API calls
@@ -409,12 +429,27 @@ const CartonScanner = () => {
   const [activeTrucks, setActiveTrucks] = useState([]);
   const [activeTruck, setActiveTruck] = useState(null);
   const [exitWithoutTruck, setExitWithoutTruck] = useState(false);
+  const [showManifestModal, setShowManifestModal] = useState(false);
+  const [manifest, setManifest] = useState(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
   const [sessionScanCount, setSessionScanCount] = useState(0);
   const [sessionUnitCount, setSessionUnitCount] = useState(0);
   const [counterPulse, setCounterPulse] = useState(false);
   const [poProgress, setPoProgress] = useState(null); // live counts across all scanners
+  const [sessionSeqNums, setSessionSeqNums] = useState([]); // successfully scanned seq numbers this session
   const expectedPo = normalizeExpectedPo(poNumber ? `${poPrefix}-${poNumber}` : '');
   const normalizedPo = expectedPo;
+
+  // Compute which carton sequence numbers are missing in the scanned range
+  const skippedSeqs = useMemo(() => {
+    if (sessionSeqNums.length < 2) return [];
+    const sorted = [...sessionSeqNums].sort((a, b) => a - b);
+    const min = sorted[0], max = sorted[sorted.length - 1];
+    const scannedSet = new Set(sorted);
+    const gaps = [];
+    for (let i = min; i <= max; i++) { if (!scannedSet.has(i)) gaps.push(i); }
+    return gaps;
+  }, [sessionSeqNums]);
 
   // Reference to barcode input for focus management
   const barcodeInputRef = useRef(null);
@@ -483,6 +518,11 @@ const CartonScanner = () => {
     }
   }, [searchParams]);
   
+  // Reset seq tracker when the PO changes so gaps reflect the current PO only
+  useEffect(() => {
+    setSessionSeqNums([]);
+  }, [normalizedPo]);
+
   // Auto-clear success messages after 5 seconds
   useEffect(() => {
     if (scanResult?.success) {
@@ -560,11 +600,34 @@ const CartonScanner = () => {
 
   const handleFinishLoading = async () => {
     if (!activeTruck) return;
-    if (!window.confirm(`Mark truck ${activeTruck.truck_reg} as finished loading? You can still view it in Truck Summary.`)) {
-      return;
+    setManifestLoading(true);
+    setManifest(null);
+    setShowManifestModal(true);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/truck_manifest.php`, {
+        params: { id: activeTruck.id },
+        withCredentials: true
+      });
+      if (res.data.success) {
+        setManifest(res.data);
+      } else {
+        setError(res.data.message || 'Failed to load truck manifest');
+        setShowManifestModal(false);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load truck manifest');
+      setShowManifestModal(false);
+    } finally {
+      setManifestLoading(false);
     }
+  };
+
+  const handleConfirmDeparture = async () => {
+    if (!activeTruck) return;
     try {
       await axios.post(`${API_BASE_URL}/close_truck_loading.php`, { id: activeTruck.id });
+      setShowManifestModal(false);
+      setManifest(null);
       const remaining = removeActiveTruck(activeTruck.id);
       const merged = mergeOpenTruckLists(await fetchOpenTrucks(), remaining);
       setActiveTrucks(merged);
@@ -1094,6 +1157,23 @@ const CartonScanner = () => {
         console.error('Failed to save scan history:', e);
       }
       
+      // Track sequence number for gap detection
+      const seq = parseCartonSeq(barcodeToScan);
+      if (seq !== null) {
+        setSessionSeqNums(prev => prev.includes(seq) ? prev : [...prev, seq]);
+      }
+
+      // Log to scan session (fire-and-forget — never block the scan UI)
+      const currentUser = getUser();
+      axios.post(`${API_BASE_URL}/scan_sessions.php`, {
+        po_number:     normalizedPo,
+        barcode:       barcodeToScan,
+        carton_seq:    seq,
+        action:        actionToUse,
+        success:       true,
+        operator_name: currentUser?.username || currentUser?.email || 'Warehouse User'
+      }, { withCredentials: true }).catch(() => {});
+
       // Immediately refresh shared PO progress so this scanner shows the updated count.
       fetchPoProgress();
 
@@ -1151,6 +1231,19 @@ const CartonScanner = () => {
         console.error('Failed to save scan history:', e);
       }
       
+      // Log failed scan to session (fire-and-forget)
+      const failSeq = parseCartonSeq(barcodeToScan);
+      const failUser = getUser();
+      axios.post(`${API_BASE_URL}/scan_sessions.php`, {
+        po_number:     normalizeExpectedPo(expectedPo),
+        barcode:       barcodeToScan,
+        carton_seq:    failSeq,
+        action:        actionToUse,
+        success:       false,
+        error_message: errorMessage,
+        operator_name: failUser?.username || failUser?.email || 'Warehouse User'
+      }, { withCredentials: true }).catch(() => {});
+
       // Throw the error to be caught by the batch handler
       throw err;
     }
@@ -1302,50 +1395,112 @@ const CartonScanner = () => {
 
   return (
     <div className="py-2">
-      {/* Floating Scan Counter */}
-      <div 
-        style={{
-          position: 'fixed',
-          top: '80px',
-          right: '20px',
-          zIndex: 1000,
-          backgroundColor: sessionScanCount > 0 ? '#ffffff' : '#f8f9fa',
-          color: '#212529',
-          padding: '15px 20px',
-          borderRadius: '12px',
-          border: sessionScanCount > 0 ? '2px solid #28a745' : '2px solid #dee2e6',
-          boxShadow: counterPulse 
-            ? '0 6px 20px rgba(40, 167, 69, 0.3)' 
-            : '0 4px 12px rgba(0,0,0,0.1)',
-          minWidth: '180px',
-          transition: 'all 0.3s ease',
-          cursor: 'pointer',
-          transform: counterPulse ? 'scale(1.05)' : 'scale(1)'
-        }}
-        onClick={() => {
-          if (window.confirm(`Reset session counter?\n\nCurrent: ${sessionScanCount} cartons, ${sessionUnitCount} units`)) {
-            setSessionScanCount(0);
-            setSessionUnitCount(0);
-          }
-        }}
-        title="Click to reset counter"
-      >
-        <div className="d-flex align-items-center justify-content-between">
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', marginBottom: '4px', letterSpacing: '0.5px' }}>
-              SESSION CARTONS
+      {/* Floating Scan Counters — SESSION CARTONS + MISSED side by side */}
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        right: '20px',
+        zIndex: 1000,
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'flex-start'
+      }}>
+        {/* SESSION CARTONS box */}
+        <div
+          style={{
+            backgroundColor: sessionScanCount > 0 ? '#ffffff' : '#f8f9fa',
+            color: '#212529',
+            padding: '15px 20px',
+            borderRadius: '12px',
+            border: sessionScanCount > 0 ? '2px solid #28a745' : '2px solid #dee2e6',
+            boxShadow: counterPulse
+              ? '0 6px 20px rgba(40, 167, 69, 0.3)'
+              : '0 4px 12px rgba(0,0,0,0.1)',
+            minWidth: '160px',
+            transition: 'all 0.3s ease',
+            cursor: 'pointer',
+            transform: counterPulse ? 'scale(1.05)' : 'scale(1)'
+          }}
+          onClick={() => {
+            if (window.confirm(`Reset session counter?\n\nCurrent: ${sessionScanCount} cartons, ${sessionUnitCount} units`)) {
+              setSessionScanCount(0);
+              setSessionUnitCount(0);
+              setSessionSeqNums([]);
+            }
+          }}
+          title="Click to reset counter"
+        >
+          <div className="d-flex align-items-center justify-content-between">
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                SESSION CARTONS
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', lineHeight: 1, color: sessionScanCount > 0 ? '#28a745' : '#6c757d' }}>
+                {sessionScanCount}
+              </div>
+              <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                {sessionUnitCount} units
+              </div>
             </div>
-            <div style={{ fontSize: '32px', fontWeight: 'bold', lineHeight: 1, color: sessionScanCount > 0 ? '#28a745' : '#6c757d' }}>
-              {sessionScanCount}
+            <div style={{ fontSize: '28px', marginLeft: '12px', color: sessionScanCount > 0 ? '#28a745' : '#6c757d' }}>
+              <i className="bi bi-box-seam"></i>
             </div>
-            <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
-              {sessionUnitCount} units
-            </div>
-          </div>
-          <div style={{ fontSize: '32px', marginLeft: '15px', color: sessionScanCount > 0 ? '#28a745' : '#6c757d' }}>
-            <i className="bi bi-box-seam"></i>
           </div>
         </div>
+
+        {/* MISSED box — visible once at least one carton has been scanned */}
+        {sessionScanCount > 0 && (
+          <div style={{
+            backgroundColor: skippedSeqs.length > 0 ? '#fff8f0' : '#f8f9fa',
+            color: '#212529',
+            padding: '15px 20px',
+            borderRadius: '12px',
+            border: skippedSeqs.length > 0 ? '2px solid #fd7e14' : '2px solid #dee2e6',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            minWidth: '160px',
+            transition: 'all 0.3s ease'
+          }}>
+            <div className="d-flex align-items-center justify-content-between">
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: '600', color: '#6c757d', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                  MISSED
+                </div>
+                <div style={{
+                  fontSize: '32px',
+                  fontWeight: 'bold',
+                  lineHeight: 1,
+                  color: skippedSeqs.length > 0 ? '#fd7e14' : '#28a745'
+                }}>
+                  {skippedSeqs.length}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6c757d', marginTop: '4px' }}>
+                  {skippedSeqs.length === 0 ? 'no gaps' : `of #${Math.min(...sessionSeqNums)}–${Math.max(...sessionSeqNums)}`}
+                </div>
+              </div>
+              <div style={{
+                fontSize: '28px',
+                marginLeft: '12px',
+                color: skippedSeqs.length > 0 ? '#fd7e14' : '#28a745'
+              }}>
+                <i className={`bi ${skippedSeqs.length > 0 ? 'bi-exclamation-triangle' : 'bi-check-circle'}`}></i>
+              </div>
+            </div>
+            {skippedSeqs.length > 0 && (
+              <div style={{
+                fontSize: '11px',
+                color: '#fd7e14',
+                marginTop: '8px',
+                borderTop: '1px solid #fde8d0',
+                paddingTop: '7px',
+                lineHeight: 1.5,
+                maxWidth: '180px',
+                wordBreak: 'break-word'
+              }}>
+                {formatGaps(skippedSeqs)}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -2298,6 +2453,119 @@ const CartonScanner = () => {
             }
           }}
         />
+
+        {/* ── Truck Departure Confirmation Modal ─────────────────────────── */}
+        <Modal show={showManifestModal} onHide={() => setShowManifestModal(false)} size="lg" centered>
+          <Modal.Header closeButton>
+            <Modal.Title>
+              <i className="bi bi-truck me-2"></i>
+              Confirm Truck Departure
+              {manifest && (
+                <small className="ms-2 text-muted fw-normal">
+                  {manifest.truck.truck_reg} — {manifest.truck.driver_name}
+                </small>
+              )}
+            </Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body>
+            {manifestLoading ? (
+              <div className="text-center py-4 text-muted">
+                <div className="spinner-border me-2"></div>
+                Loading truck contents…
+              </div>
+            ) : manifest ? (
+              <>
+                {/* Truck info strip */}
+                <div className="row g-3 mb-4">
+                  {[
+                    { label: 'POs',     value: manifest.totals.pos,     icon: 'bi-receipt',   color: '#0d6efd' },
+                    { label: 'Cartons', value: manifest.totals.cartons, icon: 'bi-box-seam',  color: '#6c757d' },
+                    { label: 'Units',   value: manifest.totals.units,   icon: 'bi-stack',     color: '#198754' },
+                  ].map(card => (
+                    <div className="col-4" key={card.label}>
+                      <div className="border rounded p-3 text-center">
+                        <i className={`bi ${card.icon} fs-4 d-block mb-1`} style={{ color: card.color }}></i>
+                        <div style={{ fontSize: '28px', fontWeight: 700, color: card.color }}>{card.value.toLocaleString()}</div>
+                        <div className="text-muted small">{card.label}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Per-PO breakdown */}
+                {manifest.pos.length > 0 ? (
+                  <div className="table-responsive">
+                    <table className="table table-sm table-hover mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th>PO Number</th>
+                          <th>Customer</th>
+                          <th>Style</th>
+                          <th className="text-end">Cartons</th>
+                          <th className="text-end">Units</th>
+                          <th>Source</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {manifest.pos.map((row, i) => (
+                          <tr key={i}>
+                            <td className="fw-semibold">{row.po_number || '—'}</td>
+                            <td>{row.customer || '—'}</td>
+                            <td className="text-muted small">{row.style || '—'}</td>
+                            <td className="text-end">{row.cartons.toLocaleString()}</td>
+                            <td className="text-end fw-semibold">{row.units.toLocaleString()}</td>
+                            <td>
+                              <span className={`badge ${
+                                row.source === 'MRP'    ? 'bg-primary' :
+                                row.source === 'Prev Year' ? 'bg-warning text-dark' :
+                                                          'bg-secondary'
+                              }`}>
+                                {row.source}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="table-dark">
+                        <tr>
+                          <th colSpan={3}>TOTAL</th>
+                          <th className="text-end">{manifest.totals.cartons.toLocaleString()}</th>
+                          <th className="text-end">{manifest.totals.units.toLocaleString()}</th>
+                          <th></th>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="alert alert-warning">
+                    <i className="bi bi-exclamation-triangle me-2"></i>
+                    No cartons recorded on this truck yet.
+                  </div>
+                )}
+
+                <div className="alert alert-info mt-3 mb-0 py-2">
+                  <i className="bi bi-info-circle me-2"></i>
+                  After confirming, the truck will be marked as departed. You can still view it in <strong>Truck Summary</strong>.
+                </div>
+              </>
+            ) : null}
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowManifestModal(false)}>
+              Cancel — Keep Loading
+            </Button>
+            <Button
+              variant="success"
+              onClick={handleConfirmDeparture}
+              disabled={manifestLoading || !manifest}
+            >
+              <i className="bi bi-check-circle me-2"></i>
+              Confirm Departure
+            </Button>
+          </Modal.Footer>
+        </Modal>
     </div>
   );
 };

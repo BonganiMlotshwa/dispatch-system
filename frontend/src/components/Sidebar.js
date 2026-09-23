@@ -88,6 +88,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     { path: '/scanner', icon: 'bi-upc-scan', label: 'Barcode Scanner', badge: null },
 
+    { path: '/scan-sessions', icon: 'bi-journal-text', label: 'Scan Sessions', badge: null },
+
     { path: '/truck-summary', icon: 'bi-truck', label: 'Truck Summary', badge: null },
 
     { path: '/stickers', icon: 'bi-tags', label: 'Label Generator', badge: null, hidden: appSettings.show_label_generator !== '1' },
