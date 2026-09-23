@@ -9,6 +9,11 @@ require_once '../includes/cors.php';
 cors_headers(['POST', 'PUT']);
 require_once '../includes/auth.php';
 auth_require_user();
+if (!auth_is_admin()) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Admin access required']);
+    exit;
+}
 
 require_once '../config/database.php';
 

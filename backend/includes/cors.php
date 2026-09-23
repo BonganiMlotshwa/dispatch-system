@@ -6,13 +6,18 @@
 function cors_headers(array $methods = ['GET', 'POST', 'OPTIONS']) {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
+    // Extra origins for production — set CORS_ALLOWED_ORIGINS in Apache SetEnv
+    // or php-fpm pool env as a comma-separated list, e.g. "http://192.168.1.50,https://dispatch.ftm.sz"
+    $extraOrigins = array_filter(array_map('trim', explode(',', getenv('CORS_ALLOWED_ORIGINS') ?: '')));
+
     $allowed = false;
     if ($origin !== '') {
         $host = preg_replace('#^https?://#', '', $origin);
-        // Allow any origin serving the React app on port 3000, plus plain localhost
+        // Allow React dev server (port 300x), plain localhost, and any configured production origins
         if (
             preg_match('/:300\d$/', $host) ||
-            in_array($host, ['localhost', '127.0.0.1'], true)
+            in_array($host, ['localhost', '127.0.0.1'], true) ||
+            in_array($origin, $extraOrigins, true)
         ) {
             $allowed = true;
         }

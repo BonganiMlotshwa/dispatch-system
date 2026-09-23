@@ -20,7 +20,9 @@ function extractMrpgMetadata($filePath) {
     }
 
     try {
+        libxml_use_internal_errors(true);
         $xml = simplexml_load_file($filePath);
+        libxml_clear_errors();
         if ($xml === false) {
             return [
                 'success' => false,
@@ -98,9 +100,10 @@ function parseXmlFile($filePath, $internalPoNumber) {
     $fileName = basename($filePath);
     
     try {
-        // Load XML file
+        libxml_use_internal_errors(true);
         $xml = simplexml_load_file($filePath);
-        
+        libxml_clear_errors();
+
         if ($xml === false) {
             return [
                 'success' => false,

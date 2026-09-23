@@ -432,6 +432,7 @@ const CartonScanner = () => {
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [manifest, setManifest] = useState(null);
   const [manifestLoading, setManifestLoading] = useState(false);
+  const [manifestError, setManifestError] = useState(null);
   const [sessionScanCount, setSessionScanCount] = useState(0);
   const [sessionUnitCount, setSessionUnitCount] = useState(0);
   const [counterPulse, setCounterPulse] = useState(false);
@@ -602,21 +603,19 @@ const CartonScanner = () => {
     if (!activeTruck) return;
     setManifestLoading(true);
     setManifest(null);
+    setManifestError(null);
     setShowManifestModal(true);
     try {
       const res = await axios.get(`${API_BASE_URL}/truck_manifest.php`, {
-        params: { id: activeTruck.id },
-        withCredentials: true
+        params: { id: activeTruck.id }
       });
       if (res.data.success) {
         setManifest(res.data);
       } else {
-        setError(res.data.message || 'Failed to load truck manifest');
-        setShowManifestModal(false);
+        setManifestError(res.data.message || 'Failed to load truck manifest');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load truck manifest');
-      setShowManifestModal(false);
+      setManifestError(err.response?.data?.message || 'Failed to load truck manifest');
     } finally {
       setManifestLoading(false);
     }
@@ -2549,6 +2548,16 @@ const CartonScanner = () => {
                   After confirming, the truck will be marked as departed. You can still view it in <strong>Truck Summary</strong>.
                 </div>
               </>
+            ) : manifestError ? (
+              <div className="alert alert-danger mb-0">
+                <i className="bi bi-exclamation-circle me-2"></i>
+                {manifestError}
+                <div className="mt-2">
+                  <Button size="sm" variant="outline-danger" onClick={handleFinishLoading}>
+                    Retry
+                  </Button>
+                </div>
+              </div>
             ) : null}
           </Modal.Body>
 

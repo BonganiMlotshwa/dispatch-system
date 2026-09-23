@@ -6,11 +6,12 @@
  * Warehouse Carton Tracking System.
  */
 
-// Database connection parameters
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'warehouse_tracking');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+// Database connection parameters — override with env vars on the Linux server.
+// Set DB_HOST, DB_NAME, DB_USER, DB_PASS in Apache SetEnv or php-fpm pool env.
+define('DB_HOST',    getenv('DB_HOST')    ?: 'localhost');
+define('DB_NAME',    getenv('DB_NAME')    ?: 'warehouse_tracking');
+define('DB_USER',    getenv('DB_USER')    ?: 'root');
+define('DB_PASS',    getenv('DB_PASS')    ?: '');
 define('DB_CHARSET', 'utf8mb4');
 
 // Connection pool to reuse connections

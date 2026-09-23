@@ -3,6 +3,15 @@ import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
+const getISOWeek = (date = new Date()) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+};
+
+const currentWeekLabel = () => `Wk${getISOWeek()}`;
+
 /**
  * Exit Scan Modal — driver info, optional manual-order truck assignment (OTB/OBSW), then scanning.
  */
@@ -17,7 +26,7 @@ const ExitScanModal = ({ show, onHide, onSuccess }) => {
     driver_surname: '',
     ftm_pin: '',
     shipment_date: new Date().toISOString().split('T')[0],
-    shipment_week: `Wk${Math.ceil(new Date().getDate() / 7)}`
+    shipment_week: currentWeekLabel()
   });
 
   const [assignManualOrders, setAssignManualOrders] = useState(false);
@@ -201,7 +210,7 @@ const ExitScanModal = ({ show, onHide, onSuccess }) => {
       driver_surname: '',
       ftm_pin: '',
       shipment_date: new Date().toISOString().split('T')[0],
-      shipment_week: `Wk${Math.ceil(new Date().getDate() / 7)}`
+      shipment_week: currentWeekLabel()
     });
     setAssignManualOrders(false);
     setManualOrders([]);

@@ -23,7 +23,7 @@ const LegacyWarehouseGoods = () => {
   const [filters, setFilters] = useState(() => {
     const params = new URLSearchParams(location.search);
     return {
-      status: params.get('status') || 'active',
+      status: params.get('status') || '',
       customer: '',
       source_year: '',
       in_warehouse_only: false,
@@ -536,7 +536,7 @@ const LegacyWarehouseGoods = () => {
           <h1 className="text-gradient mb-1">Previous Year Orders</h1>
           <p className="text-muted mb-0 small">
             All warehouse orders — <strong>system POs</strong> (scanned/imported) and <strong>previous year manual</strong> rows.
-            Default filter shows <strong>Active</strong> orders. Use <strong>Add entry</strong> for spreadsheet-only prior-year stock.
+            Showing all statuses by default. Use the Status filter to narrow down. Use <strong>Add entry</strong> for spreadsheet-only prior-year stock.
           </p>
         </div>
         <div className="d-flex gap-2 flex-wrap">

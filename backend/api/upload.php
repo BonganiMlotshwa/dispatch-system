@@ -68,7 +68,7 @@ if ($_FILES['xmlFile']['error'] !== UPLOAD_ERR_OK) {
     }
     
     // Create uploads directory if it doesn't exist
-    $uploadDir = '../uploads/';
+    $uploadDir = __DIR__ . '/../uploads/';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }

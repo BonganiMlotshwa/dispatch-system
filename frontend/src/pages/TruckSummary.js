@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Alert, Form, Table, Badge, Button, Modal } from 'react-bootstrap';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { getUser } from '../services/authService';
 
 const TruckSummary = () => {
   const navigate = useNavigate();
+  const currentUser = getUser();
+  const isAdmin = currentUser?.role === 'admin';
   const [trucks, setTrucks] = useState([]);
   const [summary, setSummary] = useState({ total_trucks: 0, total_cartons: 0, total_units: 0 });
   const [availableWeeks, setAvailableWeeks] = useState([]);
@@ -444,13 +447,23 @@ const TruckSummary = () => {
                       </td>
                       <td className="text-center">
                         <div className="btn-group btn-group-sm">
-                          <button
-                            className="btn btn-outline-warning"
-                            onClick={() => handleEditClick(truck)}
-                            title="Edit driver & truck info"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </button>
+                          {truck.loading_status === 'closed' && !isAdmin ? (
+                            <button
+                              className="btn btn-outline-secondary"
+                              disabled
+                              title="Truck confirmed — editing locked. Contact an admin to make changes."
+                            >
+                              <i className="bi bi-lock"></i>
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-outline-warning"
+                              onClick={() => handleEditClick(truck)}
+                              title={truck.loading_status === 'closed' ? 'Edit confirmed truck (admin override)' : 'Edit driver & truck info'}
+                            >
+                              <i className={`bi ${truck.loading_status === 'closed' ? 'bi-pencil-fill' : 'bi-pencil'}`}></i>
+                            </button>
+                          )}
                           <button
                             className="btn btn-outline-primary"
                             onClick={() => handleExport(truck.id, 'csv')}
@@ -491,6 +504,12 @@ const TruckSummary = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {editingTruck?.loading_status === 'closed' && (
+            <Alert variant="warning" className="py-2 mb-3">
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              <strong>Confirmed shipment.</strong> Changes here will affect departure records. Use only to correct errors (e.g. driver swap, wrong registration).
+            </Alert>
+          )}
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>Truck Registration</Form.Label>

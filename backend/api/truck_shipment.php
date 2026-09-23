@@ -126,11 +126,24 @@ try {
     // PUT: Update truck shipment
     elseif ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $input = json_decode(file_get_contents('php://input'), true);
-        
+
         if (!isset($input['id'])) {
             throw new Exception('Truck shipment ID is required');
         }
-        
+
+        // Block edits on confirmed (closed) trucks for non-admins
+        $chk = $pdo->prepare("SELECT loading_status FROM truck_shipments WHERE id = ?");
+        $chk->execute([(int)$input['id']]);
+        $existing = $chk->fetch();
+        if (!$existing) {
+            throw new Exception('Truck shipment not found');
+        }
+        if ($existing['loading_status'] === 'closed' && !auth_is_admin()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'This truck has been confirmed. Only admins can edit confirmed shipments.']);
+            exit;
+        }
+
         $pdo->beginTransaction();
         
         // Update truck shipment

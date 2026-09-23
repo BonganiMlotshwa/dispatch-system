@@ -74,6 +74,7 @@ try {
             ts.truck_reg,
             ts.driver_name,
             ts.remarks,
+            ts.loading_status,
             ts.created_at,
             COUNT(DISTINCT c.id) as system_cartons,
             COALESCE(SUM(CAST(c.units AS UNSIGNED)), 0) as system_units,
@@ -87,7 +88,7 @@ try {
         LEFT JOIN cartons c ON c.truck_shipment_id = ts.id
         LEFT JOIN shipments s ON c.shipment_id = s.id
         {$whereClause}
-        GROUP BY ts.id, ts.shipment_date, ts.shipment_week, ts.truck_reg, ts.driver_name, ts.remarks, ts.created_at
+        GROUP BY ts.id, ts.shipment_date, ts.shipment_week, ts.truck_reg, ts.driver_name, ts.remarks, ts.loading_status, ts.created_at
         ORDER BY ts.shipment_date DESC, ts.created_at DESC
     ";
 

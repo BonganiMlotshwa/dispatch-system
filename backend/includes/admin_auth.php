@@ -3,7 +3,7 @@
  * Admin action password — shared by protected APIs.
  * Change ADMIN_ACTION_CODE to your preferred secret.
  */
-define('ADMIN_ACTION_CODE', 'FTM2026DELETE');
+define('ADMIN_ACTION_CODE', getenv('ADMIN_ACTION_CODE') ?: 'FTM2026DELETE');
 
 function verifyAdminCode($code) {
     return is_string($code) && trim($code) === ADMIN_ACTION_CODE;

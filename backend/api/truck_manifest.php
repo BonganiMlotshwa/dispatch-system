@@ -55,15 +55,15 @@ try {
     if ($legacyExists) {
         $stmt = $pdo->prepare("
             SELECT
-                COALESCE(lg.order_number, 'Manual') AS po_number,
+                COALESCE(lg.internal_po, lg.customer_order_number, 'Manual') AS po_number,
                 lg.customer,
-                ''                                  AS style,
+                COALESCE(lg.style, '')              AS style,
                 tli.cartons_shipped                 AS cartons,
                 tli.units_shipped                   AS units
             FROM   truck_shipment_legacy_items tli
             INNER  JOIN legacy_warehouse_goods lg ON lg.id = tli.legacy_goods_id
             WHERE  tli.truck_shipment_id = ?
-            ORDER  BY lg.order_number
+            ORDER  BY lg.internal_po
         ");
         $stmt->execute([$id]);
         $legacyRows = $stmt->fetchAll(PDO::FETCH_ASSOC);

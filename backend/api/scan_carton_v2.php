@@ -12,6 +12,7 @@ require_once '../config/database.php';
 require_once '../includes/carton_timestamps.php';
 require_once '../includes/sync_shipment_warehouse_status.php';
 require_once '../includes/auth.php';
+auth_require_user();
 
 try {
     $pdo = getDbConnection();

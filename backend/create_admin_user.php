@@ -17,11 +17,11 @@ try {
     $existing = $stmt->fetch();
 
     if ($existing) {
-        $stmt = $pdo->prepare('UPDATE users SET password_hash = ?, role = "admin", is_active = 1 WHERE id = ?');
+        $stmt = $pdo->prepare('UPDATE users SET password = ?, role = "admin", is_active = 1 WHERE id = ?');
         $stmt->execute([$hash, $existing['id']]);
         echo "Updated existing admin user: {$username}\n";
     } else {
-        $stmt = $pdo->prepare('INSERT INTO users (username, email, password_hash, role, is_active) VALUES (?, ?, ?, "admin", 1)');
+        $stmt = $pdo->prepare('INSERT INTO users (username, email, password, role, is_active) VALUES (?, ?, ?, "admin", 1)');
         $stmt->execute([$username, $email, $hash]);
         echo "Created admin user: {$username}\n";
     }

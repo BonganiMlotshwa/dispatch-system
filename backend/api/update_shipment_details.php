@@ -85,5 +85,6 @@ try {
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    error_log("update_shipment_details.php: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Database error']);
 }

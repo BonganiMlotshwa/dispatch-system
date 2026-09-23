@@ -18,11 +18,18 @@ define('PDF_LINE_HEIGHT', 6);
  */
 function getPdfLogoDataUri(string $filename): string
 {
-    $path = __DIR__ . '/../../frontend/public/' . $filename;
-    if (!file_exists($path)) {
-        return '';
+    // Primary: beside the frontend source (works when full repo is deployed)
+    // Fallback: backend/assets/ — copy logos there if only the backend is deployed
+    $candidates = [
+        __DIR__ . '/../../frontend/public/' . $filename,
+        __DIR__ . '/../assets/' . $filename,
+    ];
+    foreach ($candidates as $path) {
+        if (file_exists($path)) {
+            return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+        }
     }
-    return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+    return '';
 }
 
 /**
@@ -1150,10 +1157,11 @@ function generateComprehensivePdfReport($pdo, $period = 'all', $startDate = null
         // Top Orders
         echo "<h2>Top Orders by Carton Count</h2>";
         echo "<table>";
-        echo "<tr><th>FTM PO</th><th>Customer PO</th><th>Total Cartons</th><th>Total Units</th><th>Pending Cartons</th><th>Pending Units</th><th>In Warehouse</th><th>Shipped</th></tr>";
+        echo "<tr><th>Customer</th><th>FTM PO</th><th>Customer PO</th><th>Total Cartons</th><th>Total Units</th><th>Pending Cartons</th><th>Pending Units</th><th>Cartons in Warehouse</th><th>Cartons Shipped</th></tr>";
 
         foreach ($reportData['top_orders'] as $order) {
             echo "<tr>";
+            echo "<td>" . htmlspecialchars($order['customer'] ?? 'MRP') . "</td>";
             echo "<td>" . htmlspecialchars(formatInternalPoDisplay($order['customer'] ?? '', $order['ftm_po'])) . "</td>";
             echo "<td>" . htmlspecialchars(formatCustomerPoForDisplay($order['customer'] ?? '', $order['customer_po'] ?? '')) . "</td>";
             echo "<td>{$order['carton_count']}</td>";
