@@ -1,200 +1,270 @@
-# FTM Garments Warehouse Tracking System
+# FTM Garments — Dispatch & Warehouse Tracking System
 
-A warehouse tracking system for FTM Garments that manages carton receiving, shipment tracking, truck dispatch, schedule imports, and reporting for customers such as MRP, OTB, and OBSW.
+Tracks carton receiving, outbound truck dispatch, schedule imports, and reporting for customers MRP, OTB, and OBSW.
+
+---
 
 ## Features
 
-- XML shipment import
-- Manual shipment creation
-- Barcode scanning for receiving and dispatch
-- Separate scan in and scan out timestamps
-- Shipment and carton detail pages
-- Daily summary reporting
-- Weekly analysis by delivery schedule
-- Truck shipment and truck summary reports
-- CSV and PDF exports
-- Schedule upload, activation, and deletion
-- Uploaded shipment file management
-- Admin-protected shipment deletion
+- XML (.mrpg) and manual shipment import
+- Barcode scan-in and scan-out with per-carton timestamps
+- Truck shipment records with manifest and export
+- Previous Year Orders (legacy stock) tracking and outbound shipping
+- Dashboard with year filter and KPI cards
+- Weekly analysis by delivery schedule week
+- Reports: comprehensive, inventory, time-based, daily summary, daily entry chart
+- CSV and PDF exports (server-side mPDF + client-side jsPDF)
+- Schedule upload, activation, and linking to shipments
+- Admin user management with audit log and password reset
+- App settings: sidebar visibility toggles
+- Scan sessions with per-PO progress tracking
+
+---
 
 ## Tech Stack
 
-- Backend: PHP, MySQL
-- Frontend: React, Bootstrap
-- Reports: CSV, PDF
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 (CRA), Bootstrap 5, Chart.js, Quagga, jsPDF |
+| Backend | PHP 8+, REST API |
+| Database | MySQL / MariaDB 10.11 |
+| PDF | mPDF (server-side), jsPDF (client-side) |
+| Process manager (prod) | pm2 + nginx |
 
-## Requirements
+---
 
-- XAMPP or another LAMP/WAMP stack
-- PHP 7.4 or newer
-- MySQL 5.7 or newer
-- Node.js 14 or newer
-- npm 6 or newer
+## Windows Development Setup
 
-## Project Setup
+### 1. Prerequisites
 
-### 1. Clone the repository
+- [XAMPP](https://www.apachefriends.org) — provides PHP and MySQL
+- [Node.js LTS](https://nodejs.org)
+- [Git](https://git-scm.com)
+- Composer (optional — only needed for mPDF PDF reports)
 
-```bash
-git clone https://github.com/BonganiMlotshwa/dispatch-system.git
-cd dispatch-system
+Add PHP to PATH: `C:\xampp\php`
+
+Verify:
+```powershell
+php -v          # 8.x
+node -v         # 18+
+npm -v
 ```
 
-### 2. Import the database
+### 2. Clone and install
 
-Use phpMyAdmin or MySQL CLI to import `database_schema.sql` from the project root.
-
-```bash
-mysql -u root -p < database_schema.sql
+```powershell
+git clone <repository-url>
+cd dispatch
+cd frontend && npm install && cd ..
+cd backend && composer install && cd ..   # optional, for PDF reports
 ```
 
-### 3. Run database migrations
+### 3. Set up the database
 
-After pulling new code, run the tracked migration runner to add or update schema changes safely.
+Start MySQL in the XAMPP Control Panel, then:
+
+```powershell
+php backend/config/init_db.php
+```
+
+This creates the `warehouse_tracking` database and runs all 20 migrations in one step.
+
+### 4. Create the admin user
+
+```powershell
+php backend/create_admin_user.php
+```
+
+Default credentials: `admin` / `ChangeMe!123` — change after first login.
+
+Override with env vars:
+```powershell
+$env:ADMIN_USERNAME = "admin"
+$env:ADMIN_PASSWORD = "YourPassword"
+$env:ADMIN_EMAIL    = "admin@ftmswaziland.com"
+php backend/create_admin_user.php
+```
+
+### 5. Start the system
+
+Two terminal windows:
+
+```powershell
+# Terminal 1 — backend (port 8001)
+php backend/start_server.php
+
+# Terminal 2 — frontend (port 3000)
+cd frontend
+npm start
+```
+
+Open http://localhost:3000
+
+Or use the launcher:
+```powershell
+start_all.bat
+```
+
+---
+
+## Linux / Production Setup
+
+### 1. Install system packages
+
+```bash
+apt install php php-fpm php-mysql php-mbstring php-xml php-zip nginx mariadb-server composer
+```
+
+### 2. Create database user
+
+```sql
+CREATE USER 'ftm_user'@'localhost' IDENTIFIED BY 'YOUR_PASSWORD';
+GRANT ALL PRIVILEGES ON warehouse_tracking.* TO 'ftm_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### 3. Set environment variables
+
+In `/etc/php/8.x/fpm/pool.d/www.conf`:
+
+```ini
+env[DB_HOST]               = localhost
+env[DB_NAME]               = warehouse_tracking
+env[DB_USER]               = ftm_user
+env[DB_PASS]               = YOUR_PASSWORD
+env[CORS_ALLOWED_ORIGINS]  = http://YOUR_SERVER_IP
+env[ADMIN_ACTION_CODE]     = YOUR_CHOSEN_CODE
+```
+
+### 4. Build the frontend
+
+```bash
+echo "REACT_APP_API_URL=http://YOUR_SERVER_IP/api" > frontend/.env.production
+cd frontend && npm install && npm run build
+```
+
+### 5. Nginx config
+
+```nginx
+server {
+    listen 80;
+    root /var/www/dispatch/frontend/build;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api {
+        root /var/www/dispatch/backend;
+        fastcgi_pass unix:/run/php/php8.x-fpm.sock;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /var/www/dispatch/backend$fastcgi_script_name;
+    }
+
+    location = /unlock_admin.php { deny all; }
+}
+```
+
+### 6. File permissions
+
+```bash
+mkdir -p backend/uploads backend/cache
+chown -R www-data:www-data backend/uploads backend/cache
+chmod 755 backend/uploads backend/cache
+```
+
+### 7. Database setup
+
+```bash
+php backend/config/init_db.php
+```
+
+Creates the database and runs all migrations automatically.
+
+### 8. Create admin user
+
+```bash
+DB_HOST=localhost DB_NAME=warehouse_tracking DB_USER=ftm_user DB_PASS=YOUR_PASSWORD \
+ADMIN_USERNAME=admin ADMIN_EMAIL=admin@ftmswaziland.com ADMIN_PASSWORD=YOUR_PASSWORD \
+php backend/create_admin_user.php
+```
+
+### 9. Verify
+
+- Log in as admin
+- Upload a test .mrpg file
+- Scan a carton in and out
+- Open Finish Loading modal — should show manifest
+- Export PDF and CSV from Reports
+
+---
+
+## After `git pull`
+
+```powershell
+php backend/database/migrate.php   # apply any new migrations
+cd frontend && npm install          # if package.json changed
+# restart both servers
+```
+
+---
+
+## Database Migrations
+
+All schema changes are tracked in `backend/database/migrations/`. Run the runner after pulling:
 
 ```bash
 php backend/database/migrate.php
 ```
 
-If needed, the legacy runner is still available:
+Each migration runs only once per database. To set up a fresh database from scratch, use `init_db.php` — it creates the database and runs all migrations in one step.
 
-```bash
-php backend/run_all_migrations.php
-```
+Current migrations: 20 applied (001–020), covering all tables.
 
-Recent schema updates include:
-
-- `entry_timestamp` and `exit_timestamp` on cartons
-- delivery schedule tracking
-- shipment-to-schedule linking
-- truck workflow status updates
-
-### 4. Create an admin user
-
-Open the admin creator in your browser:
-
-```text
-http://localhost:8001/create_admin_user.php
-```
-
-Default credentials:
-
-- Username: `admin`
-- Password: `admin123`
-
-Change the password after first login.
-
-### 5. Start the backend
-
-```bash
-cd backend
-php start_server.php
-```
-
-The backend runs at `http://localhost:8001`.
-
-### 6. Start the frontend
-
-```bash
-cd frontend
-npm install
-npm start
-```
-
-The frontend runs at `http://localhost:3000`.
-
-## Usage
-
-### Dashboard
-
-- View carton totals
-- See received, pending, and shipped counts
-- Review recent activity and progress summaries
-
-### Import shipments
-
-- Go to `Import Data`
-- Upload an XML file or schedule file
-- Review the imported shipment and carton data
-
-### Manual entry
-
-- Go to `Manual Entry`
-- Create shipments for customers without XML files
-- Enter style, color, quantity, and carton details
-
-### Barcode scanning
-
-- Use entry scanning to receive cartons into the warehouse
-- Use exit scanning to load cartons onto trucks
-- Scan in and scan out timestamps are tracked separately
-
-### Weekly analysis
-
-- Open `Weekly Analysis`
-- Review schedule weeks, expected cartons, received cartons, in-warehouse cartons, and shipped cartons
-
-### Reports
-
-- Daily summary
-- Shipment detail exports
-- Truck shipment exports
-- Truck summary exports
-- Goods received export
-
-## Data Model
-
-### Shipments
-
-Stores shipment-level details such as customer, style, color, quantity, file name, and schedule linkage.
-
-### Cartons
-
-Stores carton-level tracking data including barcode, size, units, status, scan timestamps, QC number, finishing number, and truck linkage.
-
-### Delivery schedules
-
-Stores imported weekly schedule files and links them to shipments.
-
-### Truck shipments
-
-Stores dispatch records for truck loading and exit tracking.
-
-## Key API Areas
-
-- `backend/api/shipments.php`
-- `backend/api/manual_entry.php`
-- `backend/api/scan_carton_v2.php`
-- `backend/api/schedule.php`
-- `backend/api/dashboard_stats.php`
-- `backend/api/truck_summary_export.php`
-- `backend/api/truck_shipment_export.php`
+---
 
 ## Project Structure
 
-```text
-backend/
-  api/
-  config/
-  database/
-  includes/
-  uploads/
-frontend/
-  public/
-  src/
-database_schema.sql
-README.md
 ```
+backend/
+  api/           API endpoints (~50 PHP files)
+  config/        database.php, init_db.php, cors.php
+  database/      migrate.php + migrations/
+  includes/      shared PHP helpers
+  uploads/       imported .mrpg XML files
+  cache/         PHP file cache (auto-generated)
+frontend/
+  src/
+    pages/       React page components
+    components/  Shared UI components
+    contexts/    Auth and theme contexts
+    services/    axios wrapper, auth service
+database_schema.sql   Full schema reference (auto-generated — use migrate.php for setup)
+PROGRESS.md           Session-by-session change log
+start_all.bat         Windows dev launcher
+```
+
+---
 
 ## Troubleshooting
 
-- If the backend fails to start, check PHP, MySQL, and port 8001.
-- If the frontend fails to start, run `npm install` again inside `frontend`.
-- If a new column is missing, run the migration runner again.
-- If login fails, verify the admin account was created and not locked.
+| Problem | Fix |
+|---------|-----|
+| `php` not found | Add `C:\xampp\php` to PATH |
+| DB connection failed | Check MySQL is running; check env vars |
+| Migration fails: table missing | Run `php backend/config/init_db.php` first |
+| Login fails with correct password | Run `php backend/create_admin_user.php` then `php backend/unlock_admin.php` |
+| Port 8001 in use | Edit `$port` in `backend/start_server.php` |
+| CORS errors in browser | Ensure backend is running before opening frontend |
+| PDF reports fail | Run `composer install` in `backend/` |
 
-## Notes for Contributors
+---
 
-- Keep database migrations tracked in `backend/database/migrations/`.
-- Update the README whenever a workflow or API changes in a user-visible way.
-- Prefer the existing backend and frontend patterns when adding new features.
+## Admin Notes
+
+- **Admin code** (`ADMIN_ACTION_CODE` env var) — required for destructive actions: delete PO, delete user, change app settings. Set in env, not in code.
+- **Password reset** — Settings → Users → key icon next to any user.
+- **Employee scanner** — `/employee-login` — uses employee codes, not system user accounts.
+- **Unlock admin** — CLI only: `php backend/unlock_admin.php` (blocked from web).
