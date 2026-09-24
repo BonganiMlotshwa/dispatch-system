@@ -13,7 +13,7 @@ export const useTheme = () => {
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
     // Get saved theme from localStorage or default to 'system'
-    return localStorage.getItem('theme') || 'system';
+    return localStorage.getItem('theme') || 'light';
   });
 
   const [resolvedTheme, setResolvedTheme] = useState('light');
@@ -40,15 +40,15 @@ export const ThemeProvider = ({ children }) => {
     
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', newResolvedTheme);
-    
+
+    // Save to localStorage
+    localStorage.setItem('theme', theme);
+
     // Remove transition class after a short delay
     const id = setTimeout(() => {
       document.documentElement.classList.remove('theme-switching');
     }, 100);
     return () => clearTimeout(id);
-    
-    // Save to localStorage
-    localStorage.setItem('theme', theme);
   }, [theme]);
 
   // Listen for system theme changes when using 'system' theme
