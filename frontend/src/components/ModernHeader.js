@@ -55,7 +55,6 @@ const ModernHeader = ({ toggleSidebar }) => {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) console.log('Searching for:', searchQuery);
   };
 
   const notifCount = openTrucks.length;

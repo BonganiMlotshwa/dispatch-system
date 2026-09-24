@@ -299,7 +299,7 @@ const ManualEntry = () => {
                   <button
                     type="button"
                     className="btn-modern btn-modern-secondary"
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => navigate('/')}
                   >
                     Cancel
                   </button>
