@@ -1,53 +1,39 @@
 @echo off
 setlocal enableextensions
 
-REM Hardcoded project root (handles spaces in path)
 set "ROOT=C:\xampp\htdocs\USB Drive\dispatch"
-
-REM PHP from XAMPP
 set "PHP_EXE=C:\xampp\php\php.exe"
 
-REM Helper: find free port starting from %1, store result in %2
-goto :main
+title FTM Dispatch System
 
-:find_free_port
-for /f %%p in ('powershell -NoProfile -Command "$p=%~1; while($true){try{$l=New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any,$p);$l.Start();$l.Stop();break}catch{$p++}};$p"') do set %~2=%%p
-exit /b
+echo ========================================
+echo  FTM Dispatch System
+echo ========================================
+echo.
 
-:main
-
-REM Start XAMPP Apache and MySQL
-echo [XAMPP] Starting Apache and MySQL...
-if exist "C:\xampp\apache_start.bat" (
-  start "XAMPP-Apache" /min "C:\xampp\apache_start.bat"
-) else (
-  echo [XAMPP] apache_start.bat not found, skipping.
-)
+REM Start MySQL silently (minimised, no extra window)
 if exist "C:\xampp\mysql_start.bat" (
-  start "XAMPP-MySQL" /min "C:\xampp\mysql_start.bat"
+    echo [1/3] Starting MySQL...
+    start "" /min "C:\xampp\mysql_start.bat"
+    timeout /t 3 /nobreak >nul
 ) else (
-  echo [XAMPP] mysql_start.bat not found, skipping.
+    echo [1/3] MySQL: make sure it is running in XAMPP Control Panel.
 )
 
-REM Wait for MySQL to come up
-timeout /t 3 /nobreak >nul
+REM Start PHP backend in this console session (no new window)
+echo [2/3] PHP backend  ^>  http://localhost:8001
+start /B "" "%PHP_EXE%" -S 0.0.0.0:8001 -t "%ROOT%\backend"
+timeout /t 1 /nobreak >nul
 
-REM Find a free port for PHP backend (start from 8001)
-echo [Backend] Finding available port from 8001...
-call :find_free_port 8001 PHP_PORT
-echo [Backend] Starting PHP dev server on port %PHP_PORT%...
-start "backend-php" cmd /k ""%PHP_EXE%" -S 0.0.0.0:%PHP_PORT% -t "%ROOT%\backend""
-
-REM Find a free port for React frontend (start from 3000)
-echo [Frontend] Finding available port from 3000...
-call :find_free_port 3000 REACT_PORT
-echo [Frontend] Starting React dev server on port %REACT_PORT%...
-start "frontend" /D "%ROOT%\frontend" cmd /k "set PORT=%REACT_PORT%&& npm start"
-
+REM Start React in the foreground — output shows in this window
+echo [3/3] React frontend  ^>  http://localhost:3000
 echo.
-echo All services launched in separate windows:
-echo   PHP backend  ^>  http://localhost:%PHP_PORT%
-echo   React app    ^>  http://localhost:%REACT_PORT%
+echo Press Ctrl+C to stop everything.
+echo ----------------------------------------
 echo.
-pause >nul
+
+cd /D "%ROOT%\frontend"
+set PORT=3000
+npm start
+
 endlocal
