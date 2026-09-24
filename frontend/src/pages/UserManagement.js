@@ -17,7 +17,6 @@ const UserManagement = () => {
   const currentUser = getUser();
   const isAdmin = currentUser?.role === 'admin';
 
-  const [activeTab, setActiveTab] = useState('users');
 
   const [users, setUsers] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
@@ -353,34 +352,10 @@ const UserManagement = () => {
 
   return (
     <div className="py-2">
-      <button className="btn btn-sm btn-outline-secondary mb-3" onClick={() => navigate(-1)}>
-        <i className="bi bi-arrow-left me-1"></i> Back
-      </button>
-      <div className="mb-3">
+      <div className="mb-4">
         <h1 className="text-gradient mb-0">Settings</h1>
         <p className="text-muted mb-0">Users and system configuration</p>
       </div>
-
-      <ul className="nav nav-tabs mb-4">
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveTab('users')}
-          >
-            <i className="bi bi-people me-2"></i>Users
-          </button>
-        </li>
-        {isAdmin && (
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === 'app-settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('app-settings')}
-            >
-              <i className="bi bi-toggles me-2"></i>App Settings
-            </button>
-          </li>
-        )}
-      </ul>
 
       {error && (
         <div className="alert alert-danger alert-dismissible">
@@ -396,107 +371,12 @@ const UserManagement = () => {
         </div>
       )}
 
-      {activeTab === 'app-settings' && (
-        <div className="modern-card">
-          <div className="modern-card-header">
-            <h5 className="mb-0">
-              <i className="bi bi-layout-sidebar me-2"></i>
-              Sidebar Visibility
-            </h5>
-          </div>
-          <div className="modern-card-body p-0">
-            {settingsLoading ? (
-              <div className="text-center py-4"><div className="spinner-border spinner-border-sm" /></div>
-            ) : (
-              FEATURE_SETTINGS.map((meta, idx) => {
-                const isOn = appSettings[meta.key] === '1';
-                return (
-                  <div
-                    key={meta.key}
-                    className={`d-flex align-items-center justify-content-between px-4 py-3 ${idx < FEATURE_SETTINGS.length - 1 ? 'border-bottom' : ''}`}
-                  >
-                    <div className="d-flex align-items-center gap-3">
-                      <i className={`bi ${meta.icon} fs-5 text-secondary`}></i>
-                      <div>
-                        <div className="fw-semibold">{meta.label}</div>
-                        <div className="text-muted small">{meta.description}</div>
-                      </div>
-                    </div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className={`badge ${isOn ? 'bg-success' : 'bg-secondary'}`}>
-                        {isOn ? 'Visible' : 'Hidden'}
-                      </span>
-                      <div className="form-check form-switch mb-0">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          role="switch"
-                          checked={isOn}
-                          disabled={savingSetting === meta.key}
-                          onChange={() => handleToggleSetting(meta.key, appSettings[meta.key])}
-                          style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
-                        />
-                      </div>
-                      {savingSetting === meta.key && <span className="spinner-border spinner-border-sm text-primary" />}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <div className="modern-card-body border-top">
-            <p className="text-muted small mb-0">
-              <i className="bi bi-shield-lock me-1"></i>
-              Changes require the admin code and take effect immediately in the sidebar.
-            </p>
-          </div>
-        </div>
-
-        <div className="modern-card mt-4">
-          <div className="modern-card-header">
-            <h5 className="mb-0">
-              <i className="bi bi-envelope me-2"></i>
-              Support Contact
-            </h5>
-          </div>
-          <div className="modern-card-body">
-            <p className="text-muted small mb-3">
-              This email appears in the Help panel (? icon in the header) so users know who to contact.
-            </p>
-            <div className="d-flex align-items-center gap-2" style={{ maxWidth: '480px' }}>
-              <div className="input-group">
-                <span className="input-group-text"><i className="bi bi-envelope"></i></span>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={supportEmailInput}
-                  onChange={(e) => setSupportEmailInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveEmail()}
-                  placeholder="support@example.com"
-                  disabled={savingSetting === 'support_email'}
-                />
-              </div>
-              <button
-                className="btn btn-primary"
-                onClick={handleSaveEmail}
-                disabled={savingSetting === 'support_email' || supportEmailInput.trim() === (appSettings.support_email || '')}
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                {savingSetting === 'support_email'
-                  ? <span className="spinner-border spinner-border-sm" />
-                  : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'users' && (
-      <div className="modern-card">
+      {/* ── Users ── */}
+      <div className="modern-card mb-4">
         <div className="modern-card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">
             <i className="bi bi-people me-2"></i>
-            All Users ({users.length})
+            Users ({users.length})
           </h5>
           {isAdmin && (
             <div className="d-flex gap-2">
@@ -601,6 +481,103 @@ const UserManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* ── App Settings (admin only) ── */}
+      {isAdmin && (
+        <>
+          <div className="modern-card mb-4">
+            <div className="modern-card-header">
+              <h5 className="mb-0">
+                <i className="bi bi-layout-sidebar me-2"></i>
+                Sidebar Visibility
+              </h5>
+            </div>
+            <div className="modern-card-body p-0">
+              {settingsLoading ? (
+                <div className="text-center py-4"><div className="spinner-border spinner-border-sm" /></div>
+              ) : (
+                FEATURE_SETTINGS.map((meta, idx) => {
+                  const isOn = appSettings[meta.key] === '1';
+                  return (
+                    <div
+                      key={meta.key}
+                      className={`d-flex align-items-center justify-content-between px-4 py-3 ${idx < FEATURE_SETTINGS.length - 1 ? 'border-bottom' : ''}`}
+                    >
+                      <div className="d-flex align-items-center gap-3">
+                        <i className={`bi ${meta.icon} fs-5 text-secondary`}></i>
+                        <div>
+                          <div className="fw-semibold">{meta.label}</div>
+                          <div className="text-muted small">{meta.description}</div>
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className={`badge ${isOn ? 'bg-success' : 'bg-secondary'}`}>
+                          {isOn ? 'Visible' : 'Hidden'}
+                        </span>
+                        <div className="form-check form-switch mb-0">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            role="switch"
+                            checked={isOn}
+                            disabled={savingSetting === meta.key}
+                            onChange={() => handleToggleSetting(meta.key, appSettings[meta.key])}
+                            style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
+                          />
+                        </div>
+                        {savingSetting === meta.key && <span className="spinner-border spinner-border-sm text-primary" />}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="modern-card-body border-top">
+              <p className="text-muted small mb-0">
+                <i className="bi bi-shield-lock me-1"></i>
+                Changes require the admin code and take effect immediately in the sidebar.
+              </p>
+            </div>
+          </div>
+
+          <div className="modern-card mb-4">
+            <div className="modern-card-header">
+              <h5 className="mb-0">
+                <i className="bi bi-envelope me-2"></i>
+                Support Contact
+              </h5>
+            </div>
+            <div className="modern-card-body">
+              <p className="text-muted small mb-3">
+                This email appears in the Help panel (? icon in the header) so users know who to contact.
+              </p>
+              <div className="d-flex align-items-center gap-2" style={{ maxWidth: '480px' }}>
+                <div className="input-group">
+                  <span className="input-group-text"><i className="bi bi-envelope"></i></span>
+                  <input
+                    type="email"
+                    className="form-control"
+                    value={supportEmailInput}
+                    onChange={(e) => setSupportEmailInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveEmail()}
+                    placeholder="support@example.com"
+                    disabled={savingSetting === 'support_email'}
+                  />
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveEmail}
+                  disabled={savingSetting === 'support_email' || supportEmailInput.trim() === (appSettings.support_email || '')}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  {savingSetting === 'support_email'
+                    ? <span className="spinner-border spinner-border-sm" />
+                    : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Add User Modal */}
