@@ -34,6 +34,7 @@ const UserManagement = () => {
   const [appSettings, setAppSettings] = useState({});
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [savingSetting, setSavingSetting] = useState(null);
+  const [supportEmailInput, setSupportEmailInput] = useState('');
   
   const [formData, setFormData] = useState({
     username: '',
@@ -54,7 +55,10 @@ const UserManagement = () => {
     try {
       setSettingsLoading(true);
       const res = await axios.get(`${API_BASE_URL}/app_settings.php`, { withCredentials: true });
-      if (res.data.success) setAppSettings(res.data.settings);
+      if (res.data.success) {
+        setAppSettings(res.data.settings);
+        setSupportEmailInput(res.data.settings.support_email || '');
+      }
     } catch (_) {
     } finally {
       setSettingsLoading(false);
@@ -80,6 +84,31 @@ const UserManagement = () => {
     } catch (err) {
       if (err.message !== 'Admin verification cancelled') {
         setError(err.response?.data?.message || err.message || 'Failed to save setting');
+      }
+    } finally {
+      setSavingSetting(null);
+    }
+  };
+
+  const handleSaveEmail = async () => {
+    const email = supportEmailInput.trim();
+    if (!email) return;
+    try {
+      await withAdminAuth('update support email', async (adminCode) => {
+        setSavingSetting('support_email');
+        const res = await axios.post(
+          `${API_BASE_URL}/app_settings.php`,
+          { admin_code: adminCode, key: 'support_email', value: email },
+          { withCredentials: true }
+        );
+        if (!res.data.success) throw new Error(res.data.message || 'Save failed');
+        setAppSettings((prev) => ({ ...prev, support_email: email }));
+        setSuccess('Support email updated.');
+        window.dispatchEvent(new Event('app-settings-changed'));
+      });
+    } catch (err) {
+      if (err.message !== 'Admin verification cancelled') {
+        setError(err.response?.data?.message || err.message || 'Failed to save');
       }
     } finally {
       setSavingSetting(null);
@@ -420,6 +449,44 @@ const UserManagement = () => {
               <i className="bi bi-shield-lock me-1"></i>
               Changes require the admin code and take effect immediately in the sidebar.
             </p>
+          </div>
+        </div>
+
+        <div className="modern-card mt-4">
+          <div className="modern-card-header">
+            <h5 className="mb-0">
+              <i className="bi bi-envelope me-2"></i>
+              Support Contact
+            </h5>
+          </div>
+          <div className="modern-card-body">
+            <p className="text-muted small mb-3">
+              This email appears in the Help panel (? icon in the header) so users know who to contact.
+            </p>
+            <div className="d-flex align-items-center gap-2" style={{ maxWidth: '480px' }}>
+              <div className="input-group">
+                <span className="input-group-text"><i className="bi bi-envelope"></i></span>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={supportEmailInput}
+                  onChange={(e) => setSupportEmailInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveEmail()}
+                  placeholder="support@example.com"
+                  disabled={savingSetting === 'support_email'}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveEmail}
+                disabled={savingSetting === 'support_email' || supportEmailInput.trim() === (appSettings.support_email || '')}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {savingSetting === 'support_email'
+                  ? <span className="spinner-border spinner-border-sm" />
+                  : 'Save'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -188,7 +188,7 @@ const ModernHeader = ({ toggleSidebar }) => {
           </div>
 
           {/* Settings */}
-          <button className="header-action-btn" title="Admin Settings" onClick={() => navigate('/admin-settings')}>
+          <button className="header-action-btn" title="Settings" onClick={() => navigate('/settings')}>
             <i className="bi bi-gear"></i>
           </button>
 
