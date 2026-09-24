@@ -65,6 +65,11 @@
 
 ---
 
+### Portable start_all.bat (commit 9dba76ea)
+- `ROOT` was hardcoded to `C:\xampp\htdocs\USB Drive\dispatch`; rewritten to use `%~dp0` so the batch file works from any folder location on any machine
+
+---
+
 ## Session 2026-09-24 — TODO (Linux server migration)
 
 ### Server setup steps (to do on the Linux box)
