@@ -36,12 +36,41 @@
 
 ---
 
+## Session 2026-09-24 — DONE ✓
+
+### Database housekeeping
+- Migration 019 (`drop_password_hash`) applied — was written last session but never ran; `password_hash` column now dropped from live `users` table
+- Migration 020 (`app_settings`) created and applied — `app_settings` table now tracked in migration system (was created manually, would have been missing on fresh Linux install)
+- `database_schema.sql` regenerated from live DB — now accurate with all 17 tables and correct columns; previously was missing 14 tables and still referenced `password_hash`
+
+### Project cleanup (commit 58c8ad27)
+- Deleted 25 stale files:
+  - `warehouse_tracking (5).sql` — old DB dump with `password_hash`
+  - `backend/config/schema.sql` — stale 3-table schema, dangerous if run on Linux
+  - 12 one-time `migrate_*.php` scripts in backend root (superseded by `backend/database/migrations/`)
+  - `backend/run_all_migrations.php` — wrapper, no longer needed; use `php backend/database/migrate.php`
+  - `backend/sync_all_shipment_statuses.php`, `backend/fix_reset_auto_shipped_status.php`, `backend/check_orders.php` — one-time fix/debug scripts
+  - `debug_log.txt`, `newdbcol.txt` — junk files
+  - 6 extra `.md` docs consolidated into `README.md`
+  - `backend/database/README.md`
+- `backend/config/init_db.php` rewritten — now creates DB and calls `runDatabaseMigrations()` directly; no longer depends on deleted `schema.sql`. One command sets up a fresh server: `php backend/config/init_db.php`
+- `README.md` consolidated — single file covering features, Windows dev setup, Linux production setup, migrations, troubleshooting, admin notes
+
+### start_all.bat (commit 34ea1600)
+- Rewritten to run everything in **one window** instead of spawning multiple cmd windows
+- PHP backend runs via `start /B` (background, same console session)
+- React runs in the foreground — output shows in this window
+- Ctrl+C stops both processes
+- Removed port-finder (no longer needed with single window)
+
+---
+
 ## Session 2026-09-24 — TODO (Linux server migration)
 
 ### Server setup steps (to do on the Linux box)
 1. **Install dependencies**
    ```bash
-   apt install php php-fpm php-mysql php-zip nginx mariadb-server
+   apt install php php-fpm php-mysql php-mbstring php-xml php-zip nginx mariadb-server composer
    ```
 
 2. **Create DB user**
@@ -51,23 +80,43 @@
    FLUSH PRIVILEGES;
    ```
 
-3. **Set env vars** in `/etc/php/8.x/fpm/pool.d/www.conf` or Apache vhost:
+3. **Set env vars** in `/etc/php/8.x/fpm/pool.d/www.conf`:
    ```
-   env[DB_HOST] = localhost
-   env[DB_NAME] = warehouse_tracking
-   env[DB_USER] = ftm_user
-   env[DB_PASS] = YOUR_PASSWORD
+   env[DB_HOST]              = localhost
+   env[DB_NAME]              = warehouse_tracking
+   env[DB_USER]              = ftm_user
+   env[DB_PASS]              = YOUR_PASSWORD
    env[CORS_ALLOWED_ORIGINS] = http://YOUR_SERVER_IP
-   env[ADMIN_ACTION_CODE] = YOUR_CHOSEN_CODE
+   env[ADMIN_ACTION_CODE]    = YOUR_CHOSEN_CODE
    ```
 
 4. **Build frontend**
    ```bash
    echo "REACT_APP_API_URL=http://YOUR_SERVER_IP/api" > frontend/.env.production
-   cd frontend && npm run build
+   cd frontend && npm install && npm run build
    ```
 
 5. **Nginx config** — serve `frontend/build/` as static, proxy `/api` to php-fpm
+   ```nginx
+   server {
+       listen 80;
+       root /var/www/dispatch/frontend/build;
+       index index.html;
+
+       location / {
+           try_files $uri $uri/ /index.html;
+       }
+
+       location /api {
+           root /var/www/dispatch/backend;
+           fastcgi_pass unix:/run/php/php8.x-fpm.sock;
+           include fastcgi_params;
+           fastcgi_param SCRIPT_FILENAME /var/www/dispatch/backend$fastcgi_script_name;
+       }
+
+       location = /unlock_admin.php { deny all; }
+   }
+   ```
 
 6. **File permissions**
    ```bash
@@ -76,11 +125,11 @@
    chmod 755 backend/uploads backend/cache
    ```
 
-7. **Import DB + run migrations**
+7. **Create DB and run all migrations**
    ```bash
-   mysql -u root -p warehouse_tracking < backend/sql/schema.sql
-   php backend/database/init_db.php
+   php backend/config/init_db.php
    ```
+   *(Creates the database and runs all 20 migrations in one step)*
 
 8. **Bootstrap admin user**
    ```bash
@@ -88,18 +137,9 @@
    php backend/create_admin_user.php
    ```
 
-9. **Drop orphaned column** (after verifying login works)
-   ```sql
-   ALTER TABLE users DROP COLUMN password_hash;
-   ```
-   *(Migration 019 does this automatically if run via init_db.php)*
+9. **Block unlock_admin.php in nginx** — already included in step 5 nginx config above.
 
-10. **Block unlock_admin.php in nginx**
-    ```nginx
-    location = /unlock_admin.php { deny all; }
-    ```
-
-11. **Verify**
+10. **Verify**
     - Log in as admin
     - Upload a test .mrpg file
     - Scan a carton in and out
