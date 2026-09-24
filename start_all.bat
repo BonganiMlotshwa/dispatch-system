@@ -1,7 +1,8 @@
 @echo off
 setlocal enableextensions
 
-set "ROOT=C:\xampp\htdocs\USB Drive\dispatch"
+set "ROOT=%~dp0"
+set "ROOT=%ROOT:~0,-1%"
 set "PHP_EXE=C:\xampp\php\php.exe"
 
 title FTM Dispatch System
